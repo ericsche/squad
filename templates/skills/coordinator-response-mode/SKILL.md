@@ -33,9 +33,20 @@ an existing requirement, without taking ownership of a new specialist deliverabl
 Lightweight means a smaller prompt, not a hidden native specialist.
 Scribe runs only when accepted durable decisions need merging, not after every task.
 Use native sync for bounded internal checks whose result is needed now, or specialist work on fallback hosts; background only with independent foreground work or genuinely needed retained same-task follow-up supported by the host.
-Choose the lightest persistent App child with established source access: read-only
-chat with supplied context and no checkout, otherwise a supported read-only
-project child; isolated code work uses a project/worktree child.
+From an App project session, ALL named specialist missions MUST use project children
+with `project_id` from the parent, `session_kind: "project"` and
+`workspace_type: "worktree"`, including short/read-only missions.
+A read-only prompt and mode stay read-only; project association does not authorize
+implementation. Lightweight changes prompt size, not the child's project placement.
+
+Use `session_kind: "chat"` only when explicitly requested outside the project,
+and disclose placement under Chats; a chat child has no checkout.
+Parent linkage and source access do not place a chat in the project tree;
+renaming does not convert chat to a project session. Establish its source access
+without assuming a parent checkout.
+If the parent project is missing or project child creation is unsupported, report
+the limitation; do not invent association, create a project without authorization
+or silently substitute chat.
 Commit production alone is not the criterion.
 
 When `create_session` is unavailable, use native `task` or VS Code `runSubagent`
@@ -100,7 +111,7 @@ Keep the specialist persona with a compact charter excerpt and only relevant
 context; do not read unrelated histories or fan out. Use scheduling/model fields
 only when supported by the host and warranted by the actual task/preference.
 In the App, place the prompt below in `create_session`'s `kickoff.prompt` with
-coordinated child parameters and authorization-resolved mode from the spawn
+the parent's `project_id`, project/worktree child parameters and authorization-resolved mode from the spawn
 reference. The native envelope fields are for fallback hosts, not App arguments.
 
 ```
@@ -118,7 +129,7 @@ prompt: |
   EXCLUSIONS: {out-of-scope actions/files}
   EXPECTED_EVIDENCE: {deliverable and validation}
   SOURCE_CONTEXT: {explicit input artifacts and parent/source context; not execution paths}
-  EXECUTION_WORKSPACE: {verified child/native workspace, or no checkout for a chat child}
+  EXECUTION_WORKSPACE: {verified project child's own worktree or native workspace; no checkout only for explicitly requested outside-project chat}
   WORKTREE_PATH: {worktree_path}
   WORKTREE_MODE: {true|false}
   **Requested by:** {current user name}

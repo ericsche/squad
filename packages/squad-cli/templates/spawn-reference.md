@@ -4,7 +4,7 @@
 
 Detect all available dispatch tools once, then choose per work item:
 - **Direct Mode:** Trivial questions/readily available evidence → answer directly, using a small read/status command if needed.
-- **App `create_session`:** All named specialist missions, including bounded edits and substantive read-only work.
+- **App `create_session`:** All named specialist missions from a project session use project/worktree children in the parent's project, including bounded edits and substantive read-only work.
 - **Native `task`:** Small bounded internal checks in the App; specialist missions on CLI or the capability fallback below.
 - **VS Code `runSubagent`:** Specialist prompt when App child sessions and native `task` are unavailable.
 - **No spawn tool:** Inline last-resort fallback within the user's authorization.
@@ -25,12 +25,15 @@ Honor existing user plan/input gates. Read the current gate with `get_session` a
 
 ### Sub-Sessions (Copilot App Mode)
 
-Use coordinated App children for all delegated named missions. The App's actual native session tree provides visibility; native task names/hooks do not create sidebar children.
+Use coordinated App project children for all delegated named missions from a project.
+The App's actual project session tree provides visibility; coordination alone,
+native task names/hooks and source access do not determine project placement.
 
-**Choose the lightest persistent child with actual source access:**
-- **Read-only analysis:** Use `session_kind: "chat"` only when source access is established through supplied exact artifacts or verified accessible read-only sources; a chat child has no checkout. Inline the charter and required source context rather than assuming the parent filesystem is accessible. Explicitly exclude edits, commits and implementation.
-- **Source-dependent analysis:** If source access cannot be established for chat, use a supported project child with explicit read-only authorization; do not invent file access or relax scope.
-- **Isolated code work:** Use `session_kind: "project"`, `workspace_type: "worktree"` for a specialist needing code isolation, with its own execution workspace. A read-only project child remains read-only.
+**Project placement is separate from authorization and source access:**
+- **All project missions:** From an App project session, ALL named specialist missions MUST use project children with `project_id` from the parent, `session_kind: "project"` and `workspace_type: "worktree"`, including short/read-only missions.
+- **Read-only analysis:** Use that same isolated project/worktree child with explicit read-only prompt and mode; project association does not authorize implementation. Exclude edits, commits and implementation, and pass the actual source context instead of inheriting parent execution paths.
+- **Outside-project chat:** Use `session_kind: "chat"` only when explicitly requested outside the project, and disclose placement under Chats; a chat child has no checkout. Parent linkage and source access do not place a chat in the project tree; renaming does not convert chat to a project session. Establish source access through supplied exact artifacts or verified accessible read-only sources; do not assume parent filesystem access.
+- **Missing project/capability:** If the parent project is missing or project child creation is unsupported, report the limitation; do not invent association, create a project without authorization or silently substitute chat. There is no assumed chat-to-project migration or unexposed attachment API.
 - **Internal checks:** Native `task` is appropriate only for the small bounded checks defined above, not a specialist-owned analysis or edit.
 
 **Sub-session parameters:**
@@ -41,7 +44,8 @@ Use coordinated App children for all delegated named missions. The App's actual 
 - **`kickoff.prompt`**: The full agent prompt (same as task prompt below)
 - **`kickoff.mode`**: `"plan"`, `"interactive"`, or `"autopilot"` as resolved from authorization above.
 - **`kickoff.model` / `reasoning_effort` / `context_tier`**: Include only resolved preferences allowed by the current schema; otherwise omit.
-- **`session_kind` / `workspace_type`**: Resolve from source access/isolation above; do not pass worktree claims or project-only fields for a chat child.
+- **`project_id`**: The parent's actual project ID, not its session ID or an invented/inferred project. Verify the returned child's project association.
+- **`session_kind` / `workspace_type`**: `"project"` / `"worktree"` for every specialist mission from a project, even read-only; chat is the explicit outside-project exception above, with no worktree claims or project-only fields.
 - **`base_branch`**: Omit unless explicitly requested or the work depends on a documented in-progress branch. No implicit parent-branch stacking.
 
 **Constraints:**
@@ -55,6 +59,9 @@ Use coordinated App children for all delegated named missions. The App's actual 
 ```
 create_session({
   name: "{icon} {Specialist label} · {mission}",
+  project_id: "{parent_project_id}",
+  session_kind: "project",
+  workspace_type: "worktree",
   coordinate_with_creator: true,
   notify_on_idle: "once",
   kickoff: {
@@ -69,7 +76,7 @@ For an active orchestration specialist, a compact native title could be
 the full canonical specialist identity. This is a title example, not a new cast
 member or a status indicator.
 
-**App result collection:** Use notifications and `send_session_message` for handoff; `get_session` reads current status, workspace and plan/input gates when needed. Use the returned App session ID, never a native `agent_id`. Do not pass App children to `read_agent`, and do not repeatedly poll.
+**App result collection:** Use notifications and `send_session_message` for handoff; `get_session` reads current status, project association, workspace and plan/input gates when needed. Verify a project mission returned a project child in the parent's project, not merely a coordinated chat. Use the returned App session ID, never a native `agent_id`. Do not pass App children to `read_agent`, and do not repeatedly poll.
 
 **Child reporting:** Use `send_session_message` with `assignment_id` copied from the kickoff, and `purpose: handoff`, `needs_input`, or `error` for meaningful results, blockers or failures. Report deliverable/evidence and outstanding integration, not acknowledgment/status chatter. Idle/end-of-turn does not prove completion; the parent reconciles actual results into its current main-session plan.
 Use only fields supported for that relationship and host; `coordinator_instructions`
@@ -120,7 +127,7 @@ prompt: |
   EXCLUSIONS: {actions/files that must not be touched}
   EXPECTED_EVIDENCE: {deliverable, validation and stopping condition}
   SOURCE_CONTEXT: {explicit input artifacts and parent/source context; not execution paths}
-  EXECUTION_WORKSPACE: {verified child/native workspace, or no checkout for a chat child}
+  EXECUTION_WORKSPACE: {verified project child's own worktree or native workspace; no checkout only for explicitly requested outside-project chat}
 
   Use the literal CURRENT_DATETIME value from your prompt for dated file content:
   `<literal CURRENT_DATETIME value from your prompt>`. Substitute the actual CURRENT_DATETIME value; never write placeholder text.

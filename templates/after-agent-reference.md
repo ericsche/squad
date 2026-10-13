@@ -18,6 +18,10 @@ visible coordinated children, not native task agents. Use `send_session_message`
 with `assignment_id` from the kickoff and `purpose: handoff`, `needs_input`, or
 `error`; return meaningful evidence, unmet requirements and integration needs.
 No acknowledgment/status chatter that would not change the parent's next action.
+For a mission delegated from a project, verify that the child belongs to that
+same project and has its own worktree. A chat under Chats can be coordinated and
+read sources without appearing in the project tree; do not report that as
+successful project placement or attempt conversion by renaming.
 
 Native `agent_id` is not App `project_session_id`. Never pass an App child session
 ID to `read_agent`, or a native ID to `send_session_message`/`get_session`.

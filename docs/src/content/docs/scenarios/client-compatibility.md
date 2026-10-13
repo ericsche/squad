@@ -2,13 +2,13 @@
 
 > **Quick answer:** Not sure which interface to use? See [Choose your interface](../get-started/choose-your-interface.md) for a concise decision tree and comparison.
 
-Squad runs on multiple Copilot surfaces — each with its own agent tools and lifecycle. In the Copilot App, all named specialist missions use visible coordinated child sessions, including short and read-only work. Native tasks remain available for small internal checks, while trivial questions stay direct. This document distinguishes those paths from CLI, VS Code, JetBrains, and GitHub.com.
+Squad runs on multiple Copilot surfaces — each with its own agent tools and lifecycle. From a Copilot App project session, all named specialist missions use visible coordinated project/worktree children in that same project, including short and read-only work. Native tasks remain available for small internal checks, while trivial questions stay direct. This document distinguishes those paths from CLI, VS Code, JetBrains, and GitHub.com.
 
 ## Quick Reference
 
 | Feature | Copilot App | CLI | VS Code | JetBrains / GitHub.com |
 |---------|-------------|-----|---------|-----------------------|
-| **Named specialist missions, including short/read-only** | Visible coordinated `create_session` child | `task`; no App tree implied | `runSubagent` / `agent`; no App tree implied | Not established here |
+| **Named specialist missions, including short/read-only** | Coordinated project/worktree child in parent's project | `task`; no App tree implied | `runSubagent` / `agent`; no App tree implied | Not established here |
 | **Small bounded internal checks** | Native `task` when exposed, not a specialist substitute | `task` or direct check | Direct or available check tool | Host-dependent |
 | **Persistent isolated code work** | Project/worktree child | Not implied by a native task | Not implied by a subagent | Not established here |
 | **Specialist visual identity** | Stable icon + specialist label + mission in native child title | Native task label, not App hierarchy | Host subagent label, not App hierarchy | Host-dependent |
@@ -32,10 +32,16 @@ Squad runs on multiple Copilot surfaces — each with its own agent tools and li
 ### Visible specialist missions, lightweight internal checks
 
 1. **Direct response:** A trivial question with readily available evidence needs no agent. A small read or status command is fine.
-2. **App specialist mission:** Every mission delegated to a named Squad specialist uses `create_session` with `coordinate_with_creator: true` and `notify_on_idle: "once"`, even a short review, read-only analysis or bounded edit. Choose the lightest persistent child with established source access.
+2. **App specialist mission:** Every mission delegated to a named Squad specialist from a project uses `create_session` with that parent's `project_id`, `session_kind: "project"`, `workspace_type: "worktree"`, `coordinate_with_creator: true` and `notify_on_idle: "once"`, even a short review, read-only analysis or bounded edit.
 3. **Native internal check:** Use `task` only for small bounded internal checks, such as running a known test selector or checking one explicit output against an existing requirement. A specialist-owned deliverable is not an internal check merely because it is short or read-only.
 
 The native sidebar hierarchy comes from actual App child sessions, not native task labels, hooks or an in-chat launch table. Do not claim to migrate task histories into it, create fake sessions or rerun historical completed work just to fill the tree. Preserve the specialist's persona and accountable ownership; parallel work still requires independently deliverable outcomes or concrete bounded collaboration, not automatic fan-out.
+
+From an App project session, ALL named specialist missions MUST use project children with `project_id` from the parent, `session_kind: "project"` and `workspace_type: "worktree"`, including short/read-only missions. A read-only prompt and mode stay read-only; project association does not authorize implementation.
+
+Use `session_kind: "chat"` only when explicitly requested outside the project, and disclose placement under Chats; a chat child has no checkout. Parent linkage and source access do not place a chat in the project tree; renaming does not convert chat to a project session. A coordinated chat may read supplied sources and return a valid result while still appearing under **Chats**, not the project. That is not equivalent to the requested project hierarchy.
+
+If the parent project is missing or project child creation is unsupported, report the limitation; do not invent association, create a project without authorization or silently substitute chat. Do not assume an unexposed chat-to-project migration, attachment, avatar or color API.
 
 If `create_session` is unavailable, native `task` or VS Code `runSubagent` can preserve bounded specialist work within authorization and workspace safety, but disclose **degraded native sidebar visibility**. Those agents are not App children. A failed child creation is a blocker to report, not permission to silently substitute a native specialist. Stop if the fallback cannot preserve required isolation or persistence.
 
@@ -65,8 +71,9 @@ Native sync/background scheduling is a different choice, applicable to internal 
 - Use ordinary `message` delivery when the host does not permit `coordinator_instructions` for an ordinary parent. That coordinator-only field is not universally available; do not bypass its permissions.
 - Continue the same App specialist mission in its existing child rather than moving a short follow-up to native `task`. Native sync task agents cannot receive `write_agent` follow-ups in hosts that reject them; only fallback-host work may need a fresh same-persona invocation. Never use an unrelated worker pool.
 - Obey current tool wait limits (at most 180 seconds where exposed); no hardcoded 300-second wait or needless polling.
-- Share parent identity/source context explicitly, not parent code execution paths. For read-only analysis, a `session_kind: "chat"` child is appropriate only with supplied exact artifacts or verified accessible read-only sources; it has no checkout and does not inherit parent filesystem access. If access cannot be established, use a supported project child with the same explicit read-only scope.
-- Specialist code work needing isolation uses `session_kind: "project"` and `workspace_type: "worktree"`, executing code/tests in the child's own workspace. Omit `base_branch` unless explicitly requested or a documented in-progress branch is a real dependency; do not implicitly stack.
+- Share parent identity/source context explicitly, not parent code execution paths. All project specialist missions, including read-only analysis, use a project/worktree child in the same project; verify its actual project association, not only its coordinating parent.
+- Execute code/tests only in the child's own workspace. A worktree does not expand read-only authorization. Omit `base_branch` unless explicitly requested or a documented in-progress branch is a real dependency; do not implicitly stack.
+- An explicitly requested outside-project chat still needs supplied exact artifacts or verified accessible read-only sources; it has no checkout and does not inherit parent filesystem access.
 - Child commits are not automatically integrated into the parent. Verify deliverables and validation, then perform separately authorized integration before claiming the parent branch contains the result.
 - Children do not spawn further children or hide additional specialist missions in native tasks. Return those missions to the coordinator for visible sibling sessions.
 
@@ -279,8 +286,8 @@ Multiple calls can run concurrently, but this does not imply a retained backgrou
 |---------|-------------|-----------|---------|
 | **Results** | Direct result or native `read_agent` | Notifications/handoff and `get_session` | Returned result |
 | **Same-task reuse** | Only a supported retained lifecycle | Persistent session messaging | New invocation |
-| **Execution workspace** | Actual native working directory | Chat: no checkout, established source access; project: child's own workspace | Workspace-scoped |
-| **Named mission visibility** | No App tree implied | Actual coordinated child, stable icon/label/mission | No App tree implied |
+| **Execution workspace** | Actual native working directory | Every project specialist: own worktree; explicit outside-project chat: no checkout | Workspace-scoped |
+| **Named mission visibility** | No App tree implied | Same-project child, stable icon/label/mission; explicit chat stays under Chats | No App tree implied |
 | **Scribe** | Accepted durable decisions only | Same scope; coordinated child when delegated | Same scope, sync |
 | **Visible plan / SQL** | Optional tools with visible chat fallback | Optional tools; not approval or mode change | Do not assume tool availability |
 

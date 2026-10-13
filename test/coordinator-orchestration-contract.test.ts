@@ -108,17 +108,42 @@ function assertAppVisibility(content: string, input: string): void {
   );
 }
 
-function assertAppWorkspace(content: string, input: string): void {
+function assertAppProjectPlacement(content: string, input: string): void {
   const text = content.replace(/\s+/g, ' ');
-  expect(text, `${input}: analysis may use chat only with established source access`).toMatch(
-    /session_kind: "chat"[^.]*source access[^.]*established/i,
+  expect(text, `${input}: every project specialist mission needs project placement, even read-only`).toMatch(
+    /From an App project session, ALL named specialist missions MUST use project children[^.]*including short\/read-only missions/,
   );
-  expect(text, `${input}: chat must not imply a checkout`).toMatch(/chat child has no checkout/i);
-  expect(text, `${input}: code isolation needs a project worktree`).toMatch(
+  expect(text, `${input}: project children must retain their parent's project association`).toMatch(
+    /project_id[^.]*from the parent/,
+  );
+  expect(text, `${input}: project specialist missions need isolated worktrees`).toMatch(
     /session_kind: "project"[^.]*workspace_type: "worktree"/,
   );
-  expect(text, `${input}: unavailable chat source access needs a supported project option`).toMatch(
-    /source access[^.]*cannot be established[^.]*project child/i,
+  expect(text, `${input}: project association must not expand read-only authorization`).toMatch(
+    /read-only[^.]*does not authorize implementation/i,
+  );
+  expect(text, `${input}: missing project/capability must be explicit, not an invented association`).toMatch(
+    /parent project is missing[^.]*unsupported[^.]*report[^.]*limitation/i,
+  );
+  expect(text, `${input}: a project mission must not silently become chat`).toMatch(
+    /do not invent[^.]*project[^.]*silently substitute chat/i,
+  );
+  expect(text, `${input}: old chat-first recommendations must be removed`).not.toMatch(
+    /Choose the lightest persistent[^.]*chat|For read-only analysis use `session_kind: "chat"`|a read-only chat child when supplied context suffices|source access cannot be established for chat, use a supported project child/i,
+  );
+}
+
+function assertOutsideProjectChat(content: string, input: string): void {
+  const text = content.replace(/\s+/g, ' ');
+  expect(text, `${input}: chat is an explicit outside-project choice with disclosed placement`).toMatch(
+    /session_kind: "chat"[^.]*only when explicitly requested outside the project[^.]*placement under Chats/,
+  );
+  expect(text, `${input}: a chat child has no project checkout`).toMatch(/chat child has no checkout/i);
+  expect(text, `${input}: coordination and source access do not establish project-tree placement`).toMatch(
+    /parent linkage[^.]*source access[^.]*do not place[^.]*project tree/i,
+  );
+  expect(text, `${input}: renaming cannot convert chat to a project child`).toMatch(
+    /renaming[^.]*does not convert[^.]*chat[^.]*project/i,
   );
 }
 
@@ -256,10 +281,36 @@ describe('App specialist visibility: canonical contracts', () => {
     key => assertAppVisibility(sources[key], paths[key]),
   );
 
-  it.each(['spawn', 'client'] as const)(
-    '%s separates read-only chat source access from isolated specialist code work',
-    key => assertAppWorkspace(sources[key], paths[key]),
+  it.each(['coordinator', 'spawn', 'client', 'response'] as const)(
+    '%s places every project specialist mission in a project worktree, including short/read-only work',
+    key => assertAppProjectPlacement(sources[key], paths[key]),
   );
+
+  it.each(['coordinator', 'spawn', 'client', 'response'] as const)(
+    '%s limits chat to an explicit outside-project choice without promising project placement',
+    key => assertOutsideProjectChat(sources[key], paths[key]),
+  );
+
+  it('makes the actual project-child example select the parent project and isolated worktree', () => {
+    const template = sources.spawn.match(/create_session\(\{([\s\S]*?)\n\}\)/)?.[1];
+    expect(template, `${paths.spawn}: missing concrete project-child template`).toBeDefined();
+    for (const field of [
+      'project_id: "{parent_project_id}"',
+      'session_kind: "project"',
+      'workspace_type: "worktree"',
+      'coordinate_with_creator: true',
+    ]) {
+      expect(template, `${paths.spawn}: project-child template is missing ${field}`).toContain(field);
+    }
+    expect(template, `${paths.spawn}: project mission cannot silently use chat`).not.toContain('session_kind: "chat"');
+  });
+
+  it('documents project placement separately from coordination and source access', () => {
+    const path = 'docs/src/content/docs/scenarios/client-compatibility.md';
+    const content = read(path);
+    assertAppProjectPlacement(content, path);
+    assertOutsideProjectChat(content, path);
+  });
 
   it.each(['coordinator', 'spawn', 'client', 'response'] as const)(
     '%s preserves capability fallback without falsely promising the native sidebar',
@@ -328,7 +379,8 @@ describe('App specialist visibility: canonical contracts', () => {
 
 describe('App specialist visibility mutations', () => {
   const visibility = 'In the Copilot App, ALL named Squad specialist missions MUST use visible coordinated child sessions via `create_session`, including short/read-only missions. Native `task` is ONLY for small bounded internal checks in the App; a named specialist mission is not an internal check merely because it is short or read-only.';
-  const workspace = 'Use session_kind: "chat" only when source access is established. A chat child has no checkout. Isolated code work uses session_kind: "project", workspace_type: "worktree". If source access cannot be established, use a supported project child.';
+  const project = 'From an App project session, ALL named specialist missions MUST use project children with project_id from the parent, session_kind: "project" and workspace_type: "worktree", including short/read-only missions. Read-only scope does not authorize implementation. If the parent project is missing or project child creation is unsupported, report the limitation; do not invent association, create a project without authorization or silently substitute chat.';
+  const chat = 'Use session_kind: "chat" only when explicitly requested outside the project, and disclose placement under Chats. A chat child has no checkout. Parent linkage and source access do not place a chat in the project tree. Renaming does not convert chat to a project session.';
   const fallback = 'When `create_session` is unavailable, use native `task` or `runSubagent` within authorization and disclose degraded native sidebar visibility. If creation fails, report the blocker; never silently substitute `task`.';
   const handoff = 'Use send_session_message with assignment_id from the kickoff, and purpose handoff, needs_input or error.';
   const identity = 'Use native `name` for icon + specialist + mission. Derive identity from the active roster and charter. Keep icon and readable label stable for the same specialist. Within 40 characters, shorten the mission first. Keep canonical specialist name in prompt and plan. Static identity is separate from busy/idle/error owned by the App.';
@@ -343,10 +395,20 @@ describe('App specialist visibility mutations', () => {
     expect(() => assertAppVisibility(visibility.replace('a named specialist mission is not an internal check merely because it is short or read-only', 'read-only specialist missions count as internal checks'), 'internal check mutation')).toThrow();
   });
 
-  it('rejects invented chat checkout/source access', () => {
-    assertAppWorkspace(workspace, 'workspace fixture');
-    expect(() => assertAppWorkspace(workspace.replace('A chat child has no checkout', 'A chat child has an isolated checkout'), 'chat checkout mutation')).toThrow();
-    expect(() => assertAppWorkspace(workspace.replace('source access is established', 'source access is assumed'), 'chat source access mutation')).toThrow();
+  it('rejects read-only specialists routed to chat rather than the parent project', () => {
+    assertAppProjectPlacement(project, 'project fixture');
+    expect(() => assertAppProjectPlacement(project.replace('session_kind: "project"', 'session_kind: "chat"'), 'project-to-chat mutation')).toThrow();
+    expect(() => assertAppProjectPlacement(project.replace('project_id from the parent', 'project_id from an invented project'), 'project association mutation')).toThrow();
+    expect(() => assertAppProjectPlacement(project.replace('including short/read-only missions', 'except short/read-only missions'), 'read-only chat loophole')).toThrow();
+    expect(() => assertAppProjectPlacement(`${project} Choose the lightest persistent child: chat when sources are supplied.`, 'restored chat-first guidance')).toThrow();
+  });
+
+  it('rejects coordination/source access or renaming as substitutes for project placement', () => {
+    assertOutsideProjectChat(chat, 'chat fixture');
+    expect(() => assertOutsideProjectChat(chat.replace('only when explicitly requested outside the project', 'whenever source access is available'), 'implicit chat mutation')).toThrow();
+    expect(() => assertOutsideProjectChat(chat.replace('do not place', 'place'), 'parent linkage mutation')).toThrow();
+    expect(() => assertOutsideProjectChat(chat.replace('does not convert', 'converts'), 'rename conversion mutation')).toThrow();
+    expect(() => assertOutsideProjectChat(chat.replace('A chat child has no checkout', 'A chat child has an isolated checkout'), 'chat checkout mutation')).toThrow();
   });
 
   it('rejects hidden capability degradation and unscoped native substitution', () => {

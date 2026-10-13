@@ -9,7 +9,7 @@ See `docs/scenarios/client-compatibility.md` for the compatibility matrix.
 #### Dispatch selection
 
 - **Direct Mode:** Trivial questions/readily available evidence, including a small read/status command — no agent.
-- **App `create_session`:** All named specialist missions, including bounded edits and substantive read-only work.
+- **App `create_session`:** All named specialist missions from a project session use project/worktree children in the parent's project, including bounded edits and substantive read-only work.
 - **Native `task`:** Small bounded internal checks in the App; specialist missions on CLI or the disclosed capability fallback.
 - **VS Code `runSubagent` / `agent`:** Specialist prompt when App child sessions and native `task` are unavailable; results return directly.
 - **Fallback:** Only when no spawn tool is available, work inline within authorization.
@@ -95,14 +95,23 @@ outcome), failed and cancelled. Do not promise exact UI rendering from hooks.
 #### Workspace and visible-plan boundaries
 
 Share parent identity/team context explicitly, not its execution paths.
-For read-only analysis use `session_kind: "chat"` only when source access is
-established through supplied exact artifacts or verified accessible read-only
-sources; a chat child has no checkout and does not inherit parent filesystem
-access. Inline its charter and inputs with explicit read-only permissions.
-If source access cannot be established for chat, use a supported project child
-without changing read-only authorization.
-For specialist code isolation use `session_kind: "project"` and
-`workspace_type: "worktree"`; that child executes code/tests in its own workspace.
+From an App project session, ALL named specialist missions MUST use project children
+with `project_id` from the parent, `session_kind: "project"` and
+`workspace_type: "worktree"`, including short/read-only missions.
+A read-only prompt and mode stay read-only; project association does not authorize
+implementation. Code/tests execute only in the child's own worktree.
+Verify the returned child's project association, not only its coordinating parent.
+
+Use `session_kind: "chat"` only when explicitly requested outside the project,
+and disclose placement under Chats; a chat child has no checkout.
+Parent linkage and source access do not place a chat in the project tree;
+renaming does not convert chat to a project session. Chat input sources must
+still be supplied or their read-only access established, not assumed from the
+parent filesystem.
+
+If the parent project is missing or project child creation is unsupported, report
+the limitation; do not invent association, create a project without authorization
+or silently substitute chat. Do not assume migration or attachment APIs.
 Omit `base_branch` unless explicitly requested or work depends on a documented
 in-progress branch; no implicit stacking.
 Child changes/commits are not automatically integrated into the parent.
@@ -128,13 +137,13 @@ plan. Plan writes never approve execution or change mode.
 
 | Feature | CLI/native agents | Copilot App | VS Code |
 |---------|-------------------|-------------|---------|
-| Named specialist missions, including short/read-only | Native `task` | Visible coordinated `create_session` child | `runSubagent` / `agent`; no App tree implied |
+| Named specialist missions, including short/read-only | Native `task` | Coordinated project/worktree child in parent's project | `runSubagent` / `agent`; no App tree implied |
 | Small bounded internal checks | Native `task` | Native `task` when exposed; not a specialist substitute | Direct or available check tool |
 | Persistent isolated code work | Only if host provides it | Project/worktree child | Not implied by a subagent |
 | Result collection | Direct result or native `read_agent` | Native and App handles are distinct | Direct result |
 | Model / scheduling fields | Current schema, not assumed | Native schema vs child `kickoff` schema | Session defaults unless exposed |
 | Scribe | Only accepted durable decision merging | Same scope; coordinated child when delegated | Same scope, sync invocation |
-| Native sidebar hierarchy | Not provided by native task | Actual coordinated children; disclose degradation if unavailable | Not provided by subagents |
+| Native sidebar hierarchy | Not provided by native task | Project children under the project; explicit outside-project chats under Chats | Not provided by subagents |
 | Visible current plan | Optional extension or chat fallback | Optional extension or chat fallback | Chat fallback unless extension tools are exposed |
 | SQL TODOs | Use if exposed | Use if exposed | Do not assume availability |
 

@@ -103,7 +103,7 @@ requirements remain in `.github/PR_REQUIREMENTS.md`.
 
 **DISPATCH MECHANISM (detect available tools once; choose per work item):**
 - **Direct Mode:** Trivial readily available evidence → answer directly, including a small read/status command when needed.
-- **App `create_session`:** All named specialist missions → visible coordinated child sessions, including bounded edits and substantive read-only work.
+- **App `create_session`:** All named specialist missions from a project session → visible coordinated project/worktree children in the parent's project, including bounded edits and substantive read-only work.
 - **Native `task`:** Small bounded internal checks in the App; specialist dispatch on CLI or the disclosed capability fallback below.
 - **VS Code `runSubagent`:** Use the full specialist prompt when App child sessions and native `task` are unavailable.
 - **No spawn tool available:** Work inline as a last resort, within the user's authorization.
@@ -122,7 +122,10 @@ Pass an explicit scope: `inspect/read-only`, `propose/plan`, or `authorized exec
 - **Depth:** No sub-sub-sessions — return further specialist missions to the coordinator for visible sibling sessions; a child may use `task` only for small bounded internal checks.
 - **Fallback:** Apply the capability fallback above only when `create_session` is unavailable, not because the mission is short or read-only.
 - **Params:** `coordinate_with_creator: true`, `notify_on_idle: "once"`; resolve `kickoff.mode` from authorization, never blanket autopilot.
-- **Workspaces:** Use the lightest persistent option with established source access: a read-only chat child when supplied context suffices (no checkout), otherwise a supported project child; isolated code work uses a project/worktree child. Share parent identity/source context explicitly, but execute child code in the child's own workspace. Omit `base_branch` unless explicitly requested or the work depends on a documented in-progress branch; do not implicitly stack on the parent's branch. Child changes/commits are not automatically integrated into the parent.
+- **Project placement:** From an App project session, ALL named specialist missions MUST use project children with `project_id` from the parent, `session_kind: "project"` and `workspace_type: "worktree"`, including short/read-only missions. A read-only prompt and mode stay read-only; project association does not authorize implementation.
+- **Outside-project chat:** Use `session_kind: "chat"` only when explicitly requested outside the project, and disclose placement under Chats; a chat child has no checkout. Parent linkage and source access do not place a chat in the project tree; renaming does not convert chat to a project session. Establish actual source access and read-only permissions rather than assuming a parent checkout is accessible.
+- **Missing project/capability:** If the parent project is missing or project child creation is unsupported, report the limitation; do not invent association, create a project without authorization or silently substitute chat. Coordination is not project association, and no unexposed migration/attachment API may be assumed.
+- **Workspaces:** Share parent identity/source context explicitly, but execute child code in the child's own workspace. Omit `base_branch` unless explicitly requested or the work depends on a documented in-progress branch; do not implicitly stack on the parent's branch. Child changes/commits are not automatically integrated into the parent.
 - **Results:** Native `task`/`read_agent` use native `agent_id`; App notifications/`send_session_message`/`get_session` use App session IDs. `agent_id` is not `project_session_id`; never pass an App child ID to `read_agent`. Child reports use `send_session_message` with the kickoff `assignment_id` and `purpose: handoff`, `needs_input`, or `error`; idle alone is not verified completion.
 - **Reuse:** Native sync task agents cannot be followed up with `write_agent` in hosts that reject it; do not treat them as persistent sessions. Reuse only same-mission context with a compatible lifecycle, never an unrelated worker pool.
 
@@ -392,7 +395,7 @@ Confidence bumps when an agent independently validates an existing skill — app
 ### Response Mode Selection
 
 Select the smallest adequate **response MODE** (Direct / Lightweight / Standard / Full), then preserve routing/persona for delegated work. Upgrade for demonstrated context or risk needs, not merely because agents are available.
-In the App, response mode changes prompt size and context, not specialist visibility: even Lightweight named missions use coordinated App children. Trivial readily available evidence stays Direct.
+In the App, response mode changes prompt size and context, not specialist placement: even Lightweight named missions from a project use coordinated project/worktree children. Trivial readily available evidence stays Direct.
 
 | Mode | When (one-line) |
 |------|------|
@@ -617,7 +620,7 @@ prompt: |
   ALLOWED_ACTIONS_AND_FILES: {explicit scope, including git permissions}
   EXCLUSIONS: {out-of-scope actions and files}
   SOURCE_CONTEXT: {explicit input artifacts and parent/source context; not execution paths}
-  EXECUTION_WORKSPACE: {verified child/native workspace, or no checkout for a chat child}
+  EXECUTION_WORKSPACE: {verified project child's own worktree or native workspace; no checkout only for explicitly requested outside-project chat}
   EXPECTED_EVIDENCE: {deliverable and validation required for completion}
 
   Use the literal CURRENT_DATETIME value from your prompt for dated file content:
