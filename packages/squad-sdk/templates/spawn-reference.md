@@ -4,12 +4,14 @@
 
 Detect all available dispatch tools once, then choose per work item:
 - **Direct Mode:** Trivial questions/readily available evidence → answer directly, using a small read/status command if needed.
-- **Native `task`:** Bounded work not requiring isolated code execution or durable session lifecycle, including authorized edits.
-- **App `create_session`:** Independent work requiring workspace isolation or a durable lifecycle.
-- **VS Code `runSubagent`:** Specialist prompt when native `task` is unavailable.
+- **App `create_session`:** All named specialist missions, including bounded edits and substantive read-only work.
+- **Native `task`:** Small bounded internal checks in the App; specialist missions on CLI or the capability fallback below.
+- **VS Code `runSubagent`:** Specialist prompt when App child sessions and native `task` are unavailable.
 - **No spawn tool:** Inline last-resort fallback within the user's authorization.
 
-App may expose native `task` alongside `create_session`. Commit production alone is not a dispatch criterion; preserve specialist ownership/persona without forcing every task into a new session.
+In the Copilot App, ALL named Squad specialist missions MUST use visible coordinated child sessions via `create_session`, including short/read-only missions. Native `task` is ONLY for small bounded internal checks in the App; a named specialist mission is not an internal check merely because it is short or read-only. Internal checks run a known test selector or check an explicit output against an existing requirement; they do not own a new specialist deliverable. Commit production alone is not a dispatch criterion.
+
+When `create_session` is unavailable, use native `task` or VS Code `runSubagent` only within authorization and workspace safety, and disclose degraded native sidebar visibility. If creation fails, report the blocker; never silently substitute `task` for a specialist mission. Stop if the available fallback cannot preserve required isolation or persistence.
 
 ### Authorization Before Dispatch
 
@@ -23,32 +25,36 @@ Honor existing user plan/input gates. Read the current gate with `get_session` a
 
 ### Sub-Sessions (Copilot App Mode)
 
-Use a coordinated App child only when independence needs workspace isolation or persistent lifecycle. Do not create one merely for UI visibility or because files will change.
+Use coordinated App children for all delegated named missions. The App's actual native session tree provides visibility; native task names/hooks do not create sidebar children.
 
-**When to use sub-sessions vs task:**
-- **Sub-session** (`create_session`): Independent work requiring workspace isolation or a durable lifecycle.
-- **Task** (`task` tool): Bounded work whose inputs and deliverable are known and which does not need that isolation/lifecycle.
+**Choose the lightest persistent child with actual source access:**
+- **Read-only analysis:** Use `session_kind: "chat"` only when source access is established through supplied exact artifacts or verified accessible read-only sources; a chat child has no checkout. Inline the charter and required source context rather than assuming the parent filesystem is accessible. Explicitly exclude edits, commits and implementation.
+- **Source-dependent analysis:** If source access cannot be established for chat, use a supported project child with explicit read-only authorization; do not invent file access or relax scope.
+- **Isolated code work:** Use `session_kind: "project"`, `workspace_type: "worktree"` for a specialist needing code isolation, with its own execution workspace. A read-only project child remains read-only.
+- **Internal checks:** Native `task` is appropriate only for the small bounded checks defined above, not a specialist-owned analysis or edit.
 
 **Sub-session parameters:**
-- **`name`**: `"{Name} {verb}ing {noun}"` — 40-char max, sentence case (e.g., "Runtime Engineer refactoring auth", "Lead reviewing architecture")
+- **`name`**: Use the native `name` field for icon + specialist label + mission (`"{icon} {Specialist label} · {mission}"`); derive identity from the active specialist's charter/roster and role emoji mapping, not a hardcoded old cast. Keep icon and readable label stable for the same specialist. Within 40 characters, shorten the mission first, then use a compact role label if needed; keep the canonical specialist name explicit in the prompt and plan. Static identity is separate from busy/idle/error states owned by the App; do not invent avatars, colors or title-based status.
 - **`coordinate_with_creator`**: `true` (always — enables cross-session messaging)
+- **`detached`**: `false` or omitted; do not detach a mission that must appear beneath its coordinator.
 - **`notify_on_idle`**: `"once"` (notification when the child becomes idle; not proof of successful completion)
 - **`kickoff.prompt`**: The full agent prompt (same as task prompt below)
 - **`kickoff.mode`**: `"plan"`, `"interactive"`, or `"autopilot"` as resolved from authorization above.
 - **`kickoff.model` / `reasoning_effort` / `context_tier`**: Include only resolved preferences allowed by the current schema; otherwise omit.
-- **`base_branch`**: Omit unless explicitly requested or the work depends on an in-progress branch. No implicit parent-branch stacking.
+- **`session_kind` / `workspace_type`**: Resolve from source access/isolation above; do not pass worktree claims or project-only fields for a chat child.
+- **`base_branch`**: Omit unless explicitly requested or the work depends on a documented in-progress branch. No implicit parent-branch stacking.
 
 **Constraints:**
-- **Max depth:** 1 — no sub-sub-sessions. If an agent needs to delegate, it uses `task` tool.
+- **Max depth:** 1 — no sub-sub-sessions. Return further specialist missions to the coordinator for visible sibling sessions; a child may use `task` only for small bounded internal checks.
 - **Concurrency cap:** Maximum 4-5 simultaneous sub-sessions. Queue additional spawns.
-- **Fallback:** Use native `task` after a creation failure only if it preserves authorization, workspace safety and needed lifecycle; otherwise report the blocker.
+- **Fallback:** Capability absence uses the disclosed fallback above; a failed child creation is a blocker, not permission for native specialist substitution.
 - **Identity vs execution:** `TEAM_ROOT` supplies parent identity/team context, not the code execution workspace. Pass that context explicitly; child code, tests and edits execute in the child's own workspace returned by the App, not an inherited parent `WORKTREE_PATH`.
 - **Integration:** Child changes/commits are not automatically integrated. Verify the child's outcome and arrange authorized integration separately before claiming the parent workspace contains it.
 
 **Sub-session template:**
 ```
 create_session({
-  name: "{Name} {verb}ing {noun}",
+  name: "{icon} {Specialist label} · {mission}",
   coordinate_with_creator: true,
   notify_on_idle: "once",
   kickoff: {
@@ -58,32 +64,43 @@ create_session({
 })
 ```
 
+For an active orchestration specialist, a compact native title could be
+`name: "🧭 Orchestration · Sessions visibles"` while the prompt and plan retain
+the full canonical specialist identity. This is a title example, not a new cast
+member or a status indicator.
+
 **App result collection:** Use notifications and `send_session_message` for handoff; `get_session` reads current status, workspace and plan/input gates when needed. Use the returned App session ID, never a native `agent_id`. Do not pass App children to `read_agent`, and do not repeatedly poll.
 
-**Reuse:** Reuse only same-mission context with a compatible lifecycle; never an unrelated worker pool. Native sync task agents cannot be followed up with `write_agent` in hosts that reject it; a same-owner fresh invocation is not a persistent App session.
+**Child reporting:** Use `send_session_message` with `assignment_id` copied from the kickoff, and `purpose: handoff`, `needs_input`, or `error` for meaningful results, blockers or failures. Report deliverable/evidence and outstanding integration, not acknowledgment/status chatter. Idle/end-of-turn does not prove completion; the parent reconciles actual results into its current main-session plan.
+Use only fields supported for that relationship and host; `coordinator_instructions`
+is not universally available to ordinary Squad parents. Normal `message` delivery
+is the supported path when that coordinator-only field is unavailable, not a
+permission bypass.
+
+**Reuse:** Reuse only same-mission context with a compatible lifecycle; never an unrelated worker pool. Continue a named App mission through its existing child session. Native sync task agents cannot be followed up with `write_agent` in hosts that reject it; a same-owner fresh invocation on a fallback host is not a persistent App session.
 
 ---
 
-### Native Task Tool Spawn (CLI or App Host)
+### Native Task Tool Spawn (Internal Checks or Capability Fallback)
 
-Use native `task` for bounded work even when App `create_session` is also available:
+In the App, this section applies only to small internal checks. Named specialist prompts apply on CLI/VS Code or when `create_session` is unavailable with disclosed degradation; use the App child section otherwise.
 
-- **`agent_type`**: `"general-purpose"` for a full specialist; `"explore"` only for suitable substantive read-only work.
+- **`agent_type`**: Match the check's required tools; `"general-purpose"` for a fallback specialist, `"explore"` only for suitable read-only fallback work.
 - **Scheduling:** Use sync for bounded work whose result is needed now; background only with independent foreground work or genuinely needed retained same-task follow-up supported by that host.
 - **`mode`**: Include only if the tool schema exposes it. Some App-hosted `task` schemas have no mode parameter; do not send CLI-only fields.
-- **`name`**: Specialist's lowercase cast name.
-- **`description`**: `"{Name}: {brief task summary}"` (e.g., `"Runtime Engineer: Design REST API endpoints"`, `"Experience Engineer: Build login form"`) — this is what appears in the UI, so it MUST carry the agent's name and what they're doing
-- **`prompt`**: The full agent prompt (see below)
+- **`name`**: A check-specific name for an internal check; the specialist's lowercase cast name for a capability fallback.
+- **`description`**: The internal check's precise objective, or `"{Name}: {brief task summary}"` for a fallback specialist. This native task label is not an App child session.
+- **`prompt`**: For an internal check, give only the exact command/input, authorized tools and required result; do not assign a named specialist persona or deliverable. For a fallback specialist mission, use the full agent prompt below.
 
 **Native result collection:** Use the synchronous `task` response directly. For a supported background invocation, retain its native `agent_id`; after notification use `read_agent` once with schema-supported wait limits (currently timeout at most 180 seconds where exposed), never an obsolete hardcoded 300. If still running, wait rather than poll. `agent_id` is not `project_session_id`; end-of-turn or hook events do not prove successful completion.
 
-**⚡ Inline the charter.** Before spawning, read the agent's `charter.md` (resolve from team root: `{team_root}/.squad/agents/{name}/charter.md`) and paste its contents directly into the spawn prompt. This eliminates a tool call from the agent's critical path. The agent still reads its own `history.md` and `decisions.md`.
+**⚡ Inline the specialist charter.** For a named mission, read the agent's `charter.md` (resolve from team root: `{team_root}/.squad/agents/{name}/charter.md`) and paste it into the App child prompt or fallback specialist prompt. Internal checks do not become named missions by using this template. The specialist still reads its own `history.md` and `decisions.md`.
 
 The template below is an abstract field list, not permission to invent unsupported tool parameters. Resolve scheduling against the current schema; omit mode/model fields when unsupported or no override is required.
 
 > **VS Code equivalent:** Use `runSubagent` with the prompt content below. Drop `agent_type`, `mode`, `model`, and `description` parameters. Multiple subagents in one turn run concurrently. Sync is the default on VS Code.
 
-**Template for any agent** (substitute `{Name}`, `{Role}`, `{name}`, and inline the charter):
+**Specialist prompt fields** (use as App `kickoff.prompt`, or native/VS Code fallback prompt; native envelope fields below are not `create_session` arguments):
 
 ```
 agent_type: "general-purpose"
@@ -102,7 +119,8 @@ prompt: |
   ALLOWED_ACTIONS_AND_FILES: {explicit permissions, including git operations}
   EXCLUSIONS: {actions/files that must not be touched}
   EXPECTED_EVIDENCE: {deliverable, validation and stopping condition}
-  EXECUTION_WORKSPACE: {native working directory or App child's own workspace}
+  SOURCE_CONTEXT: {explicit input artifacts and parent/source context; not execution paths}
+  EXECUTION_WORKSPACE: {verified child/native workspace, or no checkout for a chat child}
 
   Use the literal CURRENT_DATETIME value from your prompt for dated file content:
   `<literal CURRENT_DATETIME value from your prompt>`. Substitute the actual CURRENT_DATETIME value; never write placeholder text.
@@ -207,6 +225,9 @@ prompt: |
   failed, or cancelled. Include changed files, validation, unmet requirements and
   integration needs. End-of-agent-turn or files alone do not prove completion.
   Never declare parent completion while a required subtask remains running/incomplete.
+  For an App child, send meaningful results/blockers/errors to the coordinating
+  parent with send_session_message, assignment_id from the kickoff, and purpose
+  handoff, needs_input, or error; do not send routine acknowledgments.
 
   ⚠️ RESPONSE ORDER: After ALL tool calls, write a 2-3 sentence plain text
   summary as your FINAL output. No tool calls after this summary.

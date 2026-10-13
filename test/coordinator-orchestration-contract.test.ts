@@ -48,7 +48,7 @@ function section(content: string, heading: string): string {
 function assertDispatch(content: string): void {
   expect(content).toMatch(/Direct[^.\n]*(trivial|readily available)/i);
   expect(content).toMatch(/task[^.\n]*bounded/i);
-  expect(content).toMatch(/create_session[^.\n]*(isolation|isolated|durable)/i);
+  expect(content).toMatch(/create_session[^.\n]*(named specialist|isolation|isolated|durable)/i);
   expect(content).toMatch(/commit production alone is not/i);
   expect(content).not.toMatch(/sub-sessions for commit-producing work|Use `create_session` for agents that produce commits/i);
 }
@@ -89,8 +89,86 @@ function assertResultCollection(content: string): void {
   expect(content).not.toMatch(/App child session use `?read_agent/i);
 }
 
+function assertAppVisibility(content: string, input: string): void {
+  const text = content.replace(/\s+/g, ' ');
+  expect(text, `${input}: all named specialist missions need visible App children`).toMatch(
+    /ALL named Squad specialist missions MUST use visible coordinated (?:App )?child sessions via `create_session`/,
+  );
+  expect(text, `${input}: short/read-only specialist missions must not bypass the session tree`).toMatch(
+    /including short\/read-only missions/,
+  );
+  expect(text, `${input}: native task exception must be limited to internal checks`).toMatch(
+    /Native `task` is ONLY for small bounded internal checks in the App/,
+  );
+  expect(text, `${input}: brevity/read-only scope cannot reclassify a specialist mission`).toMatch(
+    /a named specialist mission is not an internal check merely because it is short or read-only/,
+  );
+  expect(text, `${input}: stale native-first App routing must not survive`).not.toMatch(
+    /Use native `task` for bounded work even when App `create_session` is also available|Do not create one merely for UI visibility|Use `create_session` only for independent work|tool availability does not force all work into App children/,
+  );
+}
+
+function assertAppWorkspace(content: string, input: string): void {
+  const text = content.replace(/\s+/g, ' ');
+  expect(text, `${input}: analysis may use chat only with established source access`).toMatch(
+    /session_kind: "chat"[^.]*source access[^.]*established/i,
+  );
+  expect(text, `${input}: chat must not imply a checkout`).toMatch(/chat child has no checkout/i);
+  expect(text, `${input}: code isolation needs a project worktree`).toMatch(
+    /session_kind: "project"[^.]*workspace_type: "worktree"/,
+  );
+  expect(text, `${input}: unavailable chat source access needs a supported project option`).toMatch(
+    /source access[^.]*cannot be established[^.]*project child/i,
+  );
+}
+
+function assertAppFallback(content: string, input: string): void {
+  const text = content.replace(/\s+/g, ' ');
+  expect(text, `${input}: specialist native fallback must be capability-gated`).toMatch(
+    /When `create_session` is unavailable[^.]*native `task`[^.]*runSubagent/i,
+  );
+  expect(text, `${input}: fallback must disclose degraded native sidebar visibility`).toMatch(
+    /disclose degraded native sidebar visibility/i,
+  );
+  expect(text, `${input}: failed App creation must not silently substitute task`).toMatch(
+    /creation fail(?:s|ure)[^.]*report[^.]*blocker[^.]*(?:not|never)[^.]*silently[^.]*`task`/i,
+  );
+}
+
+function assertAppHandoff(content: string, input: string): void {
+  const text = content.replace(/\s+/g, ' ');
+  expect(text, `${input}: App reports need the kickoff assignment ID`).toMatch(
+    /send_session_message[^.]*assignment_id[^.]*kickoff/i,
+  );
+  expect(text, `${input}: distinguish handoffs, input and error reports`).toMatch(
+    /purpose[^.]*handoff[^.]*needs_input[^.]*error/,
+  );
+}
+
+function assertAppIdentity(content: string, input: string): void {
+  const text = content.replace(/\s+/g, ' ');
+  expect(text, `${input}: visual identity belongs in the native name field`).toMatch(
+    /native `name`[^.]*icon[^.]*specialist[^.]*mission/i,
+  );
+  expect(text, `${input}: identity must come from the active specialist`).toMatch(
+    /(?:derive|resolve)[^.]*active[^.]*(?:charter|roster)/i,
+  );
+  expect(text, `${input}: icon and readable label must remain stable`).toMatch(
+    /icon and (?:readable )?label[^.]*stable[^.]*same specialist/i,
+  );
+  expect(text, `${input}: title length must not hide canonical identity`).toMatch(
+    /40 characters[^.]*shorten[^.]*mission/i,
+  );
+  expect(text, `${input}: canonical specialist name stays in prompt and plan`).toMatch(
+    /canonical specialist name[^.]*prompt[^.]*plan/i,
+  );
+  expect(text, `${input}: static identity must not masquerade as App status`).toMatch(
+    /static identity[^.]*busy\/idle\/error[^.]*App/i,
+  );
+}
+
 describe('coordinator orchestration: canonical contracts', () => {
-  it.each(['coordinator', 'spawn', 'client'] as const)('%s chooses the smallest appropriate dispatch', key => {
+  it.each(['coordinator', 'spawn', 'client'] as const)('%s chooses dispatch without losing named specialist visibility', key => {
     assertDispatch(sources[key]);
   });
 
@@ -169,6 +247,123 @@ describe('coordinator orchestration: canonical contracts', () => {
     expect(sources.spawn).toContain('YOUR CHARTER:');
     expect(sources.coordinator).toContain('The original author is locked out');
     expect(sources.coordinator).toContain('A different agent MUST own the revision');
+  });
+});
+
+describe('App specialist visibility: canonical contracts', () => {
+  it.each(['coordinator', 'spawn', 'client', 'response'] as const)(
+    '%s makes even short/read-only specialist missions visible, not native internal checks',
+    key => assertAppVisibility(sources[key], paths[key]),
+  );
+
+  it.each(['spawn', 'client'] as const)(
+    '%s separates read-only chat source access from isolated specialist code work',
+    key => assertAppWorkspace(sources[key], paths[key]),
+  );
+
+  it.each(['coordinator', 'spawn', 'client', 'response'] as const)(
+    '%s preserves capability fallback without falsely promising the native sidebar',
+    key => assertAppFallback(sources[key], paths[key]),
+  );
+
+  it.each(['spawn', 'after'] as const)(
+    '%s returns meaningful App assignment results through the correct namespace',
+    key => assertAppHandoff(sources[key], paths[key]),
+  );
+
+  it.each(['spawn', 'client'] as const)(
+    '%s keeps ordinary App message delivery when coordinator-only fields are unavailable',
+    key => {
+      const text = sources[key].replace(/\s+/g, ' ');
+      expect(text, `${paths[key]}: coordinator_instructions must not be assumed universally available`).toMatch(
+        /not universally available[^.]*ordinary[^.]*parents|ordinary parents[^.]*not[^.]*universally available/i,
+      );
+      expect(text, `${paths[key]}: ordinary message delivery must remain supported`).toMatch(
+        /normal `message` delivery[^.]*supported path/i,
+      );
+      expect(text, `${paths[key]}: host-limited field must be named explicitly`).toContain('coordinator_instructions');
+    },
+  );
+
+  it.each(['coordinator', 'spawn'] as const)(
+    '%s returns additional specialist missions to the coordinator, not nested native agents',
+    key => {
+      const text = sources[key].replace(/\s+/g, ' ');
+      expect(text, `${paths[key]}: depth cap must not hide named specialist missions`).toMatch(
+        /further specialist missions[^.]*coordinator[^.]*visible sibling/i,
+      );
+      expect(text, `${paths[key]}: child task exception is internal-check-only`).toMatch(
+        /child[^.]*`task`[^.]*only for small bounded internal checks/i,
+      );
+    },
+  );
+
+  it('uses real App children, not hooks or reconstructed historical task sessions', () => {
+    const text = sources.client.replace(/\s+/g, ' ');
+    expect(text, `${paths.client}: native tree needs actual App children`).toMatch(
+      /native session tree[^.]*actual App child sessions/i,
+    );
+    expect(text, `${paths.client}: task histories cannot be migrated by instruction`).toMatch(
+      /(?:do not|never)[^.]*migrate[^.]*native task histor/i,
+    );
+    expect(text, `${paths.client}: no fake sidebar entries for old completed agents`).toMatch(
+      /(?:do not|never)[^.]*fake sessions/i,
+    );
+  });
+
+  it.each(['coordinator', 'spawn', 'client', 'response'] as const)(
+    '%s exposes stable active-specialist identity in the native child title',
+    key => assertAppIdentity(sources[key], paths[key]),
+  );
+
+  it('keeps the documented icon/label/mission example inside the native title limit', () => {
+    const titles = sources.spawn.matchAll(/name: "([^"\n]+)"/g);
+    const examples = [...titles].map(match => match[1]).filter(title => !title.includes('{'));
+    expect(examples, `${paths.spawn}: needs a concrete native-title example`).toContain('🧭 Orchestration · Sessions visibles');
+    for (const title of examples) {
+      expect(title.length, `${paths.spawn}: title exceeds 40 characters: ${title}`).toBeLessThanOrEqual(40);
+    }
+  });
+});
+
+describe('App specialist visibility mutations', () => {
+  const visibility = 'In the Copilot App, ALL named Squad specialist missions MUST use visible coordinated child sessions via `create_session`, including short/read-only missions. Native `task` is ONLY for small bounded internal checks in the App; a named specialist mission is not an internal check merely because it is short or read-only.';
+  const workspace = 'Use session_kind: "chat" only when source access is established. A chat child has no checkout. Isolated code work uses session_kind: "project", workspace_type: "worktree". If source access cannot be established, use a supported project child.';
+  const fallback = 'When `create_session` is unavailable, use native `task` or `runSubagent` within authorization and disclose degraded native sidebar visibility. If creation fails, report the blocker; never silently substitute `task`.';
+  const handoff = 'Use send_session_message with assignment_id from the kickoff, and purpose handoff, needs_input or error.';
+  const identity = 'Use native `name` for icon + specialist + mission. Derive identity from the active roster and charter. Keep icon and readable label stable for the same specialist. Within 40 characters, shorten the mission first. Keep canonical specialist name in prompt and plan. Static identity is separate from busy/idle/error owned by the App.';
+
+  it('rejects native-first guidance even alongside a correct visibility rule', () => {
+    assertAppVisibility(visibility, 'visibility fixture');
+    expect(() => assertAppVisibility(`${visibility} Use native \`task\` for bounded work even when App \`create_session\` is also available.`, 'restored native-first rule')).toThrow();
+  });
+
+  it('rejects a short/read-only mission loophole', () => {
+    expect(() => assertAppVisibility(visibility.replace('including short/read-only missions', 'except short/read-only missions'), 'short mission mutation')).toThrow();
+    expect(() => assertAppVisibility(visibility.replace('a named specialist mission is not an internal check merely because it is short or read-only', 'read-only specialist missions count as internal checks'), 'internal check mutation')).toThrow();
+  });
+
+  it('rejects invented chat checkout/source access', () => {
+    assertAppWorkspace(workspace, 'workspace fixture');
+    expect(() => assertAppWorkspace(workspace.replace('A chat child has no checkout', 'A chat child has an isolated checkout'), 'chat checkout mutation')).toThrow();
+    expect(() => assertAppWorkspace(workspace.replace('source access is established', 'source access is assumed'), 'chat source access mutation')).toThrow();
+  });
+
+  it('rejects hidden capability degradation and unscoped native substitution', () => {
+    assertAppFallback(fallback, 'fallback fixture');
+    expect(() => assertAppFallback(fallback.replace('disclose degraded native sidebar visibility', 'promise native sidebar visibility'), 'sidebar mutation')).toThrow();
+    expect(() => assertAppFallback(fallback.replace('When `create_session` is unavailable', 'When the specialist task is short'), 'fallback scope mutation')).toThrow();
+  });
+
+  it('rejects an App handoff without its assignment context', () => {
+    assertAppHandoff(handoff, 'handoff fixture');
+    expect(() => assertAppHandoff(handoff.replace('assignment_id', 'agent_id'), 'handoff namespace mutation')).toThrow();
+  });
+
+  it('rejects fake title statuses or identity derived from a historical cast', () => {
+    assertAppIdentity(identity, 'identity fixture');
+    expect(() => assertAppIdentity(identity.replace('active roster and charter', 'historical hardcoded cast'), 'stale identity mutation')).toThrow();
+    expect(() => assertAppIdentity(identity.replace('Static identity is separate from busy/idle/error owned by the App', 'Change the icon to imply completion'), 'status identity mutation')).toThrow();
   });
 });
 

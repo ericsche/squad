@@ -9,9 +9,15 @@ reason to launch Scribe.
 
 #### Collect by lifecycle, not by client name
 
-- **Native `task`:** Use the synchronous response directly; a supported background invocation returns native `agent_id` for `read_agent` after notification.
+- **Native `task`:** Small internal checks in the App, or specialist work on hosts without App child sessions; use the synchronous response directly, or native `agent_id` for `read_agent` after a supported background notification.
 - **App child session:** Collect notifications and `send_session_message` handoffs; use `get_session` for current status, workspace, or pending plan/input gates when needed.
 - **VS Code `runSubagent`:** Use the returned result; no `read_agent` is needed.
+
+All named App missions, even short/read-only specialist work, return through their
+visible coordinated children, not native task agents. Use `send_session_message`
+with `assignment_id` from the kickoff and `purpose: handoff`, `needs_input`, or
+`error`; return meaningful evidence, unmet requirements and integration needs.
+No acknowledgment/status chatter that would not change the parent's next action.
 
 Native `agent_id` is not App `project_session_id`. Never pass an App child session
 ID to `read_agent`, or a native ID to `send_session_message`/`get_session`.
@@ -53,9 +59,11 @@ does not imply implementation permission.
 
 Keep the accountable owner for the same mission unless routing or rejection
 requires another owner. Reuse only same-mission context with a compatible lifecycle,
-never an unrelated worker pool. Native sync task agents cannot receive `write_agent`
-follow-ups in hosts that reject them; use a fresh native invocation of that persona
-with the bounded remaining objective when appropriate.
+never an unrelated worker pool. Continue App specialist missions through their
+existing visible child session; do not move a short follow-up to native `task`.
+Native sync task agents cannot receive `write_agent` follow-ups in hosts that
+reject them; a fresh native invocation of that persona with the bounded remaining
+objective is appropriate only on the disclosed capability fallback.
 
 For retained native agents, use `write_agent` only if supported for that known
 agent's lifecycle. For App children use their App session ID and
@@ -81,10 +89,11 @@ run, ordinary result reporting, a hook event, or routine task completion is not
 a trigger. Scribe does not create specialist histories, orchestration logs,
 session logs, or speculative skill extraction.
 
-Use native sync for bounded work needed now; background only with independent
-foreground work or a genuinely needed retained same-task follow-up supported by
-the host. Adapt fields to the current tool schema; do not add unsupported `mode`
-or model parameters.
+Use a coordinated App child for this named mission when `create_session` is
+available. On hosts without App children, use native sync for bounded work needed
+now; background only with independent foreground work or a genuinely needed
+retained same-task follow-up supported by the host. Adapt fields to the current
+tool schema; the native envelope below is for fallback hosts, not App arguments.
 
 ```
 agent_type: "general-purpose"

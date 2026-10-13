@@ -2,14 +2,16 @@
 
 > **Quick answer:** Not sure which interface to use? See [Choose your interface](../get-started/choose-your-interface.md) for a concise decision tree and comparison.
 
-Squad runs on multiple Copilot surfaces — each with its own agent tools and lifecycle. The Copilot App can expose both native task agents and persistent child sessions; it is not a reason to create a child for every edit. This document distinguishes those paths from CLI, VS Code, JetBrains, and GitHub.com.
+Squad runs on multiple Copilot surfaces — each with its own agent tools and lifecycle. In the Copilot App, all named specialist missions use visible coordinated child sessions, including short and read-only work. Native tasks remain available for small internal checks, while trivial questions stay direct. This document distinguishes those paths from CLI, VS Code, JetBrains, and GitHub.com.
 
 ## Quick Reference
 
 | Feature | Copilot App | CLI | VS Code | JetBrains / GitHub.com |
 |---------|-------------|-----|---------|-----------------------|
-| **Bounded specialist work** | Native `task` when exposed | `task` | `runSubagent` / `agent` | Not established here |
-| **Persistent isolated work** | Coordinated `create_session` child when needed | Not implied by a native task | Not implied by a subagent | Not established here |
+| **Named specialist missions, including short/read-only** | Visible coordinated `create_session` child | `task`; no App tree implied | `runSubagent` / `agent`; no App tree implied | Not established here |
+| **Small bounded internal checks** | Native `task` when exposed, not a specialist substitute | `task` or direct check | Direct or available check tool | Host-dependent |
+| **Persistent isolated code work** | Project/worktree child | Not implied by a native task | Not implied by a subagent | Not established here |
+| **Specialist visual identity** | Stable icon + specialist label + mission in native child title | Native task label, not App hierarchy | Host subagent label, not App hierarchy | Host-dependent |
 | **Result collection** | Native results or App notifications/handoffs; distinct IDs | Direct result or `read_agent` for supported background agents | Returned result | Host-dependent |
 | **Model / scheduling fields** | Current native schema or child `kickoff` schema | Current tool schema | Session model unless override exposed | Host-dependent |
 | **Current visible plan** | Optional Squad runtime extension, otherwise chat plan | Optional extension, otherwise chat plan | Chat plan unless extension exposed | Chat plan |
@@ -27,13 +29,21 @@ Squad runs on multiple Copilot surfaces — each with its own agent tools and li
 
 ## Copilot App
 
-### Choose the smallest adequate lifecycle
+### Visible specialist missions, lightweight internal checks
 
 1. **Direct response:** A trivial question with readily available evidence needs no agent. A small read or status command is fine.
-2. **Native task agent:** Bounded specialist work without an isolation or durable-lifecycle requirement uses `task`, including bounded authorized edits.
-3. **App child session:** Independent work needing workspace isolation or a durable lifecycle uses `create_session`. Commit production alone is not the criterion.
+2. **App specialist mission:** Every mission delegated to a named Squad specialist uses `create_session` with `coordinate_with_creator: true` and `notify_on_idle: "once"`, even a short review, read-only analysis or bounded edit. Choose the lightest persistent child with established source access.
+3. **Native internal check:** Use `task` only for small bounded internal checks, such as running a known test selector or checking one explicit output against an existing requirement. A specialist-owned deliverable is not an internal check merely because it is short or read-only.
 
-Preserve the routed specialist's persona and accountable ownership on both delegated paths. Parallel work requires independently deliverable outcomes or concrete bounded collaboration, not automatic fan-out.
+The native sidebar hierarchy comes from actual App child sessions, not native task labels, hooks or an in-chat launch table. Do not claim to migrate task histories into it, create fake sessions or rerun historical completed work just to fill the tree. Preserve the specialist's persona and accountable ownership; parallel work still requires independently deliverable outcomes or concrete bounded collaboration, not automatic fan-out.
+
+If `create_session` is unavailable, native `task` or VS Code `runSubagent` can preserve bounded specialist work within authorization and workspace safety, but disclose **degraded native sidebar visibility**. Those agents are not App children. A failed child creation is a blocker to report, not permission to silently substitute a native specialist. Stop if the fallback cannot preserve required isolation or persistence.
+
+### Native visual identity
+
+Use the child's native `name` field for **icon + specialist label + mission**, for example `🧭 Orchestration · Sessions visibles`. Resolve identity from the active specialist's charter/roster and role emoji mapping, not a historical cast or invented member. Keep the icon and readable label stable for that specialist. The exact canonical specialist name stays explicit in the kickoff prompt and main-session plan.
+
+Titles are limited to 40 characters: shorten the mission first, then choose a stable compact role label if necessary. This static identity is not the App's **busy/idle/error** state. Do not simulate avatars, colors, status badges or a custom sidebar canvas; the host owns status and rendering.
 
 ### Authorization is separate from scheduling
 
@@ -46,18 +56,21 @@ The [App session documentation](https://docs.github.com/en/copilot/how-tos/githu
 
 "Inspect and propose" must not become an autopilot implementation. Authorized bounded execution can use autopilot by default when permitted without introducing a redundant approval step. Existing user plan/input gates still apply: read the current gate, preserve its exact `request_id`, and obtain the required user decision. Do not auto-approve or change modes to evade it. A prompt defaults to plan if `kickoff.mode` is omitted.
 
-Native sync/background scheduling is a different choice. Use sync when a bounded result is needed now. Background is justified only by independent foreground work or a genuinely needed retained same-task follow-up supported by the host. Some App `task` schemas do not expose `mode`; inspect the current schema instead of copying CLI fields.
+Native sync/background scheduling is a different choice, applicable to internal checks or specialist work on fallback hosts. Use sync when a bounded result is needed now. Background is justified only by independent foreground work or a genuinely needed retained same-task follow-up supported by the host. Some App `task` schemas do not expose `mode`; inspect the current schema instead of copying CLI fields.
 
 ### Results, workspaces and integration
 
 - **Native:** Use the synchronous `task` response, or a known native `agent_id` with `read_agent` after a supported background notification.
-- **Persistent App child:** Use notifications/`send_session_message` handoffs and `get_session` for current status, workspace or gates. Its App session ID is not a native `agent_id`.
-- Native sync task agents cannot receive `write_agent` follow-ups in hosts that reject them. Reuse only the same mission with a compatible lifecycle, never an unrelated worker pool; a fresh invocation of the same persona may be needed.
+- **Persistent App child:** Use notifications/`send_session_message` reports with the kickoff `assignment_id` and `purpose: handoff`, `needs_input`, or `error`; use `get_session` for current status, workspace or gates. Its App session ID is not a native `agent_id`.
+- Use ordinary `message` delivery when the host does not permit `coordinator_instructions` for an ordinary parent. That coordinator-only field is not universally available; do not bypass its permissions.
+- Continue the same App specialist mission in its existing child rather than moving a short follow-up to native `task`. Native sync task agents cannot receive `write_agent` follow-ups in hosts that reject them; only fallback-host work may need a fresh same-persona invocation. Never use an unrelated worker pool.
 - Obey current tool wait limits (at most 180 seconds where exposed); no hardcoded 300-second wait or needless polling.
-- Share parent identity/team context, not parent code execution paths. A child executes code/tests in its own workspace. Omit `base_branch` unless explicitly requested or an in-progress branch is a real dependency; do not implicitly stack.
+- Share parent identity/source context explicitly, not parent code execution paths. For read-only analysis, a `session_kind: "chat"` child is appropriate only with supplied exact artifacts or verified accessible read-only sources; it has no checkout and does not inherit parent filesystem access. If access cannot be established, use a supported project child with the same explicit read-only scope.
+- Specialist code work needing isolation uses `session_kind: "project"` and `workspace_type: "worktree"`, executing code/tests in the child's own workspace. Omit `base_branch` unless explicitly requested or a documented in-progress branch is a real dependency; do not implicitly stack.
 - Child commits are not automatically integrated into the parent. Verify deliverables and validation, then perform separately authorized integration before claiming the parent branch contains the result.
+- Children do not spawn further children or hide additional specialist missions in native tasks. Return those missions to the coordinator for visible sibling sessions.
 
-An end-of-agent-turn, idle notification or native `onSubagentStop` hook is not proof of success. Report **in-progress**, **blocked/needs_input**, **completed (verified outcome)**, **failed**, or **cancelled**. Files alone may be partial or invalid. Do not report parent completion while a required running/incomplete subtask remains.
+An end-of-agent-turn, idle notification or native `onSubagentStop` hook is not proof of success. Report **in-progress**, **blocked/needs_input**, **completed (verified outcome)**, **failed**, or **cancelled** with meaningful evidence, not acknowledgment/status chatter. Files alone may be partial or invalid. The foreground coordinator updates its main-session plan from actual child progress/results, and must not report parent completion while a required running/incomplete subtask remains.
 
 ### Optional current main-session plan
 
@@ -69,7 +82,7 @@ If the tools are unavailable, say so and provide a visible chat plan without cla
 
 ### Scribe
 
-Scribe runs only when accepted durable decisions need merging, not after every task, hook event or status report. Routine logs and anticipatory housekeeping are not part of that handoff. Use the same dependency-based scheduling rules as other bounded work.
+Scribe runs only when accepted durable decisions need merging, not after every task, hook event or status report. Routine logs and anticipatory housekeeping are not part of that handoff. When delegated in the App, this named mission uses a coordinated child too; fallback hosts use dependency-based native scheduling.
 
 ---
 
@@ -240,8 +253,8 @@ Multiple calls can run concurrently, but this does not imply a retained backgrou
 - You want cost optimization via Haiku/Sonnet/Opus tiering
 
 **Use the App if:**
-- You want coordinated isolated child sessions for independent work needing that lifecycle
-- You want native bounded tasks alongside persistent sessions without confusing their IDs
+- You want all named specialist missions individually navigable in the native parent/child session tree
+- You want stable specialist identity in child titles and native tasks only for small internal checks
 - You want a visible current main-session plan via the optional extension, with a chat fallback
 
 **Use VS Code if:**
@@ -258,7 +271,7 @@ Multiple calls can run concurrently, but this does not imply a retained backgrou
 
 ### For Squad Developers
 
-**Coordinator instructions:** Edit the canonical `.squad-templates/` sources. Detect all available tools once, then choose Direct, native task, App child or VS Code subagent per work item. Do not pin a whole App session to `create_session` or send unsupported fields. The inline-dispatch fallback checks all spawn tools, including `create_session`; Direct Mode does not require delegation.
+**Coordinator instructions:** Edit the canonical `.squad-templates/` sources. Detect all available tools once: direct trivial responses remain direct, named App specialist missions use visible children, and small App internal checks may use native tasks. CLI/VS Code capability fallbacks preserve authorization and disclose missing native sidebar visibility. Never send unsupported fields. The inline-dispatch fallback checks all spawn tools, including `create_session`; Direct Mode does not require delegation.
 
 **Feature Degradation Plan:**
 
@@ -266,8 +279,9 @@ Multiple calls can run concurrently, but this does not imply a retained backgrou
 |---------|-------------|-----------|---------|
 | **Results** | Direct result or native `read_agent` | Notifications/handoff and `get_session` | Returned result |
 | **Same-task reuse** | Only a supported retained lifecycle | Persistent session messaging | New invocation |
-| **Execution workspace** | Actual native working directory | Child's own workspace | Workspace-scoped |
-| **Scribe** | Accepted durable decisions only | Same rule; no automatic child | Same rule, sync |
+| **Execution workspace** | Actual native working directory | Chat: no checkout, established source access; project: child's own workspace | Workspace-scoped |
+| **Named mission visibility** | No App tree implied | Actual coordinated child, stable icon/label/mission | No App tree implied |
+| **Scribe** | Accepted durable decisions only | Same scope; coordinated child when delegated | Same scope, sync |
 | **Visible plan / SQL** | Optional tools with visible chat fallback | Optional tools; not approval or mode change | Do not assume tool availability |
 
 ---
