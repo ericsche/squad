@@ -1186,7 +1186,17 @@ export function ensureUserOwnedTemplates(dest: string, templatesDir: string): st
       : path.join(squadDir, entry.destination);
 
     if (!storage.existsSync(srcPath)) continue;
-    if (storage.existsSync(destPath)) continue;
+    if (storage.existsSync(destPath)) {
+      // Extensions are user-owned, including their companion modules. Surface
+      // drift through the existing CLI diagnostics without overwriting either
+      // file or silently assembling a new version over a customized entry.
+      if (entry.source.startsWith('extensions/')
+        && (storage.readSync(srcPath) ?? '').replace(/\r\n?/g, '\n')
+          !== (storage.readSync(destPath) ?? '').replace(/\r\n?/g, '\n')) {
+        warn(`User-owned extension '${entry.destination}' differs from the bundled template — preserved. Reconcile the files manually before reloading extensions.`);
+      }
+      continue;
+    }
 
     storage.mkdirSync(path.dirname(destPath), { recursive: true });
     copyManagedFile(srcPath, destPath);

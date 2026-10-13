@@ -2,22 +2,20 @@
 
 > **Quick answer:** Not sure which interface to use? See [Choose your interface](../get-started/choose-your-interface.md) for a concise decision tree and comparison.
 
-Squad runs on multiple Copilot surfaces — each with its own agent spawning mechanism, tool set, and constraints. This document maps Squad's core capabilities across CLI, VS Code, JetBrains, and GitHub.com to help you understand what works where.
+Squad runs on multiple Copilot surfaces — each with its own agent tools and lifecycle. The Copilot App can expose both native task agents and persistent child sessions; it is not a reason to create a child for every edit. This document distinguishes those paths from CLI, VS Code, JetBrains, and GitHub.com.
 
 ## Quick Reference
 
-| Feature | CLI | VS Code | JetBrains | GitHub.com |
-|---------|-----|---------|-----------|-----------|
-| **Sub-agent spawning** | ✅ `task` tool | ✅ `runSubagent` / `agent` | ⚠️ Limited | ❌ Not available |
-| **Agent type selection** | ✅ Full (`general-purpose`, `explore`, `task`, `code-review`) | ✅ Custom agents | ⚠️ Limited | ❌ Not available |
-| **Per-spawn model selection** | ✅ Dynamic (4-layer hierarchy) | ⚠️ Static (custom agent frontmatter) | ? | ? |
-| **Background/async execution** | ✅ `mode: "background"` (fire-and-forget) | ⚠️ Sync only (parallel concurrent) | ? | ? |
-| **Parallel fan-out** | ✅ Background tasks + `read_agent` | ✅ Multiple subagents in one turn | ? | ? |
-| **File discovery (.github/agents/)** | ✅ Automatic | ✅ Automatic | ? | ? |
-| **`.ai-team/` file access (read)** | ✅ Full | ✅ Full (workspace-scoped) | ? | ? |
-| **`.ai-team/` file access (write)** | ✅ Full | ✅ Full (with approval prompt) | ? | ? |
-| **SQL tool** | ✅ Available | ❌ Not available | ❌ Not available | ❌ Not available |
-| **MCP server access** | ✅ Full | ✅ Full (inherited) | ⚠️ Limited | ⚠️ Limited |
+| Feature | Copilot App | CLI | VS Code | JetBrains / GitHub.com |
+|---------|-------------|-----|---------|-----------------------|
+| **Bounded specialist work** | Native `task` when exposed | `task` | `runSubagent` / `agent` | Not established here |
+| **Persistent isolated work** | Coordinated `create_session` child when needed | Not implied by a native task | Not implied by a subagent | Not established here |
+| **Result collection** | Native results or App notifications/handoffs; distinct IDs | Direct result or `read_agent` for supported background agents | Returned result | Host-dependent |
+| **Model / scheduling fields** | Current native schema or child `kickoff` schema | Current tool schema | Session model unless override exposed | Host-dependent |
+| **Current visible plan** | Optional Squad runtime extension, otherwise chat plan | Optional extension, otherwise chat plan | Chat plan unless extension exposed | Chat plan |
+| **SQL TODOs** | If exposed; not a visible-plan substitute | If exposed | Do not assume availability | Do not assume availability |
+| **Team state** | Configured backend; child code workspace stays distinct | Configured backend | Workspace/backend constraints | Host-dependent |
+| **MCP server access** | If configured/exposed | If configured/exposed | If configured/exposed | Host-dependent |
 
 **Legend:**
 - ✅ **Works** — Feature is fully supported with no degradation
@@ -27,14 +25,62 @@ Squad runs on multiple Copilot surfaces — each with its own agent spawning mec
 
 ---
 
+## Copilot App
+
+### Choose the smallest adequate lifecycle
+
+1. **Direct response:** A trivial question with readily available evidence needs no agent. A small read or status command is fine.
+2. **Native task agent:** Bounded specialist work without an isolation or durable-lifecycle requirement uses `task`, including bounded authorized edits.
+3. **App child session:** Independent work needing workspace isolation or a durable lifecycle uses `create_session`. Commit production alone is not the criterion.
+
+Preserve the routed specialist's persona and accountable ownership on both delegated paths. Parallel work requires independently deliverable outcomes or concrete bounded collaboration, not automatic fan-out.
+
+### Authorization is separate from scheduling
+
+Every prompt carries `inspect/read-only`, `propose/plan`, or `authorized execution`, allowed actions/files, exclusions and evidence requirements.
+The [App session documentation](https://docs.github.com/en/copilot/how-tos/github-copilot-app/agent-sessions) distinguishes:
+
+- **Plan:** Prepare a plan for user review before execution.
+- **Interactive:** Guided collaboration and input.
+- **Autopilot:** Autonomous execution of authorized work.
+
+"Inspect and propose" must not become an autopilot implementation. Authorized bounded execution can use autopilot by default when permitted without introducing a redundant approval step. Existing user plan/input gates still apply: read the current gate, preserve its exact `request_id`, and obtain the required user decision. Do not auto-approve or change modes to evade it. A prompt defaults to plan if `kickoff.mode` is omitted.
+
+Native sync/background scheduling is a different choice. Use sync when a bounded result is needed now. Background is justified only by independent foreground work or a genuinely needed retained same-task follow-up supported by the host. Some App `task` schemas do not expose `mode`; inspect the current schema instead of copying CLI fields.
+
+### Results, workspaces and integration
+
+- **Native:** Use the synchronous `task` response, or a known native `agent_id` with `read_agent` after a supported background notification.
+- **Persistent App child:** Use notifications/`send_session_message` handoffs and `get_session` for current status, workspace or gates. Its App session ID is not a native `agent_id`.
+- Native sync task agents cannot receive `write_agent` follow-ups in hosts that reject them. Reuse only the same mission with a compatible lifecycle, never an unrelated worker pool; a fresh invocation of the same persona may be needed.
+- Obey current tool wait limits (at most 180 seconds where exposed); no hardcoded 300-second wait or needless polling.
+- Share parent identity/team context, not parent code execution paths. A child executes code/tests in its own workspace. Omit `base_branch` unless explicitly requested or an in-progress branch is a real dependency; do not implicitly stack.
+- Child commits are not automatically integrated into the parent. Verify deliverables and validation, then perform separately authorized integration before claiming the parent branch contains the result.
+
+An end-of-agent-turn, idle notification or native `onSubagentStop` hook is not proof of success. Report **in-progress**, **blocked/needs_input**, **completed (verified outcome)**, **failed**, or **cancelled**. Files alone may be partial or invalid. Do not report parent completion while a required running/incomplete subtask remains.
+
+### Optional current main-session plan
+
+The Squad runtime extension can supply `squad_session_plan_read()`, `squad_session_plan_publish({content})` and `squad_session_plan_update({content, expectedHash})`. These are extension tools, not built-in App tools. Discover their current schemas.
+
+For nontrivial multi-step or explicit planning work, read/create the main session's visible current plan, then update at meaningful milestones. Reconcile existing/user-edited plans deliberately; a hash conflict is a reason to stop and reconcile, not force-write or repeatedly re-read until an overwrite succeeds. Keep SQL TODOs/dependencies if useful, but not as a substitute for the visible plan.
+
+If the tools are unavailable, say so and provide a visible chat plan without claiming native UI integration. A plan write is not approval and never changes mode. Native hook instrumentation is separate from persistent child sessions and does not establish exact UI rendering or completion semantics.
+
+### Scribe
+
+Scribe runs only when accepted durable decisions need merging, not after every task, hook event or status report. Routine logs and anticipatory housekeeping are not part of that handoff. Use the same dependency-based scheduling rules as other bounded work.
+
+---
+
 ## CLI (Copilot CLI)
 
-Squad's **primary platform**. All features are fully supported.
+Use native agents for substantive specialist work; trivial evidence stays Direct. Tool fields and retained-agent capabilities depend on the installed host.
 
 ### Agent Spawning
 
 - **Tool:** `task`
-- **Parameters:** `agent_type`, `mode`, `model`, `description`, `prompt`
+- **Parameters:** Use the actual schema; typical fields include `agent_type`, `name`, `description`, `prompt`, and optional model/scheduling controls.
 - **Agent types:**
   - `general-purpose` — Full tool access (file ops, CLI, SQL, web, GitHub MCP)
   - `explore` — Read-only tools (grep, glob, view) — optimized for speed and cost
@@ -57,14 +103,14 @@ Squad's **primary platform**. All features are fully supported.
 
 ### Background/Async Execution
 
-- **Mechanism:** `mode: "background"`
-- **Behavior:** Non-blocking spawns, fire-and-forget
-- **Result collection:** `read_agent` with `wait: true/false` for polling
+- **Mechanism:** Supported native background scheduling, only when there is independent foreground work or a genuinely needed retained same-task follow-up
+- **Default for bounded dependent work:** Sync result
+- **Result collection:** Use the direct result or, after notification, `read_agent` with the known native ID and current wait limits
 - **Squad's typical flow:**
-  1. Spawn 3-5 agents as background tasks in one response
-  2. Show launch table acknowledgment to user
-  3. Poll each agent's results via `read_agent` with `wait: true, timeout: 300`
-  4. Assemble and present results
+  1. Choose one accountable specialist and the smallest adequate lifecycle
+  2. Acknowledge before dispatch, with explicit authorization and evidence requirements
+  3. Do independent foreground work if background is justified; otherwise wait for notification rather than poll
+  4. Verify the requested outcome, update the visible plan and report outstanding work accurately
 
 ### File Discovery & Access
 
@@ -114,10 +160,10 @@ Squad runs on VS Code with **conditional support**. Key differences from CLI:
 - **Result collection:** Automatic — no `read_agent` polling needed
 - **Synchronicity:** All subagents are sync individually, but multiple subagents in one turn run concurrently
 - **Fire-and-forget (Scribe):** Not possible
-  - **Workaround:** Batch Scribe as the last subagent in parallel groups. Scribe is light work (Haiku model, file ops only), so blocking is tolerable
-- **Launch acknowledgment:** Skip launch tables — results arrive with response, not separately
+  - **Decision-only handoff:** Invoke Scribe only after accepted durable decisions exist and need merging; do not automatically batch it with every group
+- **Launch acknowledgment:** Name the specialist before dispatch; collect the result before claiming success
 
-**Key insight:** VS Code's parallelism model is functionally equivalent to CLI's background mode when multiple subagents launch in the same turn. The difference is UX: CLI shows intermediate feedback (launch table), VS Code waits and shows all results at once.
+Multiple calls can run concurrently, but this does not imply a retained background agent or App session. Parallel dispatch still needs independently deliverable outcomes or concrete bounded collaboration.
 
 ### File Discovery & Access
 
@@ -191,13 +237,17 @@ Squad runs on VS Code with **conditional support**. Key differences from CLI:
 **Use CLI if:**
 - You need sub-agent spawning with full control (model selection, agent type, background mode)
 - You use SQL in your Squad workflows
-- You need fire-and-forget execution (Scribe)
 - You want cost optimization via Haiku/Sonnet/Opus tiering
+
+**Use the App if:**
+- You want coordinated isolated child sessions for independent work needing that lifecycle
+- You want native bounded tasks alongside persistent sessions without confusing their IDs
+- You want a visible current main-session plan via the optional extension, with a chat fallback
 
 **Use VS Code if:**
 - You work in VS Code and want seamless integration
 - You don't need per-spawn model selection (accept session model)
-- You're OK with Scribe running synchronously (batched with other agents)
+- You're OK with decision-only Scribe work running synchronously when needed
 - You prefer not to see intermediate launch tables
 
 **Using Both:**
@@ -208,41 +258,17 @@ Squad runs on VS Code with **conditional support**. Key differences from CLI:
 
 ### For Squad Developers
 
-**Coordinator Instructions:** Add platform detection logic to `squad.agent.md`:
-
-```markdown
-## Platform Detection
-
-Before spawning agents, detect which platform you're running on:
-
-1. **CLI mode** — `task` tool is available
-   - Use `task` with `agent_type`, `mode`, `model`, `description`, `prompt` parameters
-   - Full spawning control: per-spawn model selection, background mode, agent type selection
-   - Use `read_agent` for result collection
-
-2. **VS Code mode** — `runSubagent` or `agent` tool is available
-   - Use `runSubagent` with task prompt (equivalent to CLI's `prompt` parameter)
-   - Drop: `agent_type` (all subagents have full tools), `mode` (always sync), direct `model` param
-   - Spawn multiple subagents in SINGLE turn for parallel execution
-   - Results arrive automatically (skip `read_agent`)
-   - Batch Scribe as last subagent in parallel groups (Scribe blocks)
-
-3. **Fallback mode** — Neither `task` nor `runSubagent` available
-   - Work inline without delegation
-   - Do not apologize or explain the limitation
-   - Execute the task directly to best of your ability
-```
+**Coordinator instructions:** Edit the canonical `.squad-templates/` sources. Detect all available tools once, then choose Direct, native task, App child or VS Code subagent per work item. Do not pin a whole App session to `create_session` or send unsupported fields. The inline-dispatch fallback checks all spawn tools, including `create_session`; Direct Mode does not require delegation.
 
 **Feature Degradation Plan:**
 
-| Feature | CLI | VS Code | Degradation |
-|---------|-----|---------|-------------|
-| **Parallel fan-out** | Background + `read_agent` | Parallel sync subagents in one turn | None — equivalent concurrency |
-| **Model selection** | Per-spawn dynamic | Session model (or custom agent static) | Accept session model, log intent |
-| **Scribe fire-and-forget** | Background, never read | Sync, must wait | Batch with last parallel group |
-| **Launch table UX** | Show table immediately → results later | Skip table → results with response | UX only, results correct |
-| **SQL workflows** | Supported | Not available | Avoid SQL in cross-platform code paths |
-| **Response order bug** | Critical workaround | Possibly necessary (unknown) | Keep the block — harmless if unnecessary |
+| Feature | Native task | App child | VS Code |
+|---------|-------------|-----------|---------|
+| **Results** | Direct result or native `read_agent` | Notifications/handoff and `get_session` | Returned result |
+| **Same-task reuse** | Only a supported retained lifecycle | Persistent session messaging | New invocation |
+| **Execution workspace** | Actual native working directory | Child's own workspace | Workspace-scoped |
+| **Scribe** | Accepted durable decisions only | Same rule; no automatic child | Same rule, sync |
+| **Visible plan / SQL** | Optional tools with visible chat fallback | Optional tools; not approval or mode change | Do not assume tool availability |
 
 ---
 

@@ -34,7 +34,7 @@ Before spawning an agent, determine which model to use. Check these layers in or
 | Copilot SDK Expert | `gpt-5.6-terra` | Technical analysis that often touches code | Pure research → `gpt-5.6-luna` |
 | Designer / Visual | `gpt-5.6-sol` | Vision-capable model required | — (never downgrade — vision is non-negotiable) |
 | DevRel / Writer | `gpt-5.6-luna` | Docs and writing — not code | — |
-| Scribe / Logger | `gpt-5.6-luna` | Mechanical file ops — cheapest possible | — (never bump Scribe) |
+| Scribe / Decision Merger | `gpt-5.6-luna` | Accepted durable decision merging | — (never bump Scribe) |
 | Git / Release | `gpt-5.6-luna` | Mechanical ops — changelogs, tags, version bumps | — (never bump mechanical ops) |
 
 **Task complexity adjustments** (apply at most ONE — no cascading):
@@ -60,16 +60,19 @@ Fast:     gpt-5.6-luna → claude-haiku-4.5 → gpt-5.4-mini → gpt-5-mini → 
 **Fallback rules:**
 - If the user specified a provider ("use Claude"), fall back within that provider only before using the platform default fallback
 - Never fall back UP in tier — a fast/cheap task should not land on a premium model
-- Log fallbacks to the orchestration log for debugging, but never surface to the user unless asked
+- Retain fallback diagnostics only when required; do not launch Scribe or create routine orchestration logs for them
 
 **Passing the model to spawns:**
 
-Pass the resolved model as the `model` parameter on every `task` tool call:
+Pass a resolved model override only when the current dispatch schema supports it.
+Model choice does not determine scheduling or authorization: use native sync for
+bounded work whose result is needed now; background only with independent foreground
+work or genuinely needed retained same-task follow-up supported by the host.
+Scribe runs only when accepted durable decisions need merging, not to log every spawn.
 
 ```
 agent_type: "general-purpose"
 model: "{resolved_model}"
-mode: "background"
 name: "{name}"
 description: "{emoji} {Name}: {brief task summary}"
 prompt: |
@@ -87,7 +90,7 @@ When spawning, include the model in your acknowledgment:
 ```
 🔧 Runtime Engineer (claude-sonnet-5) — refactoring auth module
 🎨 Experience Engineer (gpt-5.6-sol · vision) — designing color system
-📋 Scribe (gpt-5.6-luna · fast) — logging session
+📋 Scribe (gpt-5.6-luna · fast) — merging accepted durable decisions (only when needed)
 ⚡ Lead (gpt-5.6-sol · bumped for architecture) — reviewing proposal
 📝 Docs Engineer (gpt-5.6-luna · fast) — updating docs
 ```

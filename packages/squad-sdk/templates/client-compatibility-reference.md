@@ -2,45 +2,105 @@
 
 ### Client Compatibility
 
-Squad runs on multiple Copilot surfaces. The coordinator MUST detect its platform and adapt spawning behavior accordingly. See `docs/scenarios/client-compatibility.md` for the full compatibility matrix.
+Detect the available tools once, but choose the smallest appropriate lifecycle
+for each work item. App availability does not disable native agents.
+See `docs/scenarios/client-compatibility.md` for the compatibility matrix.
 
-#### Platform Detection
+#### Dispatch selection
 
-Before spawning agents, determine the platform by checking available tools:
+- **Direct Mode:** Trivial questions/readily available evidence, including a small read/status command — no agent.
+- **Native `task`:** Bounded work not requiring isolation or a durable session; includes bounded authorized edits.
+- **App `create_session`:** Independent work requiring workspace isolation or a durable lifecycle.
+- **VS Code `runSubagent` / `agent`:** Specialist prompt when native `task` is unavailable; results return directly.
+- **Fallback:** Only when no spawn tool is available, work inline within authorization.
 
-1. **CLI mode** — `task` tool is available → full spawning control. Use `task` with `agent_type`, `mode`, `model`, `description`, `prompt` parameters. Collect results via `read_agent`.
+Commit production alone is not a dispatch criterion. Preserve routing, specialist
+persona and reviewer gates on every delegated path. Check current tool schemas
+for supported fields instead of sending CLI-only parameters to App-hosted tools.
 
-2. **VS Code mode** — `runSubagent` or `agent` tool is available → conditional behavior. Use `runSubagent` with the task prompt. Drop `agent_type`, `mode`, and `model` parameters. Multiple subagents in one turn run concurrently (equivalent to background mode). Results return automatically — no `read_agent` needed.
+#### Authorization and scheduling
 
-3. **Fallback mode** — neither `task` nor `runSubagent`/`agent` available → work inline. Do not apologize or explain the limitation. Execute the task directly.
+Pass explicit `inspect/read-only`, `propose/plan`, or `authorized execution`
+scope, permitted actions/files, exclusions and expected evidence.
+"Inspect and propose" must not launch implementation in autopilot.
+App `plan` requires user review before execution, `interactive` is guided
+collaboration, and `autopilot` permits authorized bounded execution by default
+when permitted without adding new approval friction.
+Omitting `kickoff.mode` with a prompt defaults to plan; resolve it deliberately.
+Never auto-approve or bypass existing user plan/input gates: inspect them with
+`get_session`, preserve exact `request_id`, and route required decisions to the user.
+Writing the visible plan does not approve execution or change modes.
 
-If both `task` and `runSubagent` are available, prefer `task` (richer parameter surface).
+Native sync is appropriate for bounded work whose result is needed now.
+Use background only with independent foreground work or genuinely needed retained
+same-task follow-up supported by the host. App mode is authorization, not native
+sync/background scheduling. Some `task` schemas have no mode field.
 
-#### VS Code Spawn Adaptations
+#### Handles, results and reuse
 
-When in VS Code mode, the coordinator changes behavior in these ways:
+| Lifecycle | Dispatch | Results / status | Same-task follow-up |
+|-----------|----------|------------------|---------------------|
+| Native synchronous | `task` | Direct tool response | Fresh invocation of the same persona if needed; not automatically retained |
+| Native retained/background (if supported) | `task` with schema-supported scheduling | Notification, then `read_agent` with native `agent_id` | `write_agent` only if that lifecycle supports it |
+| App persistent child | `create_session` with authorized mode | Notifications / `send_session_message` handoff; `get_session` for status, workspace or gates | `send_session_message` with App session ID and assignment context |
+| VS Code | `runSubagent` / `agent` | Returned result; no `read_agent` | New invocation with bounded same-task context |
 
-- **Spawning tool:** Use `runSubagent` instead of `task`. The prompt is the only required parameter — pass the full agent prompt (charter, identity, task, hygiene, response order) exactly as you would on CLI.
-- **Parallelism:** Spawn ALL concurrent agents in a SINGLE turn. They run in parallel automatically. This replaces `mode: "background"` + `read_agent` polling.
-- **Model selection:** Accept the session model. Do NOT attempt per-spawn model selection or fallback chains — they only work on CLI. In Phase 1, all subagents use whatever model the user selected in VS Code's model picker.
-- **Scribe:** Cannot fire-and-forget. Batch Scribe as the LAST subagent in any parallel group. Scribe is light work (file ops only), so the blocking is tolerable.
-- **Launch table:** Skip it. Results arrive with the response, not separately. By the time the coordinator speaks, the work is already done.
-- **`read_agent`:** Skip entirely. Results return automatically when subagents complete.
-- **`agent_type`:** Drop it. All VS Code subagents have full tool access by default. Subagents inherit the parent's tools.
-- **`description`:** Drop it. The agent name is already in the prompt.
-- **Prompt content:** Keep ALL prompt structure — charter, identity, task, hygiene, response order blocks are surface-independent.
+Native `agent_id` is not App `project_session_id`; never pass App children to
+`read_agent` or native IDs to App session tools. Native sync task agents cannot
+receive `write_agent` follow-ups in hosts that reject them.
+Reuse only same-mission context with a compatible lifecycle, never an unrelated
+worker pool. A fresh same-owner invocation is not persistent session reuse.
 
-#### Feature Degradation Table
+Follow the current schema's wait limits (at most 180 seconds where currently
+exposed). After a background notification, collect once, not a polling loop.
+If still running and no independent work remains, report waiting and stop this
+turn, not the whole mission as completed. Do not declare parent completion with
+required running/incomplete subtasks.
 
-| Feature | CLI | VS Code | Degradation |
-|---------|-----|---------|-------------|
-| Parallel fan-out | `mode: "background"` + `read_agent` | Multiple subagents in one turn | None — equivalent concurrency |
-| Model selection | Per-spawn `model` param (4-layer hierarchy) | Session model only (Phase 1) | Accept session model, log intent |
-| Scribe fire-and-forget | Background, never read | Sync, must wait | Batch with last parallel group |
-| Launch table UX | Show table → results later | Skip table → results with response | UX only — results are correct |
-| SQL tool | Available | Not available | Avoid SQL in cross-platform code paths |
-| Response order bug | Critical workaround | Possibly necessary (unverified) | Keep the block — harmless if unnecessary |
+An idle notification, end-of-agent-turn or native subagent hook event does not
+prove success. Distinguish in-progress, blocked/needs_input, completed (verified
+outcome), failed and cancelled. Do not promise exact UI rendering from hooks.
+
+#### Workspace and visible-plan boundaries
+
+Share parent identity/team context explicitly, not its execution paths.
+An App child executes code/tests in its own workspace. Omit `base_branch` unless
+explicitly requested or work depends on an in-progress branch; no implicit stacking.
+Child changes/commits are not automatically integrated into the parent.
+
+The optional `squad_session_plan_read`, `squad_session_plan_publish`, and
+`squad_session_plan_update` tools come from a runtime extension, not built-in
+App tools. Discover schemas before use. The coordinator's current main-session
+plan should reflect meaningful milestones for nontrivial multi-step work or
+explicit planning; reconcile existing/user-edited content and hash conflicts
+deliberately. If unavailable, explain the limitation and maintain a visible chat
+plan. Plan writes never approve execution or change mode.
+
+#### VS Code adaptations
+
+- **Tool:** Pass the full specialist prompt to `runSubagent`; drop native-only fields (`agent_type`, `mode`, `model`, `description`).
+- **Concurrency:** Multiple calls in one turn can run concurrently; use them only for independently deliverable outcomes or concrete bounded collaboration, not automatic fan-out.
+- **Models:** Accept the session model unless the host explicitly exposes an override.
+- **Scribe:** Spawn Scribe only when accepted durable decisions need merging, after the actual decisions exist; do not batch anticipatory logging with every group.
+- **Acknowledgment:** Name the specialist before dispatch; do not claim results before collecting them.
+- **Prompt:** Preserve identity, charter, authorization, execution workspace, evidence and response-order blocks.
+
+#### Feature availability
+
+| Feature | CLI/native agents | Copilot App | VS Code |
+|---------|-------------------|-------------|---------|
+| Bounded specialist work | Native `task` | Native `task` when exposed | `runSubagent` / `agent` |
+| Persistent isolated work | Only if host provides it | Coordinated `create_session` child | Not implied by a subagent |
+| Result collection | Direct result or native `read_agent` | Native and App handles are distinct | Direct result |
+| Model / scheduling fields | Current schema, not assumed | Native schema vs child `kickoff` schema | Session defaults unless exposed |
+| Scribe | Only accepted durable decision merging | Same rule; no routine child session needed | Same rule, sync invocation |
+| Visible current plan | Optional extension or chat fallback | Optional extension or chat fallback | Chat fallback unless extension tools are exposed |
+| SQL TODOs | Use if exposed | Use if exposed | Do not assume availability |
 
 #### SQL Tool Caveat
 
-The `sql` tool is **CLI-only**. It does not exist on VS Code, JetBrains, or GitHub.com. Any coordinator logic or agent workflow that depends on SQL (todo tracking, batch processing, session state) will silently fail on non-CLI surfaces. Cross-platform code paths must not depend on SQL. Use filesystem-based state (`.squad/` files) for anything that must work everywhere.
+Do not make cross-platform orchestration depend on `sql`. Use SQL TODOs and real
+dependencies when available, but keep the visible plan in the supported current
+session plan tools or chat. Mutable `.squad/` state remains governed by its
+configured runtime backend; do not invent raw-file state fallbacks for non-local
+backends.

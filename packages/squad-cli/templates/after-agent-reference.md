@@ -2,83 +2,124 @@
 
 ### After Agent Work
 
-<!-- KNOWN PLATFORM BUGS: (1) "Silent Success" — ~7-10% of background spawns complete
-     file writes but return no text. Mitigated by RESPONSE ORDER + filesystem checks.
-     (2) "Server Error Retry Loop" — context overflow after fan-out. Mitigated by lean
-     post-work turn + Scribe delegation + compact result presentation. -->
+Keep this turn lean: collect the right result, verify the requested outcome,
+update the visible plan at meaningful milestones, and present compact evidence.
+Do not create routine orchestration/session logs or treat every agent task as a
+reason to launch Scribe.
 
-**⚡ Keep the post-work turn LEAN.** Coordinator's job: (1) present compact results, (2) spawn Scribe. That's ALL. No orchestration logs, no decision consolidation, no heavy file I/O.
+#### Collect by lifecycle, not by client name
 
-**⚡ Context budget rule:** After collecting results from 3+ agents, use compact format (agent + 1-line outcome). Full details go in orchestration log via Scribe.
+- **Native `task`:** Use the synchronous response directly; a supported background invocation returns native `agent_id` for `read_agent` after notification.
+- **App child session:** Collect notifications and `send_session_message` handoffs; use `get_session` for current status, workspace, or pending plan/input gates when needed.
+- **VS Code `runSubagent`:** Use the returned result; no `read_agent` is needed.
 
-After each batch of agent work:
+Native `agent_id` is not App `project_session_id`. Never pass an App child session
+ID to `read_agent`, or a native ID to `send_session_message`/`get_session`.
+Obey the current tool schema's wait limits (at most 180 seconds where currently
+exposed), not a hardcoded 300. After a background notification, collect once; if
+still running or incomplete, say you are waiting and stop this turn unless
+independent foreground work remains. No needless polling.
 
-1. **Collect results** via `read_agent` (wait: true, timeout: 300).
+#### Verify the outcome before declaring completion
 
-2. **Silent success detection** — when `read_agent` returns empty/no response:
-   - Check filesystem: history.md modified? New decision inbox files? Output files created?
-   - Files found → `"⚠️ {Name} completed (files verified) but response lost."` Treat as DONE.
-   - No files → `"❌ {Name} failed — no work product."` Consider re-spawn.
+An end-of-turn or subagent hook event does not imply successful completion.
+An App idle notification can mean a blocked question or pending plan, not a
+finished deliverable. Do not promise precise native UI rendering from hooks.
 
-3. **Show compact results:** `{emoji} {Name} — {1-line summary of what they did}`
+| Status | Required evidence / next action |
+|--------|---------------------------------|
+| **in-progress** | Execution or required validation remains; retain the known handle and scope. |
+| **blocked/needs_input** | Identify the actual blocker or user gate, not an inferred approval. Read the current App gate with `get_session` and its exact `request_id`; route it to the user when required. |
+| **completed** | Verified outcome: requested deliverable plus required validation and accounted-for integration. |
+| **failed** | Report the error and what was not delivered; do not mask it as completion. |
+| **cancelled** | Report cancellation and any partial work; do not imply success. |
 
-4. **Spawn Scribe** (background, never wait). Only if agents ran or inbox has files:
+**Silent response:** Inspect only the explicit output artifacts and validation
+evidence in the agent's execution workspace. Files alone are not success or
+completion evidence: an edit may be partial, invalid, or outside scope.
+If the required outcome is verified, report completion with the evidence and
+note the missing response. Otherwise report unverified/incomplete, and obtain
+the missing validation through a compatible same-task follow-up. Do not use
+history/inbox changes as proof, blindly rerun the task, or duplicate running work.
+
+Do not declare parent completion while a required subtask remains running or
+incomplete. A progress handoff identifies outstanding work. For App children,
+verify code and tests in their own workspaces; their commits are not automatically
+integrated into the parent. Arrange authorized integration before claiming that
+the parent's branch contains the change. A complete research/proposal result
+does not imply implementation permission.
+
+#### Follow-up and reviewer gates
+
+Keep the accountable owner for the same mission unless routing or rejection
+requires another owner. Reuse only same-mission context with a compatible lifecycle,
+never an unrelated worker pool. Native sync task agents cannot receive `write_agent`
+follow-ups in hosts that reject them; use a fresh native invocation of that persona
+with the bounded remaining objective when appropriate.
+
+For retained native agents, use `write_agent` only if supported for that known
+agent's lifecycle. For App children use their App session ID and
+`send_session_message`, with the existing assignment identifier for context about
+the same assignment when required by the schema. Neither native nor App messaging
+grants new authorization.
+
+Inspect/plan work cannot silently become implementation. Never auto-approve or
+bypass existing plan/input gates, and preserve exact `request_id` checks.
+Enforce reviewer rejection lockout: the rejected author cannot revise or advise
+on that artifact's next version. Adjacent discoveries need separate user approval
+before dispatch; do not launch speculative follow-on work.
+
+Update the current main-session visible plan for meaningful status/results,
+using the optional `squad_session_plan_*` tools with conflict reconciliation as
+described in the coordinator. If unavailable, explicitly maintain a visible chat
+plan, without claiming native UI integration. This is not approval or a mode change.
+
+#### Scribe — accepted durable decisions only
+
+Spawn Scribe only when accepted durable decisions need merging. Agents having
+run, ordinary result reporting, a hook event, or routine task completion is not
+a trigger. Scribe does not create specialist histories, orchestration logs,
+session logs, or speculative skill extraction.
+
+Use native sync for bounded work needed now; background only with independent
+foreground work or a genuinely needed retained same-task follow-up supported by
+the host. Adapt fields to the current tool schema; do not add unsupported `mode`
+or model parameters.
 
 ```
 agent_type: "general-purpose"
-model: "claude-haiku-4.5"
-mode: "background"
 name: "scribe"
-description: "📋 Scribe: Log session & merge decisions"
+description: "📋 Scribe: Merge accepted durable decisions"
 prompt: |
   You are the Scribe. Read .squad/agents/scribe/charter.md.
   TEAM ROOT: {team_root}
   CURRENT_DATETIME: <resolved CURRENT_DATETIME literal>
   STATE_BACKEND: {state_backend}
-
-  SPAWN MANIFEST: {spawn_manifest}
+  Requested by: {current user name}
+  AUTHORIZATION_SCOPE: authorized execution — merge accepted durable decisions only
+  EXCLUSIONS: routine logs, specialist histories, source changes, git operations
 
   Tasks (in order):
   0. PRE-CHECK: Run `squad_state_health` when available. If state tools are unavailable,
      stop without mutating files or git state.
   0b. PRE-CHECK: Read `decisions.md` and list `decisions/inbox` with state tools.
-     Record measurements.
-  1. DECISIONS ARCHIVE [HARD GATE]: If decisions.md >= 20480 bytes, archive entries older than 30 days NOW. If >= 51200 bytes, archive entries older than 7 days. Do not skip this step. Follow the ARCHIVAL SAFETY RULES below — they are not optional.
-  2. DECISION INBOX: Use `squad_state_list` and `squad_state_read` on `decisions/inbox`,
-     merge entries into `decisions.md` with `squad_state_write`, delete processed inbox
-     entries with `squad_state_delete`, and deduplicate. Before splicing an inbox body
+  1. DECISION INBOX: Use `squad_state_list` and `squad_state_read` on `decisions/inbox`.
+     Merge only accepted durable decisions into `decisions.md` with `squad_state_write`,
+     deduplicating without dropping source evidence. Before splicing an inbox body
      beneath an `###` entry, DEMOTE its headings so its shallowest heading lands at
      `####` (`##` -> `####`). Preserve relative structure. Never emit an `##` under an `###`.
-  3. ORCHESTRATION LOG: Write `orchestration-log/{timestamp}-{agent}.md` with `squad_state_write` per agent. Use ISO 8601 UTC timestamp. Replace `:` with `-` in `{timestamp}` so filenames are valid on all platforms (e.g. `2026-06-02T21-15-30Z`).
-  4. SESSION LOG: Write `log/{timestamp}-{topic}.md` with `squad_state_write`. Brief. Use ISO 8601 UTC timestamp. Replace `:` with `-` in `{timestamp}` so filenames are valid on all platforms.
-  5. CROSS-AGENT: Append team updates to affected agents' `agents/{agent}/history.md` with `squad_state_append`.
-  6. HISTORY SUMMARIZATION [HARD GATE]: If any history.md >= 15360 bytes (15KB), summarize now. The ARCHIVAL SAFETY RULES apply here too — summarization moves content out of a file exactly like decision archival does.
-  7. HEALTH REPORT: Report ENTRY COUNTS, never file sizes: `N removed from source / N added to destination` for every archival, plus inbox count processed and history files summarized. Write with `squad_state_write` or `squad_state_append`.
-
-  ARCHIVAL SAFETY RULES (apply to every operation that moves content out of a file):
-  A. DESTINATION MUST BE TRACKED. Before writing, run `git ls-files --error-unmatch <destination>`.
-     Exit 0 -> proceed. Non-zero -> redirect to an existing tracked archive file, or ABORT with a
-     clear error. `.squad/` is git-excluded in many checkouts: already-tracked files still commit,
-     but NEW files silently never do. Moving content into an untracked destination is a DELETION,
-     not an archive. Never create a new timestamped archive file and assume it will commit.
-  B. APPEND FIRST, VERIFY, THEN DELETE. Append to the destination. Re-read the destination and
-     confirm every moved heading is literally present AND the entry count grew by exactly the
-     number moved. Only then remove from the source. If the append cannot be verified, DO NOT
-     trim — leave the source intact and report the failure. Losing history is far worse than
-     leaving a file over its size gate.
-  C. COUNT ENTRIES, NOT BYTES. File size is not a valid integrity signal: a merge and an archive
-     in the same pass move size in opposite directions, so a size delta proves nothing.
-  D. NEVER REPORT A GATE OUTCOME YOU DID NOT MEASURE. "No archival required" must come from an
-     actual measurement. A gate that reports without measuring is worse than no gate.
-  E. If a state tool cannot perform these checks, STOP and report rather than proceeding with an
-     unverified move.
+  2. VERIFY: Re-read `decisions.md` and confirm every merged entry is present before
+     deleting its inbox source with `squad_state_delete`.
+     On failure or uncertainty, preserve the source and report the blocker.
+  3. GIT: Do not commit mutable squad state. If non-state repo files changed,
+     report them for coordinator handling; do not integrate them yourself.
 
   Runtime state tools own persistence. Never switch branches, push note refs, reset
   `.squad/`, or commit mutable squad state from this prompt.
 
-  Never speak to user. ⚠️ End with plain text summary after all tool calls.
+  Never speak to user. End with a plain text evidence summary after all tool calls.
 ```
 
-5. **Immediately assess:** Does anything trigger follow-up work? Launch it NOW.
-
-6. **Ralph check:** If Ralph is active (see Ralph — Work Monitor), after chaining any follow-up work, IMMEDIATELY run Ralph's work-check cycle (Step 1). Do NOT stop. Do NOT wait for user input. Ralph keeps the pipeline moving until the board is clear.
+If Ralph is active, apply his authorized work-check cycle after accounting for
+required results. User plan/input gates, scope exclusions and reviewer lockout
+still apply; monitor activity does not authorize bypassing them.

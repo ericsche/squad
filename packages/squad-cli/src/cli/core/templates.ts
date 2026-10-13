@@ -166,6 +166,22 @@ export const TEMPLATE_MANIFEST: TemplateFile[] = [
     description: 'Skill definition template',
   },
   
+  // User-owned runtime extension: every companion must be installed together.
+  // Host discovery requires extension.mjs at .github/extensions/<name>/.
+  // Keep customizations on both init and upgrade; no npm dependency is added.
+  {
+    source: 'extensions/squad-session-plan/extension.mjs',
+    destination: '../.github/extensions/squad-session-plan/extension.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Current foreground session native-plan extension (user-owned)',
+  },
+  {
+    source: 'extensions/squad-session-plan/plan-tools.mjs',
+    destination: '../.github/extensions/squad-session-plan/plan-tools.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Current-session plan RPC helpers (user-owned)',
+  },
+
   // User-owned files (never overwrite)
   {
     // ralph-instructions.md is read by execute.ts when `squad watch --execute` is run.

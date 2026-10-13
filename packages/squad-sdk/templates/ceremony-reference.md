@@ -73,7 +73,7 @@ TASK CONTEXT:
    - `all-relevant` → agents routed to the current task
    - `all-involved` → agents that participated in the completed batch
    - Named agents → spawn only those specific agents
-6. **Scribe integration:** Spawn Scribe (background) at ceremony start to record decisions and action items.
+6. **Scribe integration:** Spawn Scribe only when accepted durable decisions need merging, after those decisions exist. Routine ceremony/task logging is not a trigger. Apply the normal sync/background scheduling rules, not blanket background.
 7. **Output format:**
    ```
    📋 {CeremonyName} completed — facilitated by {Facilitator}.

@@ -1,24 +1,34 @@
 ---
 name: "coordinator-response-mode"
-description: "Selecting WHO handles work is the Routing table; selecting HOW they handle it (Direct, Lightweight, Standard, Full) is Response Mode. This skill contains the complete decision table, exemplar prompts for each mode, the Lightweight spawn template, and the upgrade rules. Squad coordinator loads this on demand once routing has identified the agent — to pick the right ceremony level for the task."
+description: "Choose the smallest adequate Direct, Lightweight, Standard or Full response. Contains bounded specialist routing examples, a minimal authorized spawn template and context-upgrade rules; does not force delegation, ceremonies or a persistent session for trivial evidence."
 allowedTools: []
 confidence: high
 domain: squad-internals
-source: "Extracted from squad.agent.md as part of the slimming effort (bradygaster/squad#1308). Behaviour unchanged — coordinator loads this satellite skill after Routing, before spawn."
+source: "Coordinator response-mode protocol; aligned with authorization, lifecycle and visible-plan rules in squad.agent.md."
 ---
 
-> **Load this skill when:** you have routed work to an agent and need to pick the response mode (Direct / Lightweight / Standard / Full). The 1-line stub in `squad.agent.md` is for awareness; this skill is the full decision table + templates.
+> **Load this skill when:** choosing the smallest adequate response mode (Direct / Lightweight / Standard / Full). The stub in `squad.agent.md` is always-on; this skill expands the decision table and templates, not the user's authorization.
 
 ## Response Mode Selection
 
-After routing determines WHO handles work, select the response MODE based on task complexity. **Bias toward upgrading** — when uncertain, go one tier higher rather than risk under-serving.
+Choose Direct Mode for trivial questions with readily available evidence.
+Otherwise route to exactly one accountable specialist and choose the smallest
+adequate context/lifecycle. Upgrade for demonstrated complexity or risk, not
+because a new agent or session is available.
 
-| Mode | When | How | Target |
-|------|------|-----|--------|
-| **Direct** | Status checks, factual questions the coordinator already knows, simple answers from context | Coordinator answers directly — NO agent spawn | ~2-3s |
-| **Lightweight** | Single-file edits, small fixes, follow-ups, simple scoped read-only queries | Spawn ONE agent with minimal prompt (see Lightweight Spawn Template below). Use `agent_type: "explore"` for read-only queries | ~8-12s |
-| **Standard** | Normal tasks, single-agent work requiring full context | Spawn one agent with full ceremony — charter inline, history read, decisions read. This is the current default | ~25-35s |
-| **Full** | Multi-agent work, complex tasks touching 3+ concerns, "Team" requests | Parallel fan-out, full ceremony, Scribe included | ~40-60s |
+| Mode | When | How |
+|------|------|-----|
+| **Direct** | Trivial questions, status or readily available evidence | Answer directly; a small read/status command is fine |
+| **Lightweight** | Bounded edits, same-task follow-ups or substantive read-only queries | One specialist, minimum relevant context and explicit authorization |
+| **Standard** | A task requiring full domain context | One accountable owner, charter and relevant shared decisions |
+| **Full** | Independently deliverable outcomes with distinct owners, or concrete bounded collaboration | Explicit scopes/dependencies; reviewers only as required by policy |
+
+These modes are not latency promises and do not force ceremonies or App sessions.
+Scribe runs only when accepted durable decisions need merging, not after every task.
+Use native sync for bounded work whose result is needed now; background only with independent foreground work or genuinely needed retained same-task follow-up supported by the host.
+Use `create_session` only for independent work requiring workspace isolation or a
+durable lifecycle; commit production alone is not the criterion. See the spawn
+reference for App modes, handle namespaces and same-mission reuse limits.
 
 ## Direct Mode exemplars
 
@@ -34,10 +44,10 @@ Coordinator answers instantly, no spawn:
 
 One agent, minimal prompt:
 
-- *"Fix the typo in README"* → Spawn one agent, no charter, no history read.
+- *"Fix the typo in README"* → One specialist with a compact identity/charter excerpt and explicit edit permission.
 - *"Add a comment to line 42"* → Small scoped edit, minimal context needed.
-- *"What does this function do?"* → `agent_type: "explore"` (Haiku model, fast).
-- Follow-up edits after a Standard/Full response — context is fresh, skip ceremony.
+- *"What does this short function do?"* → Direct if one readily available read suffices; substantive investigation goes to a read-only specialist.
+- Follow-up edits → Same owner/persona for the same mission, using only a compatible lifecycle (not an unrelated worker pool).
 
 ## Standard Mode exemplars
 
@@ -49,49 +59,61 @@ One agent, full ceremony:
 
 ## Full Mode exemplars
 
-Multi-agent, parallel fan-out:
+Bounded collaboration, not automatic fan-out:
 
-- *"Team, build the login page"*
-- *"Add OAuth support"*
-- Any request that touches 3+ agent domains.
+- *"Team, build the login page"* → One accountable owner unless independent outcomes require distinct owners.
+- *"Add OAuth support"* → One routed owner; a required auth reviewer is a bounded gate, not another implementation owner.
 
 ## Mode upgrade rules
 
 - If a Lightweight task turns out to need history or decisions context → treat as Standard.
-- If uncertain between Direct and Lightweight → choose Lightweight.
-- If uncertain between Lightweight and Standard → choose Standard.
-- **Never downgrade mid-task.** If you started Standard, finish Standard.
+- Do not turn a trivial lookup into delegation solely because tools are available.
+- Increase context for evidence/risk needs; keep the same authorized scope.
+- Response modes do not grant implementation permission or approval. For nontrivial
+  multi-step work or explicit planning, follow the visible main-session plan protocol.
 
 ## Lightweight Spawn Template
 
-Skip charter, history, and decisions reads — just the task:
+Keep the specialist persona with a compact charter excerpt and only relevant
+context; do not read unrelated histories or fan out. Use scheduling/model fields
+only when supported by the host and warranted by the actual task/preference.
 
 ```
 agent_type: "general-purpose"
-model: "{resolved_model}"
-mode: "background"
 name: "{name}"
 description: "{emoji} {Name}: {brief task summary}"
 prompt: |
   You are {Name}, the {Role} on this project.
+  YOUR CHARTER: {compact relevant charter excerpt}
   TEAM ROOT: {team_root}
   CURRENT_DATETIME: <resolved CURRENT_DATETIME literal>
+  STATE_BACKEND: {state_backend}
+  AUTHORIZATION_SCOPE: {inspect/read-only | propose/plan | authorized execution}
+  ALLOWED_ACTIONS_AND_FILES: {explicit permissions, including git operations}
+  EXCLUSIONS: {out-of-scope actions/files}
+  EXPECTED_EVIDENCE: {deliverable and validation}
+  EXECUTION_WORKSPACE: {native working directory or App child's own workspace}
   WORKTREE_PATH: {worktree_path}
   WORKTREE_MODE: {true|false}
   **Requested by:** {current user name}
 
   {% if WORKTREE_MODE %}
-  **WORKTREE:** Working in `{WORKTREE_PATH}`. All operations relative to this path. Do NOT switch branches.
+  **WORKTREE:** Use `{WORKTREE_PATH}` only if it is your execution workspace, not inherited parent identity context. Do NOT switch branches.
   {% endif %}
 
   TASK: {specific task description}
   TARGET FILE(S): {exact file path(s)}
 
-  Do the work. Keep it focused.
+  Complete only the authorized scope. Inspect/plan scopes do not authorize implementation.
+  Keep it focused; report adjacent discoveries without acting on them.
   If you made a meaningful decision, persist it with `memory.write` (class: `decision`) when available, or fall back to `squad_decide` / `squad_state_write` to `decisions/inbox/{name}-{brief-slug}.md`. Do not run git notes, switch branches, or write mutable `.squad/` state by hand.
 
   ⚠️ OUTPUT: Report outcomes in human terms. Never expose tool internals or SQL.
   ⚠️ RESPONSE ORDER: After ALL tool calls, write a plain text summary as FINAL output.
 ```
 
-For **read-only queries**, use the explore agent: `agent_type: "explore"` with `"You are {Name}, the {Role}. CURRENT_DATETIME: <resolved CURRENT_DATETIME literal> — {question} TEAM ROOT: {team_root}"`
+For **substantive read-only queries**, use `agent_type: "explore"` only if its
+tools suffice; retain identity, datetime, team root, state backend, requester,
+read-only authorization, bounded input paths and evidence requirements.
+Trivial readily available evidence stays Direct. Native one-shot agents are not
+persistent sessions and may require a fresh same-persona invocation for follow-up.
