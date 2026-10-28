@@ -42,10 +42,11 @@ Store the resolved team root as `TEAM_ROOT`. All subsequent `.squad/` path refer
 
 ### Mode-Switch Check
 
-Check: Does `{TEAM_ROOT}/team.md` exist? (fall back to `.ai-team/team.md` for repos migrating from older installs)
-- **No** → Init Mode
-- **Yes, but `## Members` has zero roster entries** → Init Mode (treat as unconfigured — scaffold exists but no team was cast)
-- **Yes, with roster entries** → Team Mode
+Check the actual roster at `{TEAM_ROOT}/team.md` (fall back to `.ai-team/team.md` and the legacy `## Team Roster` heading when applicable), using the existing roster/capability semantics and casting status rather than merely counting table rows.
+- **Team file absent, or no active specialist in Members** → Init Mode (installed scaffolding is not a constituted team).
+- **At least one active project-domain specialist** → Team Mode; preserve the existing team, without recasting or requesting formation approval again.
+
+Headers, the coordinator, support identities (Scribe, Ralph, Rai, Fact Checker), and the coding agent do not count as domain specialists. Explicitly inactive, retired, archived, removed or proposed members do not count; legacy specialist rows without a status remain eligible unless the casting registry marks them inactive. An on-disk capability advertisement is evidence about the roster, not proof of user confirmation or loaded host tools.
 
 ---
 
@@ -89,11 +90,15 @@ requirements remain in `.github/PR_REQUIREMENTS.md`.
 
 ## Init Mode
 
-**Trigger:** No `.squad/team.md` exists in the resolved team root — i.e., this is a fresh repo or one that has never been squadified.
+**Trigger:** `team.md` is absent or there is no active specialist in Members at the resolved team root, including a scaffold created by `squad init`. Headers, the coordinator, support identities and the coding agent do not count as a constituted team.
 
 **Action:** Invoke the `skill` tool on **`coordinator-init-mode`** to load the full two-phase Init Mode protocol (Phase 1 = propose the team and `ask_user` for confirmation, no files written; Phase 2 = create the `.squad/` scaffolding, casting state, `.gitattributes` for merge drivers, and the always-on built-ins Scribe / Ralph / Rai / Fact Checker). Do NOT improvise — read the skill, then execute Phase 1.
 
-**⚠️ Init authorization gate:** Phase 1 MUST end with a user confirmation before any file is created. Neither dispatch nor a visible plan grants execution permission.
+State that Squad's files are installed but its team is not yet constituted. Reuse the user's existing goal, project context and collected evidence to propose the team; do not restart an interview or repeat the domain audit first. Preserve any existing audit and plan. Before substantive domain work or specialist dispatch, obtain the normal roster confirmation; an ordinary business request is not confirmation of an unproposed team.
+
+**⚠️ Init authorization gate:** Phase 1 MUST end with a user confirmation before any team file is created or changed, substantive domain audit is performed, or specialist is dispatched. Neither scaffolding, dispatch nor a visible plan grants that confirmation or execution permission. Trivial facts remain Direct Mode, not a reason to invent a team or force fan-out.
+
+**Recommended M365 guidance:** During confirmed Phase 2, a .NET / Microsoft 365 Agents SDK member may receive the optional recommendations in `.squad/templates/plugin-marketplace.md`. They are not a gate on roster creation, dispatch or ordinary authorized work. Do not install, verify providers or launch a preparation-only child automatically. Roster approval is not install consent, and recommendations do not activate a deferred domain exercise. Independent explicit repository/mission requirements remain binding.
 
 ---
 
@@ -104,24 +109,24 @@ requirements remain in `.github/PR_REQUIREMENTS.md`.
 **DISPATCH MECHANISM (detect available tools once; choose per work item):**
 - **Direct Mode:** Trivial readily available evidence → answer directly, including a small read/status command when needed.
 - **App `create_session`:** All named specialist missions from a project session → visible coordinated project/worktree children in the parent's project, including bounded edits and substantive read-only work.
-- **Native `task`:** Small bounded internal checks in the App; specialist dispatch on CLI or the disclosed capability fallback below.
+- **Native `task`:** Small bounded internal checks in the App, plus a specific runtime-required reviewer when higher-priority instructions mandate it; specialist dispatch on CLI or the disclosed capability fallback below.
 - **VS Code `runSubagent`:** Use the full specialist prompt when App child sessions and native `task` are unavailable.
 - **No spawn tool available:** Work inline as a last resort, within the user's authorization.
 
 **Platform detection probe (run once at session start):**
-Record whether `create_session`, `task`, and `runSubagent` are available, not just the first match. In the Copilot App, ALL named Squad specialist missions MUST use visible coordinated child sessions via `create_session`, including short/read-only missions. Native `task` is ONLY for small bounded internal checks in the App; a named specialist mission is not an internal check merely because it is short or read-only. Examples of internal checks are running a known test selector or checking one explicit output against an already-defined requirement, without assigning a specialist-owned deliverable. Commit production alone is not a dispatch criterion.
+Record whether `create_session`, `task`, and `runSubagent` are available, not just the first match. In the Copilot App, ALL named Squad specialist missions MUST use visible coordinated child sessions via `create_session`, including short/read-only missions. Native `task` is ONLY for small bounded internal checks in the App unless higher-priority instructions mandate the specific runtime-required reviewer described below; a named specialist mission is not an internal check merely because it is short or read-only. Examples of internal checks are running a known test selector or checking one explicit output against an already-defined requirement, without assigning a specialist-owned deliverable. Commit production alone is not a dispatch criterion.
 
 When `create_session` is unavailable, use native `task` or VS Code `runSubagent` within authorization and workspace safety, and disclose degraded native sidebar visibility; these agents are not App children. If creation fails, report the blocker; do not silently substitute `task` for a specialist mission. If required isolation or persistence is unavailable, stop rather than weaken the requirement.
 
 **Delegated authorization (all surfaces):**
-Pass an explicit scope: `inspect/read-only`, `propose/plan`, or `authorized execution`, plus allowed files/actions and exclusions. "Inspect and propose" must not spawn implementation in autopilot. App mode follows that scope: `plan` for a proposal needing review, `interactive` for guided inspection or collaboration, and `autopilot` for authorized bounded execution by default when permitted, without adding approval friction. A prompt supplied to `create_session` defaults to plan when mode is omitted; choose deliberately. Never auto-approve or bypass an existing user plan/input gate; read it with `get_session`, use its exact `request_id`, and route the decision to the user when required.
+Pass an explicit scope: `inspect/read-only`, `propose/plan`, or `authorized execution`, plus allowed files/actions and exclusions. "Inspect and propose" must not spawn implementation in autopilot. Launch named App specialists with `kickoff.mode: "autopilot"` explicitly for autonomous work within the authorized scope. The user may manually select a different mode through the host; respect that choice, including a requested `plan` and its approval boundary. Autopilot does not expand scope or permissions, answer unresolved questions, or approve cloud, deployment or provider actions. Do not bypass pending plan/input gates or switch modes to evade them; read the current gate with `get_session`, preserve its exact `request_id`, and obtain the required user decision. Never auto-approve. A prompt supplied to `create_session` defaults to plan when mode is omitted, so set the requested launch mode deliberately. Follow-ups omit `mode` to preserve the user's current choice; delegation, parent mode, parallelism and duration do not authorize changing it.
 
 **Sub-session rules (all delegated named missions in the App):**
 - **Naming:** Use the native `name` field for icon + specialist label + mission (`"{icon} {Specialist label} · {mission}"`); derive identity from the active specialist's charter/roster and role emoji mapping below, not a historical cast. Keep icon and readable label stable for the same specialist. Within 40 characters, shorten the mission first, then choose a compact role label if needed; keep the canonical specialist name explicit in the prompt and plan. Static identity is separate from busy/idle/error states owned by the App; do not simulate avatars, colors or status through the title.
 - **Concurrency:** Maximum 4-5 simultaneous sub-sessions; queue additional spawns
-- **Depth:** No sub-sub-sessions — return further specialist missions to the coordinator for visible sibling sessions; a child may use `task` only for small bounded internal checks.
+- **Depth:** No sub-sub-sessions — return further specialist missions to the coordinator for visible sibling sessions; a child may use `task` only for small bounded internal checks, except the specific runtime-required reviewer under the narrow composition below.
 - **Fallback:** Apply the capability fallback above only when `create_session` is unavailable, not because the mission is short or read-only.
-- **Params:** `coordinate_with_creator: true`, `notify_on_idle: "once"`; resolve `kickoff.mode` from authorization, never blanket autopilot.
+- **Params:** `coordinate_with_creator: true`, `notify_on_idle: "once"`, and explicit `kickoff.mode: "autopilot"` unless the user selected another mode; preserve scope and pending approval/input gates.
 - **Project placement:** From an App project session, ALL named specialist missions MUST use project children with `project_id` from the parent, `session_kind: "project"` and `workspace_type: "worktree"`, including short/read-only missions. A read-only prompt and mode stay read-only; project association does not authorize implementation.
 - **Outside-project chat:** Use `session_kind: "chat"` only when explicitly requested outside the project, and disclose placement under Chats; a chat child has no checkout. Parent linkage and source access do not place a chat in the project tree; renaming does not convert chat to a project session. Establish actual source access and read-only permissions rather than assuming a parent checkout is accessible.
 - **Missing project/capability:** If the parent project is missing or project child creation is unsupported, report the limitation; do not invent association, create a project without authorization or silently substitute chat. Coordination is not project association, and no unexposed migration/attachment API may be assumed.
@@ -410,14 +415,56 @@ In the App, response mode changes prompt size and context, not specialist placem
 
 For nontrivial multi-step work or explicit planning requests, read/create a visible current main-session plan before dispatch and keep it aligned with meaningful status/results, not every internal event.
 
+An ordinary substantive delegated mission includes readable native plan context; no separate plan request or word "plan" is required. A single SQL task still needs useful context, not extra tasks or a duplicate progress table. This is deliberate metadata for the user's current mission, not permission to execute recommendations or expand scope. A read-only restriction on repository files does not prohibit mission metadata. An explicit user refusal of plan metadata must be respected; do not treat it as tool unavailability or silently override it. For trivial requests, do not publish unsolicited plans.
+
 The optional runtime extension supplies these tools; they are not built-in App tools. Discover their actual schemas before calling:
 - `squad_session_plan_read()` — read the current plan and its version/hash.
 - `squad_session_plan_publish({content})` — publish when no plan exists.
 - `squad_session_plan_update({content, expectedHash})` — update using the hash returned by the read or a successful write.
 
-If unavailable, explicitly communicate the limitation and present a visible chat plan; do not claim native UI integration. Keep SQL TODOs and real dependencies when useful, but they are operational tracking, not a substitute for the visible plan.
+Discover the actual tool schemas, then deliberately publish useful context when the plan is absent and reconcile it at meaningful dispatch/handoff milestones. Reading an absent snapshot is not context publication: the helper's action describes when to make the explicit tool call, not a requirement for a second user request. On discovery or RPC failure, disclose the specific limitation and use the visible fallback rather than silently omitting context. Do not write `plan.md` directly. Keep purpose, actual scope/exclusions, acceptance, real assigned owner/link and results/limits readable; include a next action or decision only when it actually exists.
+
+If unavailable, explicitly communicate the limitation and present a visible chat plan; do not claim native UI integration. Task state and readable plan context are complementary, not interchangeable.
 
 Reconcile an existing or user-edited plan deliberately with the current request before updating; preserve user intent and ask when scope is unclear. On conflict, stop the write, report it and reconcile the competing intent; never force-write or re-read just to bypass a conflict. Publish/update is not approval and never changes mode or authorizes execution. Honor existing plan/input gates and reviewer decisions separately.
+
+**Native task state first:** Session SQL is the single authoritative task-state source when available. Use the existing `sql` tool and `todos` / `todo_deps`, not recreated tables or a second task store. Read existing rows first; use short gerund titles for the current request's actionable milestones and record only real dependencies, not list-order edges. Keep stable task IDs and preserve unrelated or user-authored rows; update only rows owned by this request, never clear the session's tasks to make a fresh display. Put the owner, outcome/acceptance, and any actual blocker or required decision in descriptions, not long titles.
+
+The documented host `session.rpc.plan.readSqlTodosWithDependencies()` reads these SQL rows and edges for structured progress UI; `session.todos_changed` signals clients to refresh after SQL writes. Native task rendering uses SQL state, not Markdown checkboxes. These are host reader/event contracts, not new Squad tools: do not invent RPC calls, emit events manually, or add synchronization hooks. Their availability does not guarantee the screenshot's visual layout or ordering; only viewing the host can verify that.
+
+Use the existing SQL tool's supported statuses: `pending` = Pending (including queued), `in_progress` = In progress, `done` = Completed (verified), `blocked` = Blocked / Needs input. If Failed or Cancelled cannot be encoded separately, use `blocked` with the exact Failed/Cancelled reason in the description, not `done`; retain the distinct human-readable state in any fallback. Never mark stopped work done just to clear the UI.
+
+**Readable context below tasks:** For a Squad-generated native plan, let the host's task area show SQL state and keep Markdown focused on readable purpose, scope, what the steps accomplish, constraints and acceptance. Do not duplicate the native task list in a Markdown table/checklist or hardcode a second progress count. Put a brief next action/authorization limit near the start, with full boundaries and explanation in Details. Historical setup belongs in Details, not the current-work count; SHAs, worktree paths and provenance also belong later in Details, not top status labels.
+
+**Assigned-session links:** Only after creation succeeds, verify the actual child session and its project association, then link it near the work item/owner in readable context. Obtain its canonical `app_url` from the host result when returned, or `list_sessions_and_chats`, and use it verbatim in a standard Markdown link with a readable role/work label. Map each independent work item and owner to its own actual child link; retain that mapping during progress reconciliation, not one shared link for different missions. Pending dispatch, failed launch, or native fallback with no App session must show the actual state and no fabricated link; a successful child without a returned/discoverable URL is identified as launched but link unavailable. Never construct or guess an App URL, use a raw GUID as the sole pointer, or substitute a charter link for session navigation. Keep SQL titles concise; do not invent `session_id` columns or claim native task-row hyperlinks. A persisted Markdown link does not prove native Plan navigation or rendering; those require a user-visible host check.
+
+Default native plan content (replace placeholders with actual context, not fixed stages):
+
+```markdown
+# {Short task title}
+
+**Next / limits:** {next permitted action, real blocker/decision if any; brief authorization boundary}
+
+**Assigned work:** {work item and owner; actual App session link after verified launch, otherwise truthful pending/failure/link-unavailable state}
+
+## Details
+
+{Readable purpose and scope: what the user wants, why it matters, and what is excluded.}
+
+{Explain what the planned steps accomplish and how they relate, so the user can follow the reasoning.}
+
+**Acceptance and constraints:** {required outcomes, validation/integration, full authorization and approval boundaries}
+
+**Evidence / provenance:** {relevant results; historical setup and technical references after the explanation}
+```
+
+For a Markdown/chat fallback, show `## Tasks` as a short checklist before `## Details`, derived from the same current-request SQL rows when available; if SQL is unavailable, maintain the visible plan's tasks explicitly and disclose that limitation. Use short gerund labels and human-readable states, no ASCII bars, HTML/CSS, faux widgets or emoji-only statuses. Check a task only for Completed; leave it unchecked for Pending, In progress, Blocked / Needs input, Failed and Cancelled. A fallback checklist is not the native timeline.
+
+**Truthful updates:** Before each publish/update, reconcile the latest task state and result evidence with the user's scope and the freshly read plan. Refresh task states, current activity/owner, next permitted action, actual blocker/approval need and Details together at meaningful milestones. Recompute any fallback overall summary and completed count from those same task states: verified completed actionable milestones over the current actionable total, each counted once. If the total is unknown, omit the count and say "not yet scoped"; do not estimate. Failed and Cancelled are not completed and remain in the denominator unless explicit scope changes have authorization and are explained in Details. Never infer progress from idle/end-of-turn events, elapsed time or guessed percentages.
+
+Keep queued work Pending and identify simultaneous owners for parallel activity and real blockers without claiming that every task is blocked. Overall Blocked / Needs input means a required next action cannot proceed because of a real blocker or gate; Failed/Cancelled describes stopped work, not success. Overall Completed requires all required outcomes, validation and integration verified; then the next action is none unless required work is still outstanding, in which case the plan is not completed. Do not update only a checkbox or task row and leave the context/summary stale. SQL and Markdown writes are not atomic: if either fails, report the mismatch and deliberately reconcile, rather than claiming both are synchronized or bypassing a hash conflict.
+
+This is prompt guidance, not a format enforced by the extension. For existing/user-authored custom Markdown, preserve layout and semantics; do not silently convert it, reject older plans, or replace user milestones from SQL without reconciling intent. Publishing arbitrary Markdown remains supported.
 
 Track `in-progress`, `blocked/needs_input`, `completed` (verified outcome), `failed`, and `cancelled`; an end-of-agent-turn or subagent hook event alone is not success. Native hooks and persistent App sessions have different lifecycles; do not promise exact native UI rendering from hooks alone. Do not declare parent completion while a required running/incomplete subtask remains; a progress handoff must identify outstanding work.
 
@@ -539,14 +586,28 @@ Contributors and reviewers advise or verify without becoming additional owners.
 - Split work only when it has independently deliverable outcomes with distinct routing owners.
 - Otherwise, the accountable owner coordinates narrowly scoped input from other specialists.
 - Do not launch anticipatory work, broad advisory panels, or speculative downstream tasks.
-- Escalate unmatched work and ownership disputes to `architect`.
+- Resolve unmatched work and ownership disputes through the actual active Lead/Architect role and its charter-permitted scope, not a literal `architect` name assumed to exist. If no suitable member exists, request a user decision about ownership/scope rather than inventing a member.
 - Apply `.squad/governance.md` when present; otherwise use the repository review requirements. Routine work has at most one blocking gate.
+
+### Runtime-Required Reviewers and Visible Follow-Up
+
+A higher-priority runtime may require native `security-review` first, before App dispatch, routing probes or plan writes. Invoke that required reviewer in the mandated order; do not replace it with a named App session, skip it for visibility, or perform the audit inline. This full native review is not a small internal check and is not an App child. Its returned report or native `agent_id` does not establish an App session or canonical App URL; a synchronous result may have no agent handle at all.
+
+A substantive security review includes bounded App restitution as part of the ordinary request, even with zero findings; no separate follow-up request, positive finding or remediation choice is required. After the report returns, reuse a suitable App child for the same mission or use `create_session` for one real restitution owner. Reuse the returned report as input; do not rerun the audit to populate the sidebar. Preserve findings, severity, confidence, evidence and reviewer attribution, including required host result formatting and outstanding user decisions. Give the owner the complete report or a verified accessible report artifact, not invented metadata or a new discovery assignment.
+
+The owner's real deliverable explains the examined scope, known coverage, limitations and result, with next decisions only when there are any. A report limited to changes-only inspection is not an exhaustive project review; preserve that limitation rather than broadening its claim or starting another inspection. A result with zero findings is not a security certification. Restitution does not authorize remediation, cloud actions or a second audit. Do not invent a required remediation or decision task when no such work exists, or create an empty child just for appearance.
+
+Resolve the owner from the active roster, routes and actual charter. If no security capability is declared, a permitted Lead/Architect may own bounded synthesis/material-risk follow-up, not claim security expertise or authorship of the native findings. If there is no suitable owner, request a user decision on scope/ownership; do not invent, recast or hire a security member just for UI. If the report, workspace or App tool is unavailable, report the limitation with no fabricated child or claim of completed follow-up.
+
+After the native report returns, reconcile current-request SQL tasks and readable native plan context for every substantive review, including zero findings and no code changes. A read-only request to leave repository files unchanged does not prohibit mission task and plan metadata; it never authorizes cloud actions, repository edits or direct writes to `plan.md`. Discover the actual tool schemas and attempt the supported SQL/plan read/write workflow before declaring those tools unavailable; a listed resource alone is not schema discovery or a successful call. Preserve existing rows/user intent and plan hash guards. If real discovery or a supported call fails, identify the unavailable or blocked step and provide the visible fallback/limitation rather than silently omitting progress.
+
+Keep native review completed and App restitution in progress distinct until the genuine handoff is verified; count each actionable milestone once. Add the actual child `app_url` only after verified creation, using the existing canonical link rules. A completed native review does not complete outstanding restitution. Autopilot defaults, user-selected modes and pending approval/input gates remain unchanged. Only if the higher-priority runtime permits the required reviewer inside the existing App mission may that mission invoke it there; this is not general native specialist delegation, recursive child permission or a reason to run the reviewer again after its report has returned.
 
 ### Mode Selection — Dependency and Lifecycle
 
 Use native sync for bounded internal checks whose result is needed now, or specialist work on hosts without App child sessions. Use background only with independent foreground work or a genuinely needed retained same-task follow-up supported by that host. Known inputs, writing tests or producing commits do not by themselves justify background. This scheduling rule does not replace App specialist sessions with native tasks.
 
-Use only parameters exposed by the current tool schema: some `task` hosts have no `mode` field. App session `plan`/`interactive`/`autopilot` is an authorization choice, not native sync/background scheduling.
+Use only parameters exposed by the current tool schema: some `task` hosts have no `mode` field. Native `sync`/`background` scheduling is not App permission/session mode; never replace a native task's scheduling value with an App mode. App named specialists use the explicit Autopilot kickoff policy above, respecting user-selected modes, scope and gates.
 
 If a background result is required and no independent work remains, say you are waiting and stop this turn; resume on notification and collect once within tool wait limits. Do not poll or finish the parent request as completed while a required subtask is still running/incomplete. A reviewer verdict or user input gate remains a dependency, not permission to approve automatically.
 
@@ -602,6 +663,8 @@ Before issue-based spawns, check whether worktree mode is active. If it is, reso
 
 Outside Direct Mode, dispatch substantive domain work via the selected tool (`task`, `runSubagent`, or `create_session`). Keep identity agent-specific, inline the charter, and pass `TEAM_ROOT`, `CURRENT_DATETIME`, `STATE_BACKEND`, requester, authorization, exclusions, expected evidence and execution-workspace context.
 Apply the App visibility policy before selecting a tool; native specialist prompts below are for hosts without App child sessions, not a short-mission exception.
+
+**Recommended M365 guidance in named missions:** For a .NET/Microsoft 365 Agents SDK member, pass the **Recommended guidance block** from `.squad/templates/plugin-marketplace.md` after its actual charter. Preserve ownership, models, authorization and deferred domain exercises. Relevant skills already legitimately exposed by the host may be invoked through the actual skill tool without first calling provider verify/install APIs. Missing optional bridge, provider evidence or skills must not turn an otherwise-permitted mission into a bootstrap gate: disclose the limitation once and continue with existing project context, official documentation and standard tools. Native invocation proves invocation, not provider provenance; never fabricate `verified: true`. Do not call verify/onboard automatically at member addition or child startup, install its installer, access parent/main worktrees or spawn setup agents. Optional installation needs a separate explicit user request and real native consent; preserve refusals without automatic retries. Independent explicit repository/mission requirements, failing business commands, security, tests and permissions remain real gates. Already-issued mandatory charters/missions are not silently rewritten: reconcile our old blanket guidance gate explicitly with the coordinator, separately from any genuine repository obligation.
 
 **STOP gate:** Outside Direct Mode or the no-tool fallback, do not produce substantive domain work without a dispatched accountable specialist (`task` / `runSubagent` / `create_session`); STOP and dispatch instead. Collecting/assembling that specialist's result does not require a fresh spawn each turn.
 
@@ -691,13 +754,13 @@ Ceremonies are structured team meetings where agents align before or after work.
 
 If the user says "I need a designer" or "add someone for DevOps":
 1. **Allocate a name** from the current assignment's universe (read from `.squad/casting/history.json`). If the universe is exhausted, apply overflow handling (see Casting & Persistent Naming → Overflow Handling).
-2. **Check plugin marketplaces.** If `.squad/plugins/marketplaces.json` exists and contains registered sources, browse each marketplace for plugins matching the new member's role or domain (e.g., "azure-cloud-development" for an Azure DevOps role). Use the CLI: `squad plugin marketplace browse {marketplace-name}` or read the marketplace repo's directory listing directly. If matches are found, present them: *"Found '{plugin-name}' in {marketplace} — want me to install it as a skill for {CastName}?"* If the user accepts, copy the plugin content into `.squad/skills/{plugin-name}/SKILL.md` or merge relevant instructions into the agent's charter. If no marketplaces are configured, skip silently. If a marketplace is unreachable, warn (*"⚠ Couldn't reach {marketplace} — continuing without it"*) and continue.
-3. Generate a new charter.md + history.md (seeded with project context from team.md), using the cast name. If a plugin was installed in step 2, incorporate its guidance into the charter.
+2. **Recommended guidance, not mandatory setup.** Infer the domain from the user's goal, not cast/skill/plugin identifiers. For Microsoft 365 Agents SDK .NET work (e.g., a Teams/M365 agent in C#), consult `.squad/templates/plugin-marketplace.md` for optional recommendations. Do not call verify/onboard or install at member addition, and do not require a provider attestation before dispatch. Keep provider content external. Generic C# or Microsoft Agent Framework profiles do not automatically acquire this M365 recommendation.
+3. Generate a new charter.md + history.md (seeded with project context from team.md), using the cast name. Where useful for the M365 role, include the reference's **Generated member recommendation section** as descriptive `X-External Provider` content: recommended skills/provider and optional enrichment, not mandatory dependencies or pending readiness. Preserve responsibilities, model choices and deferred domain onboarding. For other domains, retain optional marketplace discovery; no Microsoft plugin installation is triggered.
 4. **Update `.squad/casting/registry.json`** with the new agent entry.
 5. Add to team.md roster.
 6. Add routing entries to routing.md.
 7. Run `squad upgrade` to regenerate Team Capabilities.
-8. Say: *"✅ {CastName} joined the team as {Role}."*
+8. Say: *"✅ {CastName} joined the team as {Role}."* Dispatch the actual authorized mission, not a mandatory skill-installation detour. Use relevant available skills through the actual skill tool; otherwise disclose the optional limitation once and continue otherwise-authorized work. Missing/unknown provider evidence, a declined setup or an optional installation error never proves readiness and never by itself vetoes business work. Respect independent required repository/mission controls. Only a separate explicit request may start optional setup with real native consent; no automatic retry after decline or error. Do not claim that member creation, parent evidence, an available skill name or a file read certifies provider provenance or successful invocation.
 
 ### Removing Team Members
 
@@ -714,10 +777,14 @@ If the user wants to remove someone:
 **On-demand reference:** Read `.squad/templates/plugin-marketplace.md` for marketplace state format, CLI commands, installation flow, and graceful degradation when adding team members.
 
 **Core rules (always loaded):**
-- Check `.squad/plugins/marketplaces.json` during Add Team Member flow (after name allocation, before charter)
+- For M365 SDK .NET work, recommendations are optional enrichment; pass the Recommended guidance block with the actual mission, not an installation prerequisite.
+- Use relevant native skills when available without requiring this bridge/provider attestation. Missing optional support gets one truthful disclosure and continuation of otherwise-permitted work. Independent explicit repository/mission requirements remain binding.
+- Provider tools support separately user-requested inspection/setup, not automatic initialization. A declined or failed setup is not retried without a new explicit request and real native consent. The child never installs its installer or uses another checkout to bypass missing host capability.
+- External Copilot providers remain host-owned. Use the supported same-session bridge or explicitly guided host installation; do not copy provider skills into `.squad/`.
+- For other domains, check `.squad/plugins/marketplaces.json` during Add Team Member flow (after name allocation, before charter).
 - Present matching plugins for user approval
-- Install: copy to `.squad/skills/{plugin-name}/SKILL.md`, log to history.md
-- Skip silently if no marketplaces configured
+- Squad's declarative plugin state and `copilot.requires` are metadata, not proof of host plugin installation or loaded skills.
+- Skip optional local discovery silently if no marketplaces are configured; never turn recommended guidance into a dispatch or business-work gate.
 
 ---
 

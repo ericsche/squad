@@ -10,6 +10,11 @@ const recover = 'Check that the host supports extensions and session.rpc.plan.re
   'session workspace enabled, then reload the extension and read again. ' + fallback;
 const reconcile = 'Read the latest plan and deliberately reconcile with the user before another ' +
   'update using that read hash. Do not automatically retry or overwrite.';
+const publication = 'For the current requested substantive mission or an explicit planning request, ' +
+  'deliberately publish readable context; no separate plan request is needed. ' +
+  'Do not publish unsolicited or unrelated plans. Respect an explicit refusal of plan metadata ' +
+  'and existing approval/input gates. Read-only repository scope does not forbid mission metadata ' +
+  'or authorize execution.';
 
 function snapshot(value) {
   if (!value || typeof value.exists !== 'boolean' ||
@@ -101,7 +106,7 @@ export function createSessionPlanTools(getSession) {
         return await result('unavailable', { message: 'Host plan.read returned no enabled workspace path.', action: recover });
       }
       if (operation === 'read') {
-        return await result(current.exists ? 'existing' : 'fresh', { ...current, action: current.exists ? reconcile : 'Publish only on explicit request.' });
+        return await result(current.exists ? 'existing' : 'fresh', { ...current, action: current.exists ? reconcile : publication });
       }
       if (operation === 'publish' && current.exists) {
         return await result('conflict', { ...current, message: 'A plan already exists, including an empty plan; publish refused.', action: reconcile });
@@ -143,7 +148,7 @@ export function createSessionPlanTools(getSession) {
     }
   }
 
-  const content = { type: 'string', minLength: 1, description: 'Deliberate complete Markdown plan, not a TODO/SQL synchronization.' };
+  const content = { type: 'string', minLength: 1, description: 'Deliberate complete Markdown context for the current requested substantive mission or explicit planning request, not a TODO/SQL synchronization or execution approval.' };
   return [
     {
       name: 'squad_session_plan_read',
@@ -154,7 +159,8 @@ export function createSessionPlanTools(getSession) {
     {
       name: 'squad_session_plan_publish',
       description: 'Explicit foreground-coordinator publication of a new native current-session plan. ' +
-        'Refuses ANY existing plan; no background publication, mode change, or approval. Re-reads to verify. ' + freshness,
+        'Refuses ANY existing plan; no background publication, mode change, or approval. Re-reads to verify. ' +
+        publication + ' ' + freshness,
       parameters: { type: 'object', properties: { content }, required: ['content'], additionalProperties: false },
       handler: (args, invocation) => serialize(() => run('publish', args, invocation)),
     },

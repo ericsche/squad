@@ -298,8 +298,8 @@ function fileDigest(root, path) {
 }
 
 function splitWorkflow(content, path) {
-  const lines = content.split('\n');
-  if (lines[0] !== '---') return { frontmatter: '', body: content };
+  const lines = content.split(/\r?\n/);
+  if (lines[0] !== '---') return { frontmatter: '', body: lines.join('\n') };
   const end = lines.indexOf('---', 1);
   if (end < 0) throw new Error(`Workflow source has unterminated frontmatter: ${path}`);
   return {
@@ -357,15 +357,21 @@ function packageWorkflowSource(_root, name) {
   return `workflows/package/${name}.md`;
 }
 
-function workflowWithSource(content, name, revision, packageSource) {
-  const marker = '\n---\n';
-  const end = content.indexOf(marker, 4);
-  if (!content.startsWith('---\n') || end < 0) {
+function workflowFrontmatter(content, name) {
+  const opening = /^---(\r?\n)/.exec(content);
+  const closing = /\r?\n---(?:\r?\n|$)/g;
+  closing.lastIndex = opening?.[0].length ?? 0;
+  const end = opening && closing.exec(content);
+  if (!opening || !end) {
     throw new Error(`Generated package workflow has invalid frontmatter: ${name}`);
   }
+  return { end: end.index, eol: opening[1] };
+}
+
+export function workflowWithSource(content, name, revision, packageSource) {
+  const { end, eol } = workflowFrontmatter(content, name);
   const source = packageSource ? PACKAGE_NAME : `${PACKAGE_NAME}/package/${name}.md`;
-  return `${content.slice(0, end)}
-source: ${source}@${revision}${content.slice(end)}`;
+  return `${content.slice(0, end)}${eol}source: ${source}@${revision}${content.slice(end)}`;
 }
 
 export function normalizeCompiledLock(content, revision) {
@@ -939,7 +945,8 @@ function strictCompileMatches(root) {
 
 function spawnChecked(command, args, cwd, options = {}) {
   const safeEnvironment = Object.fromEntries(
-    ['CI', 'GH_CONFIG_DIR', 'GH_HOST', 'HOME', 'LANG', 'LC_ALL', 'NO_COLOR', 'PATH', 'SHELL', 'TERM', 'TMPDIR']
+    ['CI', 'GH_CONFIG_DIR', 'GH_HOST', 'HOME', 'LANG', 'LC_ALL', 'NO_COLOR', 'PATH', 'SHELL', 'TERM', 'TMPDIR',
+      'APPDATA', 'LOCALAPPDATA', 'PATHEXT', 'SYSTEMROOT', 'USERPROFILE', 'WINDIR']
       .filter((key) => process.env[key] !== undefined)
       .map((key) => [key, process.env[key]]),
   );
@@ -975,6 +982,39 @@ export function verifyInstall(root, { expectedRevision = '', strictCompile = fal
   return { failures, revision };
 }
 
+export function verifyStagedObjects(root, blobs) {
+  for (const { object, size, digest } of blobs) {
+    if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(object)
+      || !Number.isSafeInteger(size) || size < 0 || !SHA256_PATTERN.test(digest)) {
+      throw new Error('Invalid verified staged object request.');
+    }
+  }
+  const maxBuffer = blobs.reduce((total, blob) => total + blob.size + 128, 0);
+  if (!Number.isSafeInteger(maxBuffer) || maxBuffer <= 0) throw new Error('Invalid staged object batch bound.');
+  const batch = spawnChecked('git', ['cat-file', '--batch'], root, {
+    encoding: null,
+    input: blobs.map(blob => blob.object).join('\n') + '\n',
+    maxBuffer,
+  }).stdout;
+  let offset = 0;
+  for (const { path, digest, size, object } of blobs) {
+    const headerEnd = batch.indexOf(10, offset);
+    const header = batch.subarray(offset, headerEnd);
+    if (headerEnd < 0 || !header.equals(Buffer.from(`${object} blob ${size}`, 'ascii'))) {
+      throw new Error(`Staged digest mismatch for ${path}; object metadata differs from the verified file.`);
+    }
+    offset = headerEnd + 1;
+    const bytes = batch.subarray(offset, offset + size);
+    if (sha256(bytes) !== digest) {
+      throw new Error(`Staged digest mismatch for ${path}; stage the verified file before commit/push.`);
+    }
+    offset += size;
+    if (batch[offset] !== 10) throw new Error(`Staged object framing mismatch for ${path}.`);
+    offset += 1;
+  }
+  if (offset !== batch.length) throw new Error('Unexpected extra staged object data.');
+}
+
 export function verifyStagedInstall(root, { expectedRevision = '', stageOwnership = false } = {}) {
   const result = verifyInstall(root, { expectedRevision });
   if (result.failures.length > 0) return result;
@@ -993,7 +1033,10 @@ export function verifyStagedInstall(root, { expectedRevision = '', stageOwnershi
       ...contract.skills.map(entry => entry.destination),
     ]);
     if (existsSync(safePath(root, REPO_CONFIG_PATH))) required.add(REPO_CONFIG_PATH);
-    const expected = new Map([...required].map(path => [path, fileDigest(root, path)]));
+    const expected = new Map([...required].map(path => {
+      const bytes = readRequired(root, path);
+      return [path, { digest: sha256(bytes), size: bytes.length }];
+    }));
     if (stageOwnership) {
       const ignored = spawnChecked('git', [
         'ls-files', '--others', '--ignored', '--exclude-standard', '-z', '--', OWNERSHIP_DESTINATION,
@@ -1015,18 +1058,17 @@ export function verifyStagedInstall(root, { expectedRevision = '', stageOwnershi
       const tab = entry.indexOf('\t');
       return [entry.slice(tab + 1), entry.slice(0, tab).split(' ')];
     }));
-    for (const [path, digest] of expected) {
+    const blobs = [];
+    for (const [path, { digest, size }] of expected) {
       const entry = staged.get(path);
       if (!entry) throw new Error(`Required file is missing from staged tree: ${path}`);
       const [mode, type, object] = entry;
       if (type !== 'blob' || !['100644', '100755'].includes(mode)) {
         throw new Error(`Required staged path is not a regular file: ${path}`);
       }
-      const bytes = spawnChecked('git', ['cat-file', 'blob', object], root, { encoding: null }).stdout;
-      if (sha256(bytes) !== digest) {
-        throw new Error(`Staged digest mismatch for ${path}; stage the verified file before commit/push.`);
-      }
+      blobs.push({ path, digest, size, object });
     }
+    verifyStagedObjects(root, blobs);
     if (staged.has(UNOWNED_MUTABLE_ROUTER_SKILL)) {
       throw new Error(
         `Unowned mutable gh-aw router skill remains in staged tree: ${UNOWNED_MUTABLE_ROUTER_SKILL}`,
@@ -1090,15 +1132,12 @@ export function writeLocalTestOwnership(root, revision) {
   for (const entry of contract.workflows) {
     const path = safePath(root, entry.destination);
     const content = readRequired(root, entry.destination).toString('utf8');
-    const end = content.indexOf('\n---\n', 4);
-    if (!content.startsWith('---\n') || end < 0) {
-      throw new Error(`Installed workflow has invalid frontmatter: ${entry.destination}`);
-    }
+    const { end, eol } = workflowFrontmatter(content, entry.destination);
     const frontmatter = content.slice(0, end);
     const source = `source: ${PACKAGE_NAME}@${revision}`;
     const rebound = /^source:\s*.+$/m.test(frontmatter)
-      ? `${frontmatter.replace(/^source:\s*.+$/m, source)}${content.slice(end)}`
-      : `${frontmatter}\n${source}${content.slice(end)}`;
+      ? `${frontmatter.replace(/^source:[^\r\n]*$/m, source)}${content.slice(end)}`
+      : `${frontmatter}${eol}${source}${content.slice(end)}`;
     writeFileSync(path, rebound);
   }
   const files = expectedOwnership(contract).map((entry) => ({

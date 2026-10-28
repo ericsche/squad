@@ -10,7 +10,7 @@ See `docs/scenarios/client-compatibility.md` for the compatibility matrix.
 
 - **Direct Mode:** Trivial questions/readily available evidence, including a small read/status command — no agent.
 - **App `create_session`:** All named specialist missions from a project session use project/worktree children in the parent's project, including bounded edits and substantive read-only work.
-- **Native `task`:** Small bounded internal checks in the App; specialist missions on CLI or the disclosed capability fallback.
+- **Native `task`:** Small bounded internal checks in the App, or a specific higher-priority runtime-required reviewer; specialist missions on CLI or the disclosed capability fallback.
 - **VS Code `runSubagent` / `agent`:** Specialist prompt when App child sessions and native `task` are unavailable; results return directly.
 - **Fallback:** Only when no spawn tool is available, work inline within authorization.
 
@@ -20,10 +20,27 @@ for supported fields instead of sending CLI-only parameters to App-hosted tools.
 
 In the Copilot App, ALL named Squad specialist missions MUST use visible coordinated
 child sessions via `create_session`, including short/read-only missions.
-Native `task` is ONLY for small bounded internal checks in the App; a named specialist
+Native `task` is ONLY for small bounded internal checks in the App unless a
+higher-priority instruction mandates a specific runtime-required reviewer; a named specialist
 mission is not an internal check merely because it is short or read-only.
 Internal checks run a known test selector or compare one explicit output against
 an existing requirement, without assuming a specialist-owned deliverable.
+
+A runtime-required reviewer such as native `security-review` takes precedence
+when the host requires it first. It is a full review, not an internal check or
+an App child. Bounded App restitution is part of every substantive security
+review, even with zero findings or a read-only request; no separate follow-up
+request is needed. Once its report returns, use a real suitable App owner to
+explain examined scope, coverage, limitations and result from that report,
+without repeating the audit. Reconcile SQL tasks and readable plan after the
+report using actual schema discovery/calls, not an assumption that unchanged
+repository files forbids mission metadata. Zero findings is not a security
+certification or a reason to invent remediation work.
+Keep native evidence/identity distinct from the App owner
+and verified canonical link; no invented security expertise, session or URL.
+Missing report access, suitable ownership or App capabilities is a disclosed
+limitation. See the coordinator's Runtime-Required Reviewers and Visible
+Follow-Up protocol; this exception never permits general recursive delegation.
 
 The native session tree depends on actual App child sessions, not task labels or
 hooks. Do not claim to migrate native task histories into it; do not create fake
@@ -48,10 +65,18 @@ provided by the fallback host.
 Pass explicit `inspect/read-only`, `propose/plan`, or `authorized execution`
 scope, permitted actions/files, exclusions and expected evidence.
 "Inspect and propose" must not launch implementation in autopilot.
-App `plan` requires user review before execution, `interactive` is guided
-collaboration, and `autopilot` permits authorized bounded execution by default
-when permitted without adding new approval friction.
-Omitting `kickoff.mode` with a prompt defaults to plan; resolve it deliberately.
+Launch named App specialists with `kickoff.mode: "autopilot"` explicitly for
+autonomous work within the authorized scope.
+The user may manually select a different mode through the host; preserve that
+choice, including `plan` and its required review before execution.
+Autopilot does not expand scope or permissions, answer unresolved questions,
+or approve cloud, deployment or provider actions. Do not bypass pending plan/input
+gates to apply this default. Omitting `kickoff.mode` with a prompt defaults to
+plan, so choose deliberately.
+For `send_session_message` follow-ups, omit `mode` to preserve the current
+user-selected mode. Never change session mode automatically in a follow-up;
+only an explicit user decision authorizes it, not parent mode or task duration.
+A pending plan/input gate is not resolved by selecting Autopilot.
 Never auto-approve or bypass existing user plan/input gates: inspect them with
 `get_session`, preserve exact `request_id`, and route required decisions to the user.
 Writing the visible plan does not approve execution or change modes.
@@ -60,7 +85,8 @@ Native sync is appropriate for bounded internal checks whose result is needed no
 or specialist work on fallback hosts without App children.
 Use background only with independent foreground work or genuinely needed retained
 same-task follow-up supported by the host. App mode is authorization, not native
-sync/background scheduling. Some `task` schemas have no mode field.
+sync/background scheduling. Some `task` schemas have no mode field; never pass
+an App mode as a native task's scheduling value.
 
 #### Handles, results and reuse
 
@@ -68,7 +94,7 @@ sync/background scheduling. Some `task` schemas have no mode field.
 |-----------|----------|------------------|---------------------|
 | Native synchronous | `task` | Direct tool response | Fresh invocation of the same persona if needed; not automatically retained |
 | Native retained/background (if supported) | `task` with schema-supported scheduling | Notification, then `read_agent` with native `agent_id` | `write_agent` only if that lifecycle supports it |
-| App persistent child | `create_session` with authorized mode | Notifications / `send_session_message` handoff; `get_session` for status, workspace or gates | `send_session_message` with App session ID and assignment context |
+| App persistent child | `create_session` with explicit Autopilot kickoff, respecting scope and user-selected modes/gates | Notifications / `send_session_message` handoff; `get_session` for status, workspace or gates | `send_session_message` with App session ID and assignment context; omit mode to preserve the user's choice |
 | VS Code | `runSubagent` / `agent` | Returned result; no `read_agent` | New invocation with bounded same-task context |
 
 App child reports use the kickoff `assignment_id` and `purpose: handoff`,

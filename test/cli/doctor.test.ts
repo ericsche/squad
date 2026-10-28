@@ -16,6 +16,21 @@ import { runDoctor, getDoctorMode, checkNodeVersion, checkGitSyncHooks } from '@
 import type { DoctorCheck } from '@bradygaster/squad-cli/commands/doctor';
 import { FSStorageProvider, OrphanBranchBackend } from '@bradygaster/squad-sdk';
 
+const copilotProbe = vi.hoisted(() => ({ error: null as Error | null }));
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return {
+    ...actual,
+    execFile: vi.fn((command: string, args: string[], _options: unknown, callback: (error: Error | null) => void) => {
+      if (command !== 'copilot' || JSON.stringify(args) !== '["--version"]') {
+        throw new Error(`Unexpected async doctor probe: ${command}`);
+      }
+      queueMicrotask(() => callback(copilotProbe.error));
+      return {};
+    }),
+  };
+});
+
 const TEST_ROOT = join(process.cwd(), `.test-doctor-${randomBytes(4).toString('hex')}`);
 
 async function scaffold(root: string): Promise<void> {
@@ -46,6 +61,7 @@ async function scaffold(root: string): Promise<void> {
 
 describe('squad doctor', () => {
   beforeEach(async () => {
+    copilotProbe.error = null;
     if (existsSync(TEST_ROOT)) {
       await rm(TEST_ROOT, { recursive: true, force: true });
     }
@@ -82,6 +98,14 @@ describe('squad doctor', () => {
     expect(squadDirCheck?.status).toBe('fail');
     // When .squad/ is missing the file checks are skipped — .squad/ + squad.agent.md + Node version + 2 ESM checks + Copilot CLI
     expect(checks.length).toBe(6);
+  });
+
+  it('reports a failed Copilot probe honestly without replacing Git or filesystem checks', async () => {
+    await scaffold(TEST_ROOT);
+    copilotProbe.error = new Error('fixture command unavailable');
+    const checks = await runDoctor(TEST_ROOT);
+    expect(checks.find(check => check.name === 'Copilot CLI available')).toMatchObject({ status: 'warn' });
+    expect(checks.find(check => check.name === '.squad/ directory exists')).toMatchObject({ status: 'pass' });
   });
 
   it('fails closed when registry and history generations do not match', async () => {

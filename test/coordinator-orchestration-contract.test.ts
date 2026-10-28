@@ -58,12 +58,62 @@ function assertAuthorization(content: string): void {
   expect(content).toMatch(/propose\/plan/);
   expect(content).toMatch(/authorized execution/);
   expect(content).toMatch(/inspect and propose[^.\n]*must not[^.\n]*autopilot/i);
-  expect(content).toMatch(/autopilot[^.\n]*authorized bounded execution/i);
+  expect(content).toMatch(/kickoff\.mode[^.\n]*autopilot[^.\n]*explicit/i);
   expect(content).toContain('request_id');
   expect(content).toMatch(/(do not|never)[^.\n]*auto[- ]approve/i);
-  // Reject a literal unconditional value, not the authorized three-mode list.
-  expect(content).not.toMatch(/(?:kickoff\.mode[`*:\s]*|^\s*mode:\s*)"autopilot"/m);
+  expect(content.replace(/\s+/g, ' ')).toMatch(/Autopilot[^.]*not[^.]*expand[^.]*scope[^.]*permissions/i);
 }
+
+function assertAutopilotSpecialists(content: string): void {
+  const text = content.replace(/\s+/g, ' ');
+  expect(text, 'named App specialists need an explicit autopilot kickoff')
+    .toMatch(/kickoff\.mode[^.]*autopilot[^.]*explicit/i);
+  expect(text).toMatch(/user[^.]*manually[^.]*different mode/i);
+  expect(text).toMatch(/Autopilot[^.]*not[^.]*expand[^.]*scope[^.]*permissions/i);
+  expect(text).toMatch(/(?:Do not|Never)[^.]*pending[^.]*plan[^.]*gate/i);
+}
+
+function assertAutopilotKickoff(content: string): void {
+  const example = content.match(/create_session\(\{([\s\S]*?)\n\}\)/)?.[1];
+  expect(example).toBeDefined();
+  expect(example, 'App kickoff must explicitly select autopilot').toContain('mode: "autopilot"');
+  expect(example).not.toMatch(/mode:.*(?:interactive|background|sync)/);
+}
+
+describe('autopilot App specialist mode: instruction contracts, not live host state', () => {
+  it.each(['coordinator', 'spawn', 'client'] as const)('%s launches named specialists autonomously without expanding authorization', key => {
+    assertAutopilotSpecialists(sources[key]);
+  });
+
+  it('sets autopilot in the actual App kickoff example and preserves native scheduling', () => {
+    assertAutopilotKickoff(sources.spawn);
+    expect(sources.spawn).toMatch(/Native[^.\n]*sync[^.\n]*background[^.\n]*scheduling[^.\n]*not[^.\n]*App/i);
+    expect(sources.response.replace(/\s+/g, ' ')).toMatch(/kickoff\.mode[^.]*autopilot/);
+    const docs = read('docs/src/content/docs/scenarios/client-compatibility.md').replace(/\s+/g, ' ');
+    expect(docs).toMatch(/kickoff\.mode[^.]*autopilot[^.]*default/i);
+    expect(docs).toMatch(/follow-ups[^.]*omit[^.]*mode[^.]*preserve/i);
+  });
+
+  it('keeps follow-ups from overriding user choice or bypassing pending gates', () => {
+    const text = sources.after.replace(/\s+/g, ' ');
+    expect(text).toMatch(/send_session_message[^.]*omit[^.]*mode[^.]*preserve/i);
+    expect(text).toMatch(/(?:Never|Do not)[^.]*change[^.]*mode[^.]*follow-up/i);
+    expect(text).toMatch(/pending[^.]*plan[^.]*gate[^.]*Autopilot/i);
+    expect(text).toContain('request_id');
+  });
+
+  it('rejects restored interactive defaults and missing scope or pending-gate safeguards', () => {
+    const fixture = 'Set kickoff.mode to autopilot explicitly. The user may manually select a different mode. Autopilot does not expand scope or permissions. Never bypass pending plan or input gates.';
+    assertAutopilotSpecialists(fixture);
+    expect(() => assertAutopilotSpecialists(fixture.replace('autopilot explicitly', 'interactive explicitly'))).toThrow();
+    expect(() => assertAutopilotSpecialists(fixture.replace('Autopilot does not expand scope or permissions.', ''))).toThrow();
+    expect(() => assertAutopilotSpecialists(fixture.replace('Never bypass pending plan or input gates.', ''))).toThrow();
+    assertAutopilotKickoff(sources.spawn);
+    const interactiveExample = sources.spawn.replace(/^    mode: "autopilot"/m, '    mode: "interactive"');
+    expect(interactiveExample).not.toBe(sources.spawn);
+    expect(() => assertAutopilotKickoff(interactiveExample)).toThrow(/kickoff/);
+  });
+});
 
 function assertNativeLifecycle(content: string): void {
   content = content.replace(/\s+/g, ' ');
@@ -72,6 +122,104 @@ function assertNativeLifecycle(content: string): void {
   expect(content).toMatch(/compatible lifecycle/i);
   expect(content).toMatch(/(not|never|no)[^.\n]*(unrelated|worker pool)/i);
 }
+
+describe('runtime-required review composition: instruction contracts, not security findings or host execution', () => {
+  function reviewProtocol(): string {
+    return section(sources.coordinator, '### Runtime-Required Reviewers and Visible Follow-Up').replace(/\s+/g, ' ');
+  }
+
+  function assertReviewComposition(text: string): void {
+    expect(text, 'the required native reviewer must precede App dispatch')
+      .toMatch(/higher-priority[^.]*security-review[^.]*first[^.]*before[^.]*App/i);
+    expect(text, 'a mandatory full review is neither an internal check nor an App session')
+      .toMatch(/not a small internal check[^.]*not an App child/i);
+    expect(text, 'visible follow-up reuses the result instead of a second audit')
+      .toMatch(/Reuse the returned report[^.]*do not rerun[^.]*audit/i);
+    expect(text, 'native result identity cannot create a fictitious App session')
+      .toMatch(/native[^.]*agent_id[^.]*does not establish[^.]*App session/i);
+  }
+
+  function assertImplicitRestitution(text: string): void {
+    expect(text).toContain('A substantive security review includes bounded App restitution');
+    expect(text).toMatch(/even with zero findings[^.]*no separate follow-up request/i);
+    expect(text, 'restitution must not depend on another request or positive findings')
+      .not.toMatch(/when restitution or follow-up is within the user's request or explicitly approved|only if findings exist|only when follow-up is requested/i);
+  }
+
+  it('includes real App restitution for an ordinary read-only security review with zero findings', () => {
+    const text = reviewProtocol();
+    assertImplicitRestitution(text);
+    expect(text).toMatch(/examined scope[^.]*coverage[^.]*limitations[^.]*result/i);
+    expect(text).toMatch(/zero findings[^.]*not[^.]*security certification/i);
+    expect(text).toMatch(/does not authorize[^.]*remediation[^.]*cloud[^.]*second audit/i);
+    for (const key of ['spawn', 'client', 'response', 'after'] as const) {
+      expect(sources[key].replace(/\s+/g, ' '), `${key}: zero-finding escape remains`)
+        .toMatch(/restitution[^.]*even with zero findings/i);
+    }
+  });
+
+  it('reconciles tasks and readable plan after the native result despite no code changes or findings', () => {
+    const text = reviewProtocol();
+    expect(text).toMatch(/After the native report returns[^.]*SQL[^.]*plan[^.]*zero findings/i);
+    expect(text).toMatch(/read-only[^.]*repository files[^.]*not[^.]*task[^.]*plan metadata/i);
+    expect(text).toMatch(/discover[^.]*schemas[^.]*before[^.]*unavailable/i);
+    expect(text).toMatch(/native review completed[^.]*restitution in progress[^.]*handoff/i);
+    expect(text).toMatch(/Do not invent[^.]*remediation[^.]*decision task/i);
+    expect(text).toMatch(/changes-only[^.]*not[^.]*exhaustive project review/i);
+  });
+
+  it('rejects restoring the separate-follow-up condition or a positive-finding prerequisite', () => {
+    const text = reviewProtocol();
+    assertImplicitRestitution(text);
+    for (const clause of [
+      "After the report returns, when restitution or follow-up is within the user's request or explicitly approved, create the App owner.",
+      'Create the App owner only if findings exist.',
+    ]) {
+      expect(() => assertImplicitRestitution(`${text} ${clause}`)).toThrow(/restitution must not depend/);
+    }
+  });
+
+  it('honors native-first review while defining a genuine, authorized App follow-up without repeating the audit', () => {
+    const text = reviewProtocol();
+    assertReviewComposition(text);
+    expect(text).toMatch(/After the report returns[^.]*create_session/i);
+    expect(text).toMatch(/findings[^.]*severity[^.]*confidence[^.]*evidence[^.]*attribution/i);
+    expect(text).toMatch(/actual[^.]*app_url[^.]*verified creation/i);
+    expect(text).toMatch(/unavailable[^.]*report the limitation[^.]*no fabricated/i);
+  });
+
+  it('resolves a synthesis owner by active role and charter rather than inventing a security expert or architect name', () => {
+    const text = section(sources.coordinator, '### Accountable Ownership').replace(/\s+/g, ' ');
+    expect(text).toMatch(/active Lead\/Architect role[^.]*charter[^.]*scope/i);
+    expect(text).toMatch(/not[^.]*literal[^.]*architect/i);
+    const review = reviewProtocol();
+    expect(review).toMatch(/synthesis[^.]*not[^.]*security expertise/i);
+    expect(review).toMatch(/no suitable owner[^.]*user decision[^.]*do not[^.]*recast/i);
+  });
+
+  it('keeps reference surfaces consistent without granting general recursive native delegation', () => {
+    for (const key of ['spawn', 'client', 'response', 'after'] as const) {
+      expect(sources[key], `${key}: missing required-reviewer composition`).toContain('runtime-required reviewer');
+    }
+    for (const key of ['coordinator', 'spawn'] as const) {
+      expect(sources[key].replace(/\s+/g, ' ')).toMatch(/only if the higher-priority runtime permits[^.]*inside the existing App mission[^.]*not[^.]*general[^.]*delegation/i);
+    }
+  });
+
+  it('rejects native-ID phantom sessions, audit duplication and violation of native-first ordering', () => {
+    const text = reviewProtocol();
+    assertReviewComposition(text);
+    for (const [from, to] of [
+      ['before App', 'after App'],
+      ['do not rerun the audit', 'rerun the audit to populate the sidebar'],
+      ['does not establish an App session', 'establishes an App session'],
+    ]) {
+      const mutant = text.replace(from, to);
+      expect(mutant).not.toBe(text);
+      expect(() => assertReviewComposition(mutant)).toThrow();
+    }
+  });
+});
 
 function assertScribeScope(content: string): void {
   expect(content).toMatch(/Scribe[^.\n]*only when[^.\n]*durable decisions[^.\n]*merg/i);
@@ -192,9 +340,127 @@ function assertAppIdentity(content: string, input: string): void {
   );
 }
 
+function assertPlanLayout(content: string): void {
+  content = content.replace(/\r\n/g, '\n');
+  const example = content.match(/```markdown\n([\s\S]*?)\n```/)?.[1];
+  expect(example, 'missing native-plan context example').toBeDefined();
+  expect(example!.match(/^#{1,2} .+$/gm), 'native context must not duplicate the SQL task view').toEqual([
+    '# {Short task title}', '## Details',
+  ]);
+  expect(example!, 'no duplicate task state in native context').not.toMatch(/^- \[[ x]\]|^\|/m);
+  expect(example!).toContain('**Next / limits:**');
+  expect(content).toMatch(/fallback[^.\n]*Tasks[^.\n]*checklist[^.\n]*Details/i);
+  expect(content).toMatch(/Historical setup[^.\n]*Details[^.\n]*not[^.\n]*count/i);
+  expect(content).toMatch(/SHAs[^.\n]*paths[^.\n]*Details/i);
+  expect(content).toMatch(/no ASCII bars[^.\n]*HTML\/CSS[^.\n]*faux widgets/i);
+  expect(content).toMatch(/readable[^.\n]*purpose[^.\n]*scope[^.\n]*steps[^.\n]*constraints[^.\n]*acceptance/i);
+  expect(content).toMatch(/custom Markdown[^.\n]*preserve[^.\n]*layout[^.\n]*semantics/i);
+  expect(content).toMatch(/prompt guidance[^.\n]*not[^.\n]*enforced/i);
+}
+
+function assertPlanTruth(content: string): void {
+  const text = content.replace(/\s+/g, ' ');
+  for (const label of ['Pending', 'In progress', 'Blocked / Needs input', 'Completed', 'Failed', 'Cancelled']) {
+    expect(text, `missing human-readable status ${label}`).toContain(label);
+  }
+  expect(text).toMatch(/completed count[^.]*verified[^.]*actionable[^.]*total/i);
+  expect(text).toMatch(/unknown[^.]*omit[^.]*count[^.]*not yet scoped/i);
+  expect(text).toMatch(/Failed and Cancelled[^.]*not completed[^.]*denominator/i);
+  expect(text).toMatch(/scope changes[^.]*authorization[^.]*Details/i);
+  expect(text).toMatch(/Never infer progress[^.]*idle[^.]*elapsed time[^.]*percentages/i);
+  expect(text).toMatch(/Completed[^.]*all required[^.]*validation[^.]*integration[^.]*verified/i);
+  expect(text).toMatch(/Blocked \/ Needs input[^.]*required next action[^.]*gate/i);
+  expect(text).toMatch(/Check[^.]*only[^.]*Completed[^.]*unchecked[^.]*Failed[^.]*Cancelled/i);
+}
+
+function assertPlanRefresh(content: string): void {
+  const text = content.replace(/\s+/g, ' ');
+  expect(text).toMatch(/Before each publish\/update[^.]*reconcile[^.]*evidence/i);
+  expect(text).toMatch(/Refresh[^.]*task states[^.]*owner[^.]*next[^.]*blocker[^.]*Details[^.]*together/i);
+  expect(text).toMatch(/Recompute[^.]*fallback[^.]*summary[^.]*count[^.]*same task states/i);
+  expect(text).toMatch(/Do not update only[^.]*checkbox[^.]*stale/i);
+  expect(text).toMatch(/queued[^.]*Pending[^.]*parallel[^.]*blockers/i);
+  expect(text).toMatch(/completed[^.]*next[^.]*none[^.]*required[^.]*outstanding/i);
+}
+
+function assertNativeTaskBridge(content: string): void {
+  const text = content.replace(/\s+/g, ' ');
+  expect(text).toContain('readSqlTodosWithDependencies()');
+  expect(text).toContain('session.todos_changed');
+  expect(text).toMatch(/SQL[^.]*single authoritative task-state source/i);
+  expect(text).toMatch(/existing[^.]*sql[^.]*not[^.]*recreate[^.]*tables/i);
+  expect(text).toMatch(/native[^.]*task[^.]*SQL[^.]*not[^.]*Markdown[^.]*check/i);
+  expect(text).toMatch(/short gerund titles[^.]*current request[^.]*real dependencies/i);
+  expect(text).toMatch(/pending[^.]*in_progress[^.]*done[^.]*blocked/);
+  expect(text).toMatch(/Failed[^.]*Cancelled[^.]*blocked[^.]*description[^.]*not[^.]*done/);
+  expect(text).toMatch(/preserve[^.]*unrelated[^.]*user[^.]*rows/i);
+  expect(text).toMatch(/SQL[^.]*Markdown[^.]*not atomic[^.]*fail(?:s|ure)[^.]*report/i);
+  expect(text).toMatch(/not[^.]*guarantee[^.]*screenshot/i);
+}
+
+function assertPlanSessionLinks(content: string): void {
+  const text = content.replace(/\s+/g, ' ');
+  expect(text, 'plan must source actual session URLs from the host').toMatch(
+    /app_url[^.]*host result[^.]*list_sessions_and_chats[^.]*verbatim/i,
+  );
+  expect(text, 'no prelaunch phantom session link').toMatch(
+    /Only after[^.]*creation succeeds[^.]*verify[^.]*child[^.]*project[^.]*link/i,
+  );
+  expect(text).toMatch(/each[^.]*work item[^.]*owner[^.]*own[^.]*actual[^.]*link/i);
+  expect(text).toMatch(/Pending[^.]*failed launch[^.]*native fallback[^.]*no App session[^.]*no[^.]*fabricated link/i);
+  expect(text).toMatch(/Never construct[^.]*URL[^.]*raw GUID[^.]*charter[^.]*navigation/i);
+  expect(text).toMatch(/SQL titles[^.]*concise[^.]*session_id[^.]*task-row hyperlinks/i);
+  expect(text).toMatch(/persisted Markdown[^.]*not[^.]*navigation[^.]*rendering/i);
+}
+
 describe('coordinator orchestration: canonical contracts', () => {
   it.each(['coordinator', 'spawn', 'client'] as const)('%s chooses dispatch without losing named specialist visibility', key => {
     assertDispatch(sources[key]);
+  });
+
+  describe('cold-start formation: instruction contracts, not model obedience', () => {
+    const initSkill = read('.squad-templates/skills/coordinator-init-mode/SKILL.md');
+    const initEntry = sources.coordinator.split('## Init Mode')[1]?.split('## Team Mode')[0] ?? '';
+    const routing = read('.squad-templates/routing.md');
+
+    function assertFormationEntry(text: string): void {
+      expect(text.replace(/\s+/g, ' '), 'missing-team-only trigger must not skip an installed empty scaffold')
+        .toMatch(/team\.md[^.]*absent[^.]*no active specialist/i);
+    }
+
+    it('aligns coordinator, skill discovery metadata and skill entry on absent or unconstituted teams', () => {
+      assertFormationEntry(initEntry);
+      const [metadata, body] = initSkill.slice(4).split(/\r?\n---\r?\n/);
+      assertFormationEntry(metadata);
+      assertFormationEntry(body);
+      expect(initEntry).toMatch(/support identities[^.\n]*coding agent[^.\n]*do not count/i);
+      expect(initSkill).not.toContain('treat as implicit "yes"');
+      expect(initSkill).not.toContain('Ask: *"What are you building?');
+    });
+
+    it('reuses the ordinary goal and evidence, then confirms before substantive audit or dispatch', () => {
+      const text = initSkill.replace(/\s+/g, ' ');
+      expect(text).toMatch(/Reuse[^.]*user[^.]*goal[^.]*context[^.]*collected evidence/i);
+      expect(text).toMatch(/Before[^.]*substantive domain work[^.]*audit[^.]*dispatch[^.]*confirmation/i);
+      expect(text).toMatch(/preserve[^.]*existing[^.]*audit[^.]*plan/i);
+      expect(text).toContain('Yes, hire this team');
+      expect(text).toMatch(/After confirmation[^.]*roster[^.]*routes[^.]*registry[^.]*charters/i);
+      expect(text).toMatch(/resume[^.]*original[^.]*goal[^.]*accountable specialist/i);
+    });
+
+    it('rejects a restored absent-file-only trigger', () => {
+      const fixture = 'team.md is absent or there is no active specialist in Members';
+      assertFormationEntry(fixture);
+      expect(() => assertFormationEntry('No team.md exists; otherwise proceed to Team Mode')).toThrow(/missing-team-only/);
+    });
+
+    it('ships one-owner routing, not eager/anticipatory work, mandatory Scribe or blanket fan-out', () => {
+      const text = routing.replace(/\s+/g, ' ');
+      expect(text).toMatch(/one accountable specialist/i);
+      expect(text).toMatch(/independently deliverable outcomes[^.]*distinct owners/i);
+      expect(text).toMatch(/Scribe[^.]*only[^.]*accepted durable decisions[^.]*merg/i);
+      expect(text).not.toMatch(/Eager by default|Scribe always runs|Anticipate downstream|anticipatory downstream|spawn all relevant agents|always as `mode: "background"`/i);
+    });
   });
 
   it.each(['coordinator', 'spawn', 'client'] as const)('%s preserves delegated authorization and input gates', key => {
@@ -262,6 +528,19 @@ describe('coordinator orchestration: canonical contracts', () => {
     expect(plan).toContain('SQL');
   });
 
+  it('ordinary mission plan context: delegated work includes readable metadata without plan wording or extra SQL tasks', () => {
+    const plan = section(sources.coordinator, '### Visible Main-Session Plan').replace(/\s+/g, ' ');
+    expect(plan).toMatch(/ordinary substantive delegated mission[^.]*no separate plan request/i);
+    expect(plan).toMatch(/single SQL task[^.]*context/i);
+    expect(plan).toMatch(/read-only[^.]*repository[^.]*not[^.]*mission metadata/i);
+    expect(plan).toMatch(/explicit[^.]*refusal[^.]*plan metadata[^.]*respect/i);
+    expect(plan).toMatch(/trivial[^.]*unsolicited/i);
+    expect(plan).toMatch(/discover[^.]*schemas[^.]*publish[^.]*absent/i);
+    expect(plan).toMatch(/failure[^.]*limitation[^.]*fallback/i);
+    expect(plan).toMatch(/not[^.]*approval[^.]*execution/i);
+    expect(plan).toContain('app_url');
+  });
+
   it.each(Object.keys(paths) as (keyof typeof paths)[])('%s makes Scribe decision-only, not automatic task housekeeping', key => {
     assertScribeScope(sources[key]);
   });
@@ -272,6 +551,90 @@ describe('coordinator orchestration: canonical contracts', () => {
     expect(sources.spawn).toContain('YOUR CHARTER:');
     expect(sources.coordinator).toContain('The original author is locked out');
     expect(sources.coordinator).toContain('A different agent MUST own the revision');
+  });
+});
+
+describe('task-first native plan defaults: instruction contracts, not model/UI execution', () => {
+  const heading = '### Visible Main-Session Plan';
+
+  it('pairs authoritative native task state with readable Details rather than duplicated Markdown state', () => {
+    assertPlanLayout(section(sources.coordinator, heading));
+  });
+
+  it('rejects a generated native context containing a second task-state checklist', () => {
+    const plan = section(sources.coordinator, heading).replace(/\r\n/g, '\n');
+    const example = plan.match(/```markdown\n([\s\S]*?)\n```/)?.[1];
+    expect(example, 'missing default layout to mutate').toBeDefined();
+    const duplicated = plan.replace('## Details', '## Tasks\n- [x] Old guessed state\n\n## Details');
+    expect(() => assertPlanLayout(duplicated)).toThrow(/duplicate/);
+  });
+
+  it('rejects history-inflated, guessed or cancelled-as-completed progress guidance', () => {
+    const plan = section(sources.coordinator, heading);
+    assertPlanTruth(plan);
+    const cancelledAsDone = plan.replace(
+      /Failed and Cancelled are not completed[^.]+\./,
+      'Failed and Cancelled count as completed to clear the task view.',
+    );
+    expect(() => assertPlanTruth(cancelledAsDone)).toThrow();
+  });
+
+  it('requires evidence-based whole-plan refresh rather than checkbox-only stale summaries', () => {
+    const plan = section(sources.coordinator, heading);
+    assertPlanRefresh(plan);
+    const staleSummary = plan.replace(
+      /Refresh task states[^.]+\./,
+      'Update only the active task row; leave the original summary and next action unchanged.',
+    );
+    expect(() => assertPlanRefresh(staleSummary)).toThrow();
+    const after = sources.after.replace(/\s+/g, ' ');
+    expect(after).toMatch(/SQL[^.]*task[^.]*Details[^.]*together/i);
+    expect(after).toMatch(/summary[^.]*count[^.]*current[^.]*next[^.]*blocker[^.]*task/i);
+    expect(after).toMatch(/queued[^.]*Pending[^.]*idle[^.]*completed/i);
+    expect(after).toMatch(/integration[^.]*pending[^.]*Completed/i);
+  });
+
+  it('uses the documented SQL task bridge rather than claiming checkboxes create a native timeline', () => {
+    const plan = section(sources.coordinator, heading);
+    assertNativeTaskBridge(plan);
+    const destructiveRefresh = plan.replace(
+      /Keep stable task IDs and preserve unrelated[^.]+\./,
+      'Delete all existing task rows and recreate this request to obtain a fresh display.',
+    );
+    expect(() => assertNativeTaskBridge(destructiveRefresh)).toThrow();
+    const docs = read('docs/src/content/docs/features/current-session-plan.md');
+    expect(docs).toContain('readSqlTodosWithDependencies()');
+    expect(docs).toContain('session.todos_changed');
+    expect(docs.replace(/\s+/g, ' ')).toMatch(/Markdown checklists[^.]*not[^.]*native[^.]*timeline/i);
+    expect(docs.replace(/\s+/g, ' ')).toMatch(/visual[^.]*not[^.]*verified/i);
+  });
+});
+
+describe('verified plan child-session links: instruction contracts, not host navigation', () => {
+  const heading = '### Visible Main-Session Plan';
+
+  it('sources real child links after verified launch and prevents fabricated pending/failure navigation', () => {
+    assertPlanSessionLinks(section(sources.coordinator, heading));
+  });
+
+  it('reconciles each assigned work item with its real link rather than a stale or charter-only pointer', () => {
+    const after = sources.after.replace(/\s+/g, ' ');
+    expect(after).toMatch(/work item[^.]*owner[^.]*verified[^.]*App child[^.]*app_url/i);
+    expect(after).toMatch(/Pending[^.]*failed launch[^.]*no[^.]*fabricated link/i);
+    const docs = read('docs/src/content/docs/features/current-session-plan.md').replace(/\s+/g, ' ');
+    expect(docs).toMatch(/app_url[^.]*list_sessions_and_chats[^.]*verbatim/i);
+    expect(docs).toMatch(/Markdown link[^.]*not[^.]*native task-row[^.]*navigation/i);
+  });
+
+  it('rejects prelaunch and failed-launch phantom link guidance independently', () => {
+    const plan = section(sources.coordinator, heading);
+    assertPlanSessionLinks(plan);
+    const prelaunch = plan.replace('Only after creation succeeds', 'Before attempting creation');
+    const failed = plan.replace('no fabricated link', 'a guessed session link');
+    expect(prelaunch).not.toBe(plan);
+    expect(failed).not.toBe(plan);
+    expect(() => assertPlanSessionLinks(prelaunch)).toThrow(/prelaunch/);
+    expect(() => assertPlanSessionLinks(failed)).toThrow();
   });
 });
 
@@ -433,7 +796,7 @@ describe('orchestration contract mutations', () => {
   // Small self-contained fixtures make each guard independently checkable even
   // during a red run against original content; no repository file is rewritten.
   const dispatch = 'Direct for trivial evidence\n`task` for bounded work\n`create_session` for isolation or durable lifecycle\nCommit production alone is not the criterion';
-  const auth = 'inspect/read-only; propose/plan; authorized execution\nInspect and propose must not use implementation autopilot\nAutopilot is permitted for authorized bounded execution\nUse exact request_id; never auto-approve';
+  const auth = 'inspect/read-only; propose/plan; authorized execution\nInspect and propose must not use implementation autopilot\nSet kickoff.mode to autopilot explicitly\nAutopilot does not expand scope or permissions.\nUse exact request_id; never auto-approve';
   const scribe = 'Scribe only when durable decisions need merging';
   const lifecycle = 'Native sync task agents: write_agent cannot follow up\nReuse same-mission context with compatible lifecycle, not unrelated worker pool';
 
@@ -442,9 +805,9 @@ describe('orchestration contract mutations', () => {
     expect(() => assertDispatch(`${dispatch}\nUse \`create_session\` for agents that produce commits`)).toThrow();
   });
 
-  it('rejects restored unconditional App autopilot parameters', () => {
+  it('rejects Autopilot guidance without bounded authorization', () => {
     assertAuthorization(auth);
-    expect(() => assertAuthorization(`${auth}\n**\`kickoff.mode\`**: "autopilot" (agents work autonomously)`)).toThrow();
+    expect(() => assertAuthorization(auth.replace('Autopilot does not expand scope or permissions.', ''))).toThrow();
   });
 
   it('rejects restored automatic Scribe after any agent ran', () => {

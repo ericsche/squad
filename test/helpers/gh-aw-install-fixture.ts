@@ -14,6 +14,7 @@ import {
   CONTRACT_SOURCE,
   PACKAGE_NAME,
   compileWithPinnedActions,
+  workflowWithSource,
 } from '../../workflows/shared/squad-install-verifier.mjs';
 
 interface ContractEntry {
@@ -77,16 +78,6 @@ function sha256(content: Buffer): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
-function withSource(content: Buffer, source: string, revision: string): Buffer {
-  const text = content.toString('utf8');
-  const marker = '\n---\n';
-  const end = text.indexOf(marker, 4);
-  if (!text.startsWith('---\n') || end < 0) throw new Error(`Invalid workflow source: ${source}`);
-  return Buffer.from(
-    `${text.slice(0, end)}\nsource: bradygaster/squad/${source}@${revision}${text.slice(end)}`,
-  );
-}
-
 export function githubFile(content: Buffer): {
   type: string;
   encoding: string;
@@ -124,7 +115,9 @@ export function createFirstInstallFixture(
       canonicalFiles.set(entry.source, canonical);
       const source = sourceBinding === 'package' || (sourceBinding === 'mixed' && index % 2 === 0)
         ? 'workflows' : entry.source;
-      const installed = withSource(canonical, source, revision);
+      const installed = Buffer.from(workflowWithSource(
+        canonical.toString('utf8'), entry.name, revision, source === 'workflows',
+      ));
       consumerFiles.set(entry.destination, installed);
       const path = resolve(scratch, entry.destination);
       mkdirSync(dirname(path), { recursive: true });

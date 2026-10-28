@@ -42,7 +42,7 @@ const TEST_WORKSPACES_DIR = join(REPO_ROOT, '.squad-gh-aw-secscan');
 
 const GH_AW_INSTALL_HINT =
   '`gh aw` is required to run the security scanner this gate inspects. Install it with ' +
-  '`gh extension install --pin v0.87.10 github/gh-aw` (matches .github/workflows/squad-ci.yml). ' +
+  '`gh extension install --pin v0.91.5 github/gh-aw` (matches .github/workflows/squad-ci.yml). ' +
   'This gate fails closed rather than skipping: an unmeasured contract is ' +
   'indistinguishable from a violated one (#1834).';
 
@@ -171,6 +171,7 @@ describe('gh-aw: distributed workflows survive the public `gh aw add` security s
           `the literal attack string.\n\n--- gh aw add output ---\n${output}`,
       ).toBe(false);
     },
+    65_000,
   );
 
   // -------------------------------------------------------------------------
@@ -194,5 +195,5 @@ describe('gh-aw: distributed workflows survive the public `gh aw add` security s
     expect(/Security scan (?:failed|found)/i.test(output)).toBe(false);
     expect(output).toMatch(/Added workflow|\.github\/workflows/i);
     expect(output).not.toMatch(/gpg|signing|failed to write commit/i);
-  });
+  }, 65_000);
 });

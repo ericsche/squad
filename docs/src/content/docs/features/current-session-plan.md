@@ -63,13 +63,40 @@ when timeline logging is unavailable.
 ## Foreground-owned workflow
 
 1. The foreground coordinator reads the current plan.
-2. If absent, it publishes only when the user requested or authorized a plan.
+2. If absent, it deliberately publishes readable context for the user's current
+   substantive mission (including delegated read-only work), or an explicit
+   planning request. The mission needs no separate request containing "plan".
+   Do not publish unrelated/unsolicited plans, or override an explicit refusal
+   of plan metadata or an existing approval/input gate.
 3. If present, it preserves the user's plan and deliberately reconciles any
    requested change. A new publication is not an overwrite operation.
 4. Before a deliberate update, it reads again and supplies that snapshot's
    hash with the reconciled complete content.
 5. On conflict, it reads and reconciles again with the user, rather than
    automatically retrying with a new hash.
+
+The absent-plan reader's `action` and publication tool description express
+this same boundary. "Explicit foreground-coordinator publication" means a
+deliberate tool invocation, not an extra per-tool consent question or a new
+authorization token. The handler does not infer a user's mission or consent
+from the Markdown; following that scope/refusal rule remains the caller's
+responsibility. A read still never writes, and startup/reload never publishes.
+
+An ordinary substantive goal such as "Review the solution's architecture"
+therefore has both task progress and readable context, even with one genuine
+owner task. Preserve that task rather than padding a checklist. The context
+explains purpose, actual scope/exclusions, acceptance, the verified owner and
+host-supplied child link, and later the outcome and limitations. Add next work
+or a decision only when it exists. Keeping repository files read-only does
+not prohibit mission task/plan metadata, authorize source edits or approve
+executing recommendations. An explicit request not to maintain a plan is
+respected rather than disguised as an unavailable tool.
+
+Discover the actual schemas and use the supported tools: a successful read
+returning `exists: false` is not a publication, nor evidence of a rendering
+failure. If discovery or RPC fails, report the specific limitation and show
+the visible fallback. Never write `plan.md` directly. The existing hash,
+re-read, verification and non-atomic race limits still apply.
 
 Background specialists return evidence and proposed progress to the
 foreground coordinator; they do not publish or update its plan. Invocations
@@ -79,10 +106,147 @@ cannot distinguish an unattributed subagent from the root caller.
 Foreground-only writing remains an orchestration requirement, not a complete
 caller authentication guarantee.
 
-TODOs and dependency edges remain execution internals. There are no event
-hooks, timers, background writes, or automatic SQL-to-plan synchronization.
+TODOs and dependency edges can also feed the host's structured task view, as
+described below. There are no extension event hooks, timers, background writes,
+or automatic SQL-to-Markdown synchronization.
 Reloading/resuming re-registers tools without publishing anything; the next
 explicit read observes the existing host state.
+
+## Native tasks and readable context
+
+For multi-step work, Squad uses the current session's SQL `todos` and
+`todo_deps` as the **single authoritative task-state source** when the `sql`
+tool is available. Short gerund titles such as "Inspecting scope" and
+"Verifying outcome" are the task labels; descriptions carry the owner,
+acceptance evidence and any blocker. Dependencies represent real prerequisites,
+not simply the order of the list. Existing task IDs stay stable, and updates
+are scoped to this request's rows, preserving unrelated and user-authored tasks.
+
+The experimental host SDK documents
+`session.rpc.plan.readSqlTodosWithDependencies()` as a reader of those SQL
+rows and edges **for structured progress UI**. SQL writes to either table
+signal `session.todos_changed`; clients can read on session start and refresh
+on that event. `readSqlTodos()` is the rows-only reader. These are host APIs,
+not tools added by Squad, and the extension does not emit events manually.
+The readers can return empty arrays when the database, tables or queries are
+unavailable; an empty result is not evidence that work is completed.
+
+In contrast, `plan.update` takes only `{content: string}` and writes Markdown.
+It has no structured task field. Markdown checklists do **not** establish the
+native task timeline. The exact visual layout and ordering are not verified
+by these API contracts or by a successful SQL/Markdown write; presentation
+still belongs to the host.
+
+The default native plan therefore avoids a duplicate Markdown task-state
+table/checklist or a separately maintained progress count. Its body explains
+the work so the user can follow along:
+
+```markdown
+# Review the proposed change
+
+**Next / limits:** Check the proposed scope; read-only review, no new execution approval.
+
+**Assigned work:** Reviewing scope - assigned owner; Pending dispatch, no session yet.
+
+## Details
+
+We are reviewing whether the proposed change meets the user's request without
+expanding its scope. Implementation and deployment are excluded.
+
+Inspecting scope establishes the boundaries. Reviewing behavior checks the
+proposal against those boundaries. Verifying evidence establishes whether the
+required checks support the conclusion.
+
+**Acceptance and constraints:** A clear review conclusion supported by relevant
+evidence; existing user approval and reviewer gates still apply.
+
+**Evidence / provenance:** Add relevant findings and references here, after the
+explanation. Historical setup is context, not progress on this review.
+```
+
+Task state belongs in the host's task area; useful human-readable purpose,
+scope, step explanations, constraints and acceptance belong in Details.
+Long SHAs, worktree paths and technical provenance come later, not before the
+user-facing explanation. A brief permitted next action and authorization limit
+remain easy to find.
+
+After a real App child launch succeeds and its session/project association is
+verified, the coordinator replaces that pending assignment with a readable
+Markdown link to the **actual child session** near the work item and owner.
+Use the exact canonical `app_url` returned by the host when available, or read
+it with `list_sessions_and_chats`, and use it verbatim. Each independently
+assigned outcome maps to its own child link; the same mapping is reconciled
+as the work progresses.
+
+Before launch, after a failed launch, or on a native-agent fallback without an
+App session, show the actual state without a fabricated link. If the child
+exists but its canonical URL is unavailable, say "launched; link unavailable".
+Do not construct App URLs, use a raw GUID as the only navigation pointer, or
+link a charter in place of the working session. Preserve existing valid user
+links and reconcile any change of mission rather than silently repointing them.
+
+This is a standard Markdown link in readable plan context, **not** a native
+task-row hyperlink or a guarantee of successful navigation. SQL task titles
+stay concise, and no `session_id` column or new host API is introduced.
+String/contract tests and persisted Markdown do not verify link navigation
+or its rendering in the native Plan panel; that remains a user-visible check.
+
+If the structured view or native tools are unavailable, Squad shows a visible
+Markdown/chat fallback with `## Tasks` as a short checklist before
+`## Details`. That summary is derived from the same task states when SQL is
+available, not a second independent task store. Without SQL, the coordinator
+maintains the visible tasks explicitly and discloses the limitation. Labels
+are short gerunds with human-readable states, not tables, ASCII bars, HTML/CSS
+widgets or emoji-only signals.
+
+## Keeping progress truthful
+
+The existing SQL tool supports `pending`, `in_progress`, `done` and `blocked`.
+These correspond to Pending (including queued), In progress, Completed and
+Blocked / Needs input. `done` requires a verified requested outcome, including
+required validation and integration, not an idle agent or an elapsed-time guess.
+Failed or Cancelled work is not done: where the SQL schema cannot express
+those states separately, use `blocked` and explain the exact state/reason in
+the description and any fallback summary.
+
+At a meaningful status change, the coordinator reads the relevant task rows
+and current plan, reconciles result evidence and refreshes the task states,
+current activity/owner, next permitted action, real blockers/decisions and
+readable context, including verified assignment links, together. For parallel work, it identifies the active owners
+and actual blockers rather than declaring every task blocked. Existing
+approval/input gates still require the user's decision.
+
+If a fallback includes an overall state or completed/total count, derive it
+from this request's actionable milestones, counting each once. Historical
+setup and unrelated tasks do not count. Unknown scope means "not yet scoped",
+not an estimated percentage. Failed/Cancelled milestones stay non-completed
+and in the total unless an authorized scope change explicitly removes them.
+Only verified completion of every required outcome permits Overall Completed
+and no further required action. Only Completed tasks get checked in a fallback;
+all other states remain unchecked and labeled.
+
+SQL and Markdown writes are **not atomic**, and no hook synchronizes them.
+If a task update or plan write fails, report the mismatch and reconcile it
+deliberately without bypassing the plan hash guard. Do not change just one
+task/checkbox and leave a stale next action, count or explanation behind.
+
+These are coordinator prompt defaults, not deterministic format enforcement
+or proof that a model follows them. The extension continues to accept arbitrary
+custom Markdown byte-for-byte; older/user-authored plans are preserved and
+reconciled deliberately, not silently reformatted or rejected.
+
+These defaults ship in the coordinator and after-agent reference templates.
+Activate instruction changes by reloading/reselecting Squad or starting a fresh
+Squad session as supported by the host. Updating the files alone does not
+promise that an existing conversation has refreshed its loaded instructions.
+The helper's absent-plan guidance is a separate loaded extension surface.
+
+If upgrading from a helper that says "Publish only on explicit request",
+reconcile its installed **user-owned** `plan-tools.mjs` with the updated
+bundle and use that target host's normal extension reload. An ordinary
+init/upgrade preserves existing extension files, so a newer CLI or refreshed
+coordinator alone does not prove that the loaded helper's guidance changed.
+Do not overwrite local customizations or claim activation from file copying.
 
 ## Freshness and concurrency limits
 

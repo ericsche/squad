@@ -9,7 +9,7 @@ reason to launch Scribe.
 
 #### Collect by lifecycle, not by client name
 
-- **Native `task`:** Small internal checks in the App, or specialist work on hosts without App child sessions; use the synchronous response directly, or native `agent_id` for `read_agent` after a supported background notification.
+- **Native `task`:** Small internal checks or a specific higher-priority runtime-required reviewer in the App, or specialist work on hosts without App child sessions; use the synchronous response directly, or native `agent_id` for `read_agent` after a supported background notification.
 - **App child session:** Collect notifications and `send_session_message` handoffs; use `get_session` for current status, workspace, or pending plan/input gates when needed.
 - **VS Code `runSubagent`:** Use the returned result; no `read_agent` is needed.
 
@@ -29,6 +29,25 @@ Obey the current tool schema's wait limits (at most 180 seconds where currently
 exposed), not a hardcoded 300. After a background notification, collect once; if
 still running or incomplete, say you are waiting and stop this turn unless
 independent foreground work remains. No needless polling.
+
+After a runtime-required reviewer returns, preserve its report and attribution,
+including original severity/confidence/evidence and required host formatting or
+user decisions. That native result is not an App child or a completed
+restitution mission. Bounded App restitution is part of every substantive
+security review, even with zero findings or a read-only request; do not wait
+for a separate follow-up request. Continue through one actual suitable App
+owner using the existing report to explain scope, coverage, limitations and
+result; do not rerun the audit or create a shell child for appearance.
+After the report, reconcile current-request SQL tasks and readable plan with
+actual tool discovery/calls, including a zero-finding outcome. Read-only
+repository constraints do not forbid mission metadata. Keep native completion
+separate from restitution in progress until verified handoff, and link only
+the real session. Do not invent a required remediation/decision task or treat
+zero findings as exhaustive coverage or security certification.
+Missing access/capability or
+ownership is a disclosed limitation, not permission to invent a security expert,
+agent handle or URL. Follow the coordinator's required-review composition;
+the general scope, user-input and no-nested-mission gates still apply.
 
 #### Verify the outcome before declaring completion
 
@@ -75,6 +94,13 @@ agent's lifecycle. For App children use their App session ID and
 the same assignment when required by the schema. Neither native nor App messaging
 grants new authorization.
 
+For App `send_session_message` follow-ups, omit `mode` to preserve the current
+Autopilot or other user-selected mode. Never change session mode automatically
+in a follow-up; only an explicit user decision authorizes a change, not parent
+mode, delegation or task duration. A pending plan/input gate is not resolved
+by selecting Autopilot. Assignment scope, unresolved questions and permissions
+remain unchanged; native sync/background scheduling is separate.
+
 Inspect/plan work cannot silently become implementation. Never auto-approve or
 bypass existing plan/input gates, and preserve exact `request_id` checks.
 Enforce reviewer rejection lockout: the rejected author cannot revise or advise
@@ -85,6 +111,20 @@ Update the current main-session visible plan for meaningful status/results,
 using the optional `squad_session_plan_*` tools with conflict reconciliation as
 described in the coordinator. If unavailable, explicitly maintain a visible chat
 plan, without claiming native UI integration. This is not approval or a mode change.
+
+Reconcile the authoritative current-request SQL task states and readable Details
+together, following the coordinator's native-task/context default.
+Refresh any fallback summary/count, current activity/owner, next action, real
+blocker/approval and task states from the same evidence, not only a checkbox.
+Keep queued work Pending; idle is not completed evidence.
+If required validation or integration is pending, do not show Completed.
+Preserve unrelated/user-authored task rows and custom plan intent; report any
+SQL/Markdown write mismatch rather than claiming synchronization.
+Keep each work item and owner mapped to the verified actual App child and its
+host-supplied `app_url` in readable context, following the coordinator's
+assigned-session link rules. Pending dispatch or failed launch has no fabricated
+link; native fallback without an App session cannot supply one. Preserve valid
+user links and reconcile mission changes instead of silently repointing them.
 
 #### Scribe — accepted durable decisions only
 

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -265,10 +264,17 @@ function realLeakageReport(): string {
     git(['add', '--', 'README.md']);
     git(['commit', '--quiet', '-m', 'base']);
     git(['switch', '--quiet', '-c', 'feature']);
-    mkdirSync(join(cwd, '.squad'));
-    writeFileSync(join(cwd, HOSTILE_PATH), 'canary\n');
-    git(['add', '--', HOSTILE_PATH]);
-    git(['commit', '--quiet', '-m', 'canary']);
+    const blob = execFileSync('git', ['hash-object', '-w', '--stdin'], { cwd, input: 'canary\n', encoding: 'utf8' }).trim();
+    // The scanner reads committed Git paths, not a platform-specific checkout.
+    const subtree = execFileSync('git', ['mktree', '-z'], {
+      cwd, input: `100644 blob ${blob}\t${HOSTILE_PATH.slice('.squad/'.length)}\0`, encoding: 'utf8',
+    }).trim();
+    const tree = execFileSync('git', ['mktree', '-z'], {
+      cwd, input: Buffer.concat([git(['ls-tree', '-z', 'HEAD']), Buffer.from(`040000 tree ${subtree}\t.squad\0`)]),
+      encoding: 'utf8',
+    }).trim();
+    const commit = git(['commit-tree', tree, '-p', 'HEAD', '-m', 'canary']).toString('utf8').trim();
+    git(['update-ref', 'HEAD', commit]);
 
     const result = spawnSync(
       process.execPath,

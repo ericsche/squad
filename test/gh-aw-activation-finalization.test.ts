@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { compileFunction, constants } from 'node:vm';
 import { pathToFileURL } from 'node:url';
@@ -48,6 +48,21 @@ const envelope = (kind: string) => ({
 
 afterEach(() => {
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true });
+});
+
+it('uses POSIX paths for the pinned Linux sandbox without allowing host paths or network IO', () => {
+  const root = join(process.cwd(), `.diagnostic-path-${randomUUID()}`);
+  directories.push(root);
+  mkdirSync(root);
+  const runtime = diagnosticRuntime(new Map([
+    ['js/main.cjs', "module.exports.value = require(require('node:path').join(__dirname, 'dep.cjs')).value;"],
+    ['js/dep.cjs', 'module.exports.value = 42;'],
+    ['js/escape.cjs', 'require("C:\\\\private\\\\outside.cjs");'],
+    ['js/network.cjs', 'require("http").get("https://example.invalid");'],
+  ]), root, [], {});
+  expect(runtime.load('js/main.cjs').value).toBe(42);
+  expect(() => runtime.load('js/escape.cjs')).toThrow(/Forbidden runtime dependency/);
+  expect(() => runtime.load('js/network.cjs')).toThrow(/Forbidden external IO/);
 });
 
 // API responses are copied: a later store mutation must not silently mutate a captured snapshot.
@@ -1940,7 +1955,7 @@ describe('live downstream verification', () => {
         } } },
         { env: { RUNNER_TEMP: f.root, GITHUB_WORKSPACE: workspace } },
         (name: string) => {
-          if (name === 'node:fs') return { writeFileSync: (path: string, body: string) => files.set(path, body) };
+          if (name === 'node:fs') return { writeFileSync: (path: string, body: string) => files.set(resolve(path), body) };
           return createRequire(import.meta.url)(name);
         },
       );

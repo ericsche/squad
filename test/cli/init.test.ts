@@ -10,7 +10,7 @@ import { existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 import { runInit } from '@bradygaster/squad-cli/core/init';
-import { getPackageVersion, stampVersion } from '@bradygaster/squad-cli/core/version';
+import { getPackageVersion, stampVersion, readInstalledVersion } from '@bradygaster/squad-cli/core/version';
 
 const TEST_ROOT = join(tmpdir(), `.test-cli-init-${randomBytes(4).toString('hex')}`);
 const TEST_HOME = join(tmpdir(), `.test-cli-init-home-${randomBytes(4).toString('hex')}`);
@@ -93,6 +93,69 @@ describe('CLI: init command', () => {
     expect(after).not.toContain('`Squad v1.2.3-01alpha`');
     expect(after).toContain('`Squad velocity`');
     expect(after).toContain('`Squad v1.2`');
+  });
+
+  describe('complete SemVer version stamping', () => {
+    const versions = [
+      '1.0.0',
+      '1.0.1-preview.20261015.1',
+      '1.2.3-rc.2.foo-bar.01alpha+build.004.sha-abc',
+      '1.2.3+build.001',
+    ];
+
+    it.each(versions)('preserves the exact version and CRLF content when repeatedly stamping %s', async (version) => {
+      const agentPath = join(TEST_ROOT, 'squad.agent.md');
+      const before = [
+        `<!-- version: ${version} -->`,
+        `- **Version:** ${version} (keep this explanation).`,
+        `Greet with \`Squad v${version}\`.`,
+        'Keep `Squad velocity`, `Squad v1.2`, and custom content.',
+        '',
+      ].join('\r\n');
+      await writeFile(agentPath, before, 'utf8');
+
+      stampVersion(agentPath, version);
+      expect(await readFile(agentPath, 'utf8')).toBe(before);
+      stampVersion(agentPath, version);
+      expect(await readFile(agentPath, 'utf8')).toBe(before);
+    });
+
+    it.each(versions)('reads the complete installed comment version %s', async (version) => {
+      const agentPath = join(TEST_ROOT, 'squad.agent.md');
+      await writeFile(agentPath, `<!-- version: ${version} -->\n`, 'utf8');
+      expect(readInstalledVersion(agentPath)).toBe(version);
+    });
+
+    it('replaces a complete prerelease and build identifier without suffixes or punctuation changes', async () => {
+      const agentPath = join(TEST_ROOT, 'squad.agent.md');
+      const previous = '1.2.3-preview.20261015.1+build.001';
+      const next = '2.0.0-rc.3+sha.abc-123';
+      const content = (version: string) => [
+        `<!-- version: ${version} -->`,
+        `- **Version:** ${version}. Include it as \`Squad v${version}\`.`,
+        'Leave unrelated version 9.8.7 alone.',
+        '',
+      ].join('\n');
+      await writeFile(agentPath, content(previous), 'utf8');
+
+      stampVersion(agentPath, next);
+      expect(await readFile(agentPath, 'utf8')).toBe(content(next));
+      expect(readInstalledVersion(agentPath)).toBe(next);
+      stampVersion(agentPath, next);
+      expect(await readFile(agentPath, 'utf8')).toBe(content(next));
+    });
+
+    it.each(['1.2', '01.2.3', '1.2.3-preview.01', '1.2.3+build..bad'])(
+      'does not partially replace or read invalid version %s', async (version) => {
+        const agentPath = join(TEST_ROOT, 'squad.agent.md');
+        const before = `- **Version:** ${version} (custom text).\nUse \`Squad v${version}\`.\n`;
+        await writeFile(agentPath, before, 'utf8');
+        stampVersion(agentPath, '2.0.0');
+        expect(await readFile(agentPath, 'utf8')).toBe(before);
+        await writeFile(agentPath, `<!-- version: ${version} -->\n`, 'utf8');
+        expect(readInstalledVersion(agentPath)).toBe('0.0.0');
+      },
+    );
   });
 
   it('re-running init against an existing project should refresh a stale resolved version everywhere, including the greeting literal (re-init regression)', async () => {

@@ -5,21 +5,27 @@
 Detect all available dispatch tools once, then choose per work item:
 - **Direct Mode:** Trivial questions/readily available evidence → answer directly, using a small read/status command if needed.
 - **App `create_session`:** All named specialist missions from a project session use project/worktree children in the parent's project, including bounded edits and substantive read-only work.
-- **Native `task`:** Small bounded internal checks in the App; specialist missions on CLI or the capability fallback below.
+- **Native `task`:** Small bounded internal checks in the App, or a specific higher-priority runtime-required reviewer; specialist missions on CLI or the capability fallback below.
 - **VS Code `runSubagent`:** Specialist prompt when App child sessions and native `task` are unavailable.
 - **No spawn tool:** Inline last-resort fallback within the user's authorization.
 
-In the Copilot App, ALL named Squad specialist missions MUST use visible coordinated child sessions via `create_session`, including short/read-only missions. Native `task` is ONLY for small bounded internal checks in the App; a named specialist mission is not an internal check merely because it is short or read-only. Internal checks run a known test selector or check an explicit output against an existing requirement; they do not own a new specialist deliverable. Commit production alone is not a dispatch criterion.
+In the Copilot App, ALL named Squad specialist missions MUST use visible coordinated child sessions via `create_session`, including short/read-only missions. Native `task` is ONLY for small bounded internal checks in the App unless higher-priority instructions mandate the specific runtime-required reviewer described in the coordinator; a named specialist mission is not an internal check merely because it is short or read-only. Internal checks run a known test selector or check an explicit output against an existing requirement; they do not own a new specialist deliverable. Commit production alone is not a dispatch criterion.
 
 When `create_session` is unavailable, use native `task` or VS Code `runSubagent` only within authorization and workspace safety, and disclose degraded native sidebar visibility. If creation fails, report the blocker; never silently substitute `task` for a specialist mission. Stop if the available fallback cannot preserve required isolation or persistence.
+
+**Required review composition:** A runtime-required reviewer such as native `security-review` runs first when higher-priority instructions require it, before App dispatch or plan writes. It is not a tiny internal check or an App session. Bounded App restitution is part of every substantive security review, even with zero findings or a read-only request; no separate follow-up request is needed. After the report returns, use one actual App owner to explain its examined scope, coverage, limitations and result from that report, never a repeated audit or a fake child. Reconcile SQL tasks and readable plan after the native result, discovering/calling available tools rather than assuming read-only forbids mission metadata. Resolve a suitable active role and charter scope, not an invented security identity; unavailable report/workspace/tools require an explicit limitation. Follow the coordinator's Runtime-Required Reviewers and Visible Follow-Up protocol, including evidence attribution and verified session links. Only if the higher-priority runtime permits the required reviewer inside the existing App mission may it run there; this is not general specialist delegation or permission for nested App children.
 
 ### Authorization Before Dispatch
 
 Pass one explicit `AUTHORIZATION_SCOPE`: `inspect/read-only`, `propose/plan`, or `authorized execution`. Include allowed actions/files, exclusions, and required completion evidence. Neither dispatch nor publishing a visible plan expands the user's authorization.
 
-"Inspect and propose" must not spawn implementation in autopilot. Use App `plan` for proposals needing user review, `interactive` for guided inspection/collaboration, and `autopilot` for authorized bounded execution by default when permitted, without unnecessary new approval friction. A prompt defaults to plan if `kickoff.mode` is omitted; do not use omission accidentally.
+"Inspect and propose" must not spawn implementation in autopilot. Launch named App specialists with `kickoff.mode: "autopilot"` explicitly for autonomous work within the authorized scope. The user may manually select a different mode through the host; preserve that choice, including requested `plan` and its approval boundary. Autopilot does not expand scope or permissions, answer unresolved questions, or approve cloud, deployment or provider actions. Do not bypass pending plan/input gates to apply this default. A prompt defaults to plan if `kickoff.mode` is omitted; choose deliberately.
+
+For `send_session_message` follow-ups, omit `mode` to preserve the current user-selected mode. Never change session mode automatically in a follow-up; only an explicit user decision authorizes a change, not delegation, parent mode or task duration. A pending plan/input gate is not resolved by selecting Autopilot.
 
 Honor existing user plan/input gates. Read the current gate with `get_session` and its exact `request_id`; never auto-approve or change modes to evade it. Resolve a user approval/input gate only with the user's decision, not a child's request. Scope and reviewer gates apply to native agents too.
+
+Native `sync`/`background` scheduling is not App permission/session mode. Do not pass an App mode as a native task scheduling value or change native scheduling to implement this policy.
 
 ---
 
@@ -42,14 +48,14 @@ native task names/hooks and source access do not determine project placement.
 - **`detached`**: `false` or omitted; do not detach a mission that must appear beneath its coordinator.
 - **`notify_on_idle`**: `"once"` (notification when the child becomes idle; not proof of successful completion)
 - **`kickoff.prompt`**: The full agent prompt (same as task prompt below)
-- **`kickoff.mode`**: `"plan"`, `"interactive"`, or `"autopilot"` as resolved from authorization above.
+- **`kickoff.mode`**: Set `"autopilot"` explicitly for named specialist launches unless the user selected a different mode; preserve authorized scope and pending plan/input gates.
 - **`kickoff.model` / `reasoning_effort` / `context_tier`**: Include only resolved preferences allowed by the current schema; otherwise omit.
 - **`project_id`**: The parent's actual project ID, not its session ID or an invented/inferred project. Verify the returned child's project association.
 - **`session_kind` / `workspace_type`**: `"project"` / `"worktree"` for every specialist mission from a project, even read-only; chat is the explicit outside-project exception above, with no worktree claims or project-only fields.
 - **`base_branch`**: Omit unless explicitly requested or the work depends on a documented in-progress branch. No implicit parent-branch stacking.
 
 **Constraints:**
-- **Max depth:** 1 — no sub-sub-sessions. Return further specialist missions to the coordinator for visible sibling sessions; a child may use `task` only for small bounded internal checks.
+- **Max depth:** 1 — no sub-sub-sessions. Return further specialist missions to the coordinator for visible sibling sessions; a child may use `task` only for small bounded internal checks, except the specific runtime-required reviewer under the narrow composition above.
 - **Concurrency cap:** Maximum 4-5 simultaneous sub-sessions. Queue additional spawns.
 - **Fallback:** Capability absence uses the disclosed fallback above; a failed child creation is a blocker, not permission for native specialist substitution.
 - **Identity vs execution:** `TEAM_ROOT` supplies parent identity/team context, not the code execution workspace. Pass that context explicitly; child code, tests and edits execute in the child's own workspace returned by the App, not an inherited parent `WORKTREE_PATH`.
@@ -66,7 +72,7 @@ create_session({
   notify_on_idle: "once",
   kickoff: {
     prompt: "{full agent prompt — see template below}",
-    mode: "{authorization-resolved plan | interactive | autopilot}"
+    mode: "autopilot"
   }
 })
 ```
@@ -90,7 +96,7 @@ permission bypass.
 
 ### Native Task Tool Spawn (Internal Checks or Capability Fallback)
 
-In the App, this section applies only to small internal checks. Named specialist prompts apply on CLI/VS Code or when `create_session` is unavailable with disclosed degradation; use the App child section otherwise.
+In the App, this section applies to small internal checks and the specifically mandated runtime-required reviewer under the composition above, not general native specialist delegation. Named specialist prompts apply on CLI/VS Code or when `create_session` is unavailable with disclosed degradation; use the App child section otherwise.
 
 - **`agent_type`**: Match the check's required tools; `"general-purpose"` for a fallback specialist, `"explore"` only for suitable read-only fallback work.
 - **Scheduling:** Use sync for bounded work whose result is needed now; background only with independent foreground work or genuinely needed retained same-task follow-up supported by that host.

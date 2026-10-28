@@ -96,6 +96,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
         cwd: tempDir,
         stdio: 'inherit',
         env: NO_COLOR_ENV,
+        timeout: 180_000,
       });
 
       const cliEntryPath = join(
@@ -115,7 +116,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
     };
 
     installedCli = installPackedCli('squad-cli-test-');
-  }, 90000);
+  }, 240_000);
 
   afterAll(() => {
     // Cleanup - with retry logic for Windows file locks

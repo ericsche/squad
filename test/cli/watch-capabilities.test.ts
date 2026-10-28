@@ -9,6 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { join } from 'node:path';
 import type { WatchContext } from '../../packages/squad-cli/src/cli/commands/watch/types.js';
 
 // ── Shared mock state (hoisted alongside vi.mock) ───────────────────
@@ -227,18 +228,18 @@ describe('Watch Capabilities', () => {
         // TEMPLATE_MANIFEST destination ('ralph-instructions.md' under .squad/)
         // matches the lookup in execute.ts.
         mockFsExistsSync.mockImplementation((p: unknown) => {
-          return typeof p === 'string' && p.endsWith('.squad/ralph-instructions.md');
+          return typeof p === 'string' && p === join('/some/repo', '.squad', 'ralph-instructions.md');
         });
         const issues: ExecutableWorkItem[] = [
           { number: 1, title: 'Task', labels: [{ name: 'squad' }], assignees: [] },
         ];
         const prompt = buildAgentPrompt(issues, '/some/repo');
         expect(mockFsExistsSync).toHaveBeenCalledWith(
-          expect.stringContaining('.squad/ralph-instructions.md'),
+          join('/some/repo', '.squad', 'ralph-instructions.md'),
         );
         // Path must be constructed from teamRoot, not a global path
         const [calledPath] = mockFsExistsSync.mock.calls[0] as [string];
-        expect(calledPath).toContain('/some/repo');
+        expect(calledPath).toBe(join('/some/repo', '.squad', 'ralph-instructions.md'));
         expect(prompt).toContain('Ralph, Go!');
       });
 

@@ -67,6 +67,56 @@ describe('genuine current foreground session plan tools', () => {
     expect(h.update).not.toHaveBeenCalled();
   });
 
+  it('ordinary mission plan context: an absent-plan read permits deliberate mission metadata without a second plan request', async () => {
+    const h = host();
+    const result = await h.call('read');
+    expect(result.data).toMatchObject({ status: 'fresh', exists: false, writeAttempted: false });
+    expect(result.data.action).toMatch(/current requested substantive mission/i);
+    expect(result.data.action).toMatch(/explicit planning request/i);
+    expect(result.data.action).toMatch(/no separate plan request/i);
+    expect(result.data.action).toMatch(/unsolicited|unrelated/i);
+    expect(result.data.action).toMatch(/refusal|declined/i);
+    expect(result.data.action).not.toContain('Publish only on explicit request.');
+    expect(h.read).toHaveBeenCalledOnce();
+    expect(h.update).not.toHaveBeenCalled();
+  });
+
+  it('ordinary mission plan context: read-only architecture context round-trips with a supplied child URL and no duplicate progress', async () => {
+    const h = host();
+    const child = { name: 'Lead architecture review', app_url: 'https://example.test/assigned-child' };
+    const content = [
+      '# Architecture review',
+      '**Next / limits:** Read-only review; no code changes or execution of recommendations.',
+      `**Assigned work:** [${child.name}](${child.app_url})`,
+      '## Details',
+      'Purpose: assess the architecture against the requested solution scope.',
+      'Acceptance: a bounded report with evidence, exclusions and limitations.',
+      '',
+    ].join('\n');
+    expect((await h.call('read')).data.status).toBe('fresh');
+    expect(h.update).not.toHaveBeenCalled();
+    const published = await h.call('publish', { content });
+    expect(published.data).toMatchObject({ status: 'published', content, verified: true, hash: hash(content) });
+    expect((await h.call('read')).data).toMatchObject({ status: 'existing', content, hash: hash(content) });
+    expect(h.update).toHaveBeenCalledExactlyOnceWith({ content });
+    expect(content).not.toMatch(/^- \[[ x]\]|^\|/m);
+  });
+
+  it.each(['unavailable', 'denied'])('ordinary mission plan context: reports %s writes explicitly without retrying or claiming publication', async status => {
+    const h = host();
+    const content = '# Architecture review\nRead-only requested mission context.';
+    const result = status === 'denied'
+      ? await h.call('publish', { content }, { ...invocation, agentId: 'native-worker' })
+      : await invoke(createSessionPlanTools(() => ({
+        ...h.session, rpc: { plan: { read: h.read } },
+      })), 'publish', { content });
+    expect(result.raw.resultType).toBe('failure');
+    expect(result.data).toMatchObject({ status, writeAttempted: false, verified: false });
+    expect(result.data.action).toMatch(status === 'denied' ? /foreground coordinator/i : /host supports extensions/i);
+    expect(h.read).not.toHaveBeenCalled();
+    expect(h.update).not.toHaveBeenCalled();
+  });
+
   it('publishes exclusively through plan.update and verifies by re-read', async () => {
     const h = host();
     const result = await h.call('publish', { content: '# Scope\n- [ ] Deliver\n' });
@@ -98,6 +148,21 @@ describe('genuine current foreground session plan tools', () => {
     expect(result.data).toMatchObject({ status: 'updated', hash: hash('# Complete'), verified: true });
     expect(h.update).toHaveBeenCalledExactlyOnceWith({ content: '# Complete' });
     expect(h.read).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([
+    ['legacy prose-first', '# Plan\n## Rationale\nUser-authored scope.\n## Steps\n- [ ] Check\n'],
+    ['custom Unicode and CRLF', '# Mon plan\r\nOrdre personnalisé : vérifier 🧪\r\n'],
+    ['custom statuses', '# Review\n| Work | State |\n| --- | --- |\n| Check | Cancelled |\nScope retained, not completed.\n'],
+  ])('preserves %s Markdown byte-for-byte through publish and update without enforcing a layout', async (_name, content) => {
+    const h = host();
+    const published = await h.call('publish', { content });
+    expect(published.data).toMatchObject({ status: 'published', content, hash: hash(content), verified: true });
+    const snapshot = (await h.call('read')).data;
+    const next = `${content}\nUser's deliberate update; keep this layout.\n`;
+    const updated = await h.call('update', { content: next, expectedHash: snapshot.hash });
+    expect(updated.data).toMatchObject({ status: 'updated', content: next, hash: hash(next), verified: true });
+    expect(h.update.mock.calls).toEqual([[{ content }], [{ content: next }]]);
   });
 
   it('refuses a stale caller hash after a user edit and returns the latest snapshot', async () => {

@@ -60,9 +60,13 @@ The [App session documentation](https://docs.github.com/en/copilot/how-tos/githu
 - **Interactive:** Guided collaboration and input.
 - **Autopilot:** Autonomous execution of authorized work.
 
-"Inspect and propose" must not become an autopilot implementation. Authorized bounded execution can use autopilot by default when permitted without introducing a redundant approval step. Existing user plan/input gates still apply: read the current gate, preserve its exact `request_id`, and obtain the required user decision. Do not auto-approve or change modes to evade it. A prompt defaults to plan if `kickoff.mode` is omitted.
+"Inspect and propose" must not become an autopilot implementation. Squad launches named App specialists with **explicit `kickoff.mode: "autopilot"`** by default for autonomous work within the authorized scope. The user may manually select another mode through the host; preserve that choice, including Plan and its approval gate. Autopilot does not expand scope or permissions, answer unresolved questions, or approve cloud, deployment or provider actions.
 
-Native sync/background scheduling is a different choice, applicable to internal checks or specialist work on fallback hosts. Use sync when a bounded result is needed now. Background is justified only by independent foreground work or a genuinely needed retained same-task follow-up supported by the host. Some App `task` schemas do not expose `mode`; inspect the current schema instead of copying CLI fields.
+For follow-ups through `send_session_message`, omit `mode` to preserve the user's current choice. Do not automatically change session mode based on delegation, parent mode, parallelism or task length. A pending plan/input gate is not resolved by selecting Autopilot: read the current gate, preserve its exact `request_id`, and obtain the required decision. A prompt defaults to Plan if `kickoff.mode` is omitted, so set the requested launch mode deliberately.
+
+Native sync/background scheduling is a different choice, applicable to internal checks or specialist work on fallback hosts. Use sync when a bounded result is needed now. Background is justified only by independent foreground work or a genuinely needed retained same-task follow-up supported by the host. Some App `task` schemas do not expose `mode`; inspect the current schema instead of copying CLI fields. Never pass an App session mode as a native task's scheduling value.
+
+These are coordinator instruction defaults, not host enforcement. Updating files does not change a running session's mode or prove it loaded the new instructions; actual mode and pending gates must be observed separately in the host. Refresh/reselect Squad normally to load revised guidance without bypassing existing approval or input gates.
 
 ### Results, workspaces and integration
 
@@ -78,6 +82,66 @@ Native sync/background scheduling is a different choice, applicable to internal 
 - Children do not spawn further children or hide additional specialist missions in native tasks. Return those missions to the coordinator for visible sibling sessions.
 
 An end-of-agent-turn, idle notification or native `onSubagentStop` hook is not proof of success. Report **in-progress**, **blocked/needs_input**, **completed (verified outcome)**, **failed**, or **cancelled** with meaningful evidence, not acknowledgment/status chatter. Files alone may be partial or invalid. The foreground coordinator updates its main-session plan from actual child progress/results, and must not report parent completion while a required running/incomplete subtask remains.
+
+### Runtime-required security review and visible follow-up
+
+A host may require its native `security-review` agent **first** for a security
+review request. That higher-priority requirement takes precedence over Squad's
+App dispatch and plan preparation: use the mandated reviewer, not an inline
+audit or a replacement App session. This is a full review, not a small internal
+check, and its result is not an App child. A synchronous result may have no
+native agent ID, and even a native ID is not a canonical App session URL.
+
+A substantive security review includes bounded App restitution, even with
+zero findings or a read-only request such as "Review this project's security
+without changing files". The ordinary request is sufficient: no separate
+follow-up request, positive finding or remediation choice is required.
+After the report returns, reuse an existing suitable child for the same
+mission or create one genuine coordinated project/worktree owner to explain
+the examined scope, known coverage, limitations and result. Supply the returned report or a
+verified accessible report artifact; do not repeat the audit to populate the
+sidebar or create an empty child just for appearance. Preserve the native
+reviewer's findings, severity, confidence, evidence and attribution, together
+with required host formatting and any outstanding user decision. Reviewing
+results does not authorize fixes, cloud actions or a new audit. If the report
+only examined changes, retain that coverage limit instead of presenting it
+as an exhaustive project review. Zero findings is not a security certification.
+
+Choose the owner from the actual active roster and charter-permitted scope.
+If there is no declared security specialist, an existing Lead/Architect may
+own material-risk synthesis within its boundaries without claiming security
+expertise or authorship of the findings. Resolve the real member by role, not
+an assumed agent named `architect`. If no suitable owner exists, ask for a
+scope/ownership decision through normal confirmation, not a new team member
+created solely for UI.
+
+After the native result, discover actual schemas and use supported SQL task
+and native plan tools to reconcile this request's progress and readable context,
+even when there are no findings or code changes. "Without changing files"
+preserves repository/code files; it does not forbid mission task/plan metadata
+or permit writing `plan.md` directly. Preserve unrelated rows, user content and
+hash guards. A listed tool resource alone is not evidence that schema discovery
+or an operation succeeded. If discovery or a supported operation fails, report
+the specific unavailable/blocked step and use the visible fallback rather than
+silently skipping progress.
+
+Keep native review completion and App restitution in progress distinct until
+the genuine handoff is verified. Next decisions are included only when there
+are any; do not invent remediation or an obligatory decision task for a
+zero-finding result. Link only the actual child's host-supplied `app_url` after
+verified creation. If report access, workspace, ownership or App tools are
+unavailable, disclose the limitation without fabricating a session.
+
+Only when the higher-priority runtime allows its required reviewer to run
+inside an existing App mission may that mission invoke it there. This is a
+narrow capability exception, not general native specialist delegation or
+permission for nested App sessions. Do not invoke that reviewer again after
+its report has already returned. Autopilot defaults, user-selected modes,
+approval/input gates and evidence boundaries remain unchanged.
+
+This is an instruction-level composition, not a new runtime interceptor.
+Contract and template tests do not establish native reviewer execution, a
+real App child, or navigation/rendering in the host; those need live evidence.
 
 ### Optional current main-session plan
 

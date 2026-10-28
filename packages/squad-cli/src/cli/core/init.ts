@@ -7,11 +7,13 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { FSStorageProvider } from '@bradygaster/squad-sdk';
 import { detectSquadDir, resolveWorktreeMainCheckout } from './detect-squad-dir.js';
-import { success, BOLD, RESET, YELLOW, GREEN, DIM } from './output.js';
+import { success, warn, BOLD, RESET, YELLOW, GREEN, DIM } from './output.js';
 import { fatal } from './errors.js';
 import { detectProjectType } from './project-type.js';
 import { getPackageVersion, stampVersion } from './version.js';
-import { initSquad as sdkInitSquad, cleanupOrphanInitPrompt, ensurePersonalSquadDir, resolveGlobalSquadPath, resolvePersonalSquadDir, clearResolveSquadCache, type InitOptions } from '@bradygaster/squad-sdk';
+import { initSquad as sdkInitSquad, cleanupOrphanInitPrompt, ensurePersonalSquadDir, resolveGlobalSquadPath, resolvePersonalSquadDir, buildTeamCapabilityProfile, clearResolveSquadCache, type InitOptions } from '@bradygaster/squad-sdk';
+import { resolveSquadPaths } from '@bradygaster/squad-sdk/resolution';
+import { readCastingRegistryPair } from '@bradygaster/squad-sdk/casting';
 import { installGitHooks } from '../commands/install-hooks.js';
 import { liftInitMutableStateOntoOrphan } from '../commands/migrate-backend.js';
 import { projectSquadStateMcpSpec, resolveSquadStateMcpSpec } from './mcp-spec.js';
@@ -575,7 +577,22 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
 
   if (!isInitNoColor()) await sleep(80);
   console.log();
-  console.log(`${GREEN}${BOLD}Squad initialized.${RESET} Run ${CYAN}${BOLD}copilot --agent squad${RESET} and tell it what you're building.`);
+  console.log(`${GREEN}${BOLD}Squad files installed.${RESET}`);
+  try {
+    const paths = resolveSquadPaths(dest);
+    if (!paths) throw new Error('Installed team directory could not be resolved.');
+    const teamDir = squadInfo.isLegacy ? squadDir : paths.teamSquadDir;
+    const { registry } = readCastingRegistryPair(path.join(teamDir, 'casting'));
+    const profile = buildTeamCapabilityProfile({ teamMarkdown: readTeamMd(teamDir), registry });
+    if (profile.empty) {
+      console.log('Team not yet constituted. Squad will propose a team for your confirmation before starting domain work.');
+    } else {
+      console.log('Existing specialist roster preserved.');
+    }
+  } catch (error) {
+    warn(`Team readiness could not be verified: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  console.log(`Run ${CYAN}${BOLD}copilot --agent squad${RESET} (or select Squad in the App) with your existing goal. Installed files do not prove host activation or agent dispatch.`);
   console.log();
   console.log(`${DIM}Tip: for non-interactive scripts that need squad_state tools, add to package.json:${RESET}`);
   console.log(`${DIM}  "squad:copilot": "copilot --agent squad --additional-mcp-config @.mcp.json"${RESET}`);

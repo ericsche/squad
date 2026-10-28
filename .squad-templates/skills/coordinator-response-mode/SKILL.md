@@ -26,11 +26,24 @@ because a new agent or session is available.
 These modes are not latency promises and do not force ceremonies or delegation
 for trivial evidence. In the Copilot App, ALL named Squad specialist missions MUST
 use visible coordinated child sessions via `create_session`, including short/read-only missions.
-Native `task` is ONLY for small bounded internal checks in the App; a named specialist
+Native `task` is ONLY for small bounded internal checks in the App unless a
+higher-priority instruction mandates a specific runtime-required reviewer; a named specialist
 mission is not an internal check merely because it is short or read-only.
 An internal check runs a known test selector or checks an explicit output against
 an existing requirement, without taking ownership of a new specialist deliverable.
 Lightweight means a smaller prompt, not a hidden native specialist.
+A runtime-required reviewer is not a small internal check or an App child.
+Honor any native-first obligation, then use its report for genuine bounded App
+restitution, even with zero findings or a read-only request. This is part of
+the substantive security review, not a separately requested follow-up.
+Explain examined scope/coverage/limitations/result without rerunning the audit,
+and reconcile current-request SQL tasks and readable plan after the report
+using actual tool discovery/calls. Read-only repository scope does not forbid
+mission metadata or imply remediation permission.
+Resolve that owner's active role and charter scope, not fictitious security
+expertise. The coordinator's required-review composition preserves distinct
+native evidence, actual App links and ordinary delegation/approval boundaries;
+it does not permit general recursive specialist delegation.
 Scribe runs only when accepted durable decisions need merging, not after every task.
 Use native sync for bounded internal checks whose result is needed now, or specialist work on fallback hosts; background only with independent foreground work or genuinely needed retained same-task follow-up supported by the host.
 From an App project session, ALL named specialist missions MUST use project children
@@ -102,6 +115,12 @@ Bounded collaboration, not automatic fan-out:
 - If a Lightweight task turns out to need history or decisions context → treat as Standard.
 - Do not turn a trivial lookup into delegation solely because tools are available.
 - Increase context for evidence/risk needs; keep the same authorized scope.
+- Direct/Lightweight/Standard/Full changes context, not App permissions.
+  Set `kickoff.mode: "autopilot"` explicitly for named App specialists unless
+  the user selected another mode; autonomous work remains within the authorized
+  scope and does not answer unresolved questions or approve actions. Follow-ups omit
+  the App `mode` field to preserve the user's choice and pending plan/input gates.
+  Native task sync/background scheduling remains separate.
 - Response modes do not grant implementation permission or approval. For nontrivial
   multi-step work or explicit planning, follow the visible main-session plan protocol.
 
@@ -111,8 +130,10 @@ Keep the specialist persona with a compact charter excerpt and only relevant
 context; do not read unrelated histories or fan out. Use scheduling/model fields
 only when supported by the host and warranted by the actual task/preference.
 In the App, place the prompt below in `create_session`'s `kickoff.prompt` with
-the parent's `project_id`, project/worktree child parameters and authorization-resolved mode from the spawn
-reference. The native envelope fields are for fallback hosts, not App arguments.
+the parent's `project_id`, project/worktree child parameters and explicit
+`kickoff.mode: "autopilot"`, respecting authorized scope, user-selected modes and approval gates
+as described in the spawn reference. The native envelope fields are for fallback
+hosts, not App arguments.
 
 ```
 agent_type: "general-purpose"

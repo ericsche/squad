@@ -8,6 +8,9 @@ import { FSStorageProvider } from '@bradygaster/squad-sdk';
 
 const storage = new FSStorageProvider();
 
+const PRERELEASE_IDENTIFIER = String.raw`(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)`;
+const SEMVER_PATTERN = String.raw`(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-${PRERELEASE_IDENTIFIER}(?:\.${PRERELEASE_IDENTIFIER})*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?`;
+
 /**
  * Get package version from package.json
  * Walks up from the current file to find package.json — works from both
@@ -37,10 +40,13 @@ export function stampVersion(filePath: string, version: string): void {
   // Replace version in HTML comment (must come immediately after frontmatter closing ---)
   content = content.replace(/<!-- version: [^>]+ -->/m, `<!-- version: ${version} -->`);
   // Replace version in the Identity section's Version line
-  content = content.replace(/- \*\*Version:\*\* [0-9.]+(?:-[a-z]+(?:\.\d+)?)?/m, `- **Version:** ${version}`);
+  content = content.replace(
+    new RegExp(String.raw`^- \*\*Version:\*\* ${SEMVER_PATTERN}(?=$|[ \t]|\.(?=[ \t]|$))`, 'm'),
+    `- **Version:** ${version}`,
+  );
   // Replace only the unresolved placeholder or a valid SemVer literal.
   content = content.replace(
-    /`Squad v(?:\{version\}|(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)`/g,
+    new RegExp('`Squad v(?:\\{version\\}|' + SEMVER_PATTERN + ')`', 'g'),
     `\`Squad v${version}\``,
   );
   storage.writeSync(filePath, content);
@@ -54,7 +60,7 @@ export function readInstalledVersion(filePath: string): string | null {
     if (!storage.existsSync(filePath)) return null;
     const content = storage.readSync(filePath) ?? '';
     // Try to read from HTML comment first (new format)
-    const commentMatch = content.match(/<!-- version: ([0-9.]+(?:-[a-z]+(?:\.\d+)?)?) -->/);
+    const commentMatch = content.match(new RegExp(String.raw`<!-- version: (${SEMVER_PATTERN}) -->`));
     if (commentMatch) return commentMatch[1]!;
     // Fallback: try old frontmatter format for backward compatibility during upgrade
     const frontmatterMatch = content.match(/^version:\s*"([^"]+)"/m);

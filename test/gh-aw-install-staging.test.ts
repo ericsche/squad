@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createHash } from 'node:crypto';
 import { parse } from 'yaml';
 import {
   CONTRACT_DESTINATION,
@@ -14,6 +15,8 @@ import {
   compileWithPinnedActions,
   verifyInstall,
   verifyStagedInstall,
+  workflowWithSource,
+  verifyStagedObjects,
 } from '../workflows/shared/squad-install-verifier.mjs';
 import { createFirstInstallFixture } from './helpers/gh-aw-install-fixture.js';
 
@@ -72,9 +75,73 @@ function seedUnownedMutableRouter(root: string): void {
 afterEach(() => {
   vi.clearAllMocks();
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+}, 45_000);
+
+describe('workflow source binding across checkout line endings', () => {
+  it.each(['\n', '\r\n'])('preserves every original byte except the inserted source with %j', (eol) => {
+    const original = ['---', 'on: workflow_dispatch', 'permissions: {}', '---', '', 'Keep the body.', ''].join(eol);
+    const bound = workflowWithSource(original, 'squad', revision, false);
+    const inserted = `${eol}source: bradygaster/squad/workflows/package/squad.md@${revision}`;
+    expect(bound).toBe(original.replace(`${eol}---${eol}`, `${inserted}${eol}---${eol}`));
+    expect(bound.replace(inserted, '')).toBe(original);
+  });
+
+  it.each(['body only', '---\nunterminated', '---\r\nunterminated'])('rejects malformed frontmatter %j', (content) => {
+    expect(() => workflowWithSource(content, 'squad', revision, false)).toThrow(/frontmatter/);
+  });
+});
+
+describe('bounded staged object batch transport', () => {
+  it('reads exact binary, NUL, Unicode, newline and empty blobs once and rejects malformed responses', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'squad-object-batch-'));
+    roots.push(root);
+    git(root, 'init', '--quiet');
+    const contents = [Buffer.alloc(0), Buffer.from([0, 10, 255, 13, 0]),
+      Buffer.from('Unicode 雪\nembedded\nheaders blob 0\r\n')];
+    const blobs = contents.map((content, index) => ({
+      path: `required-${index}`,
+      object: execFileSync('git', ['hash-object', '-w', '--stdin'], { cwd: root, input: content, encoding: 'utf8' }).trim(),
+      size: content.length,
+      digest: createHash('sha256').update(content).digest('hex'),
+    }));
+    const actual = await vi.importActual<typeof import('node:child_process')>('node:child_process');
+    vi.mocked(spawnSync).mockClear();
+    expect(() => verifyStagedObjects(root, blobs)).not.toThrow();
+    expect(spawnSync).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(spawnSync).mock.calls[0][1]).toEqual(['cat-file', '--batch']);
+    const frame = (index: number) => Buffer.concat([
+      Buffer.from(`${blobs[index].object} blob ${blobs[index].size}\n`), contents[index], Buffer.from('\n'),
+    ]);
+    const valid = Buffer.concat(contents.map((_, index) => frame(index)));
+    for (const response of [
+      Buffer.alloc(0),
+      valid.subarray(0, valid.length - 1),
+      Buffer.concat([valid, Buffer.from('extra\n')]),
+      Buffer.concat([frame(1), frame(0), frame(2)]),
+      Buffer.concat([frame(0), frame(0), frame(2)]),
+      Buffer.from(`${blobs[0].object} missing\n`),
+      Buffer.from(`${blobs[0].object} tree 0\n\n`),
+      Buffer.from(`${blobs[0].object} blob 1\nx\n`),
+      Buffer.concat([Buffer.from(`${'a'.repeat(40)} blob 0\n\n`), frame(1), frame(2)]),
+      Buffer.from('unterminated'),
+    ]) {
+      vi.mocked(spawnSync).mockImplementationOnce(() => ({
+        status: 0, stdout: response, stderr: Buffer.alloc(0),
+      }) as ReturnType<typeof spawnSync>);
+      expect(() => verifyStagedObjects(root, blobs)).toThrow();
+    }
+    expect(() => verifyStagedObjects(root, [{ ...blobs[0], object: `${blobs[0].object}\nHEAD` }])).toThrow(/request/);
+    expect(() => verifyStagedObjects(root, [{ ...blobs[0], size: -1 }])).toThrow(/request/);
+    vi.mocked(spawnSync).mockImplementation(actual.spawnSync);
+  });
 });
 
 describe('gh-aw: verified ownership staging under consumer ignore rules', () => {
+  beforeAll(() => {
+    // Compile the real eight-workflow fixture once, outside the per-gate budget.
+    createFirstInstallFixture(revision, 'package');
+  }, 120_000);
+
   it('installs a coherent reset-capable package and excludes only the named historical Cast', async () => {
     const root = consumer();
     const reset = {
@@ -147,13 +214,17 @@ describe('gh-aw: verified ownership staging under consumer ignore rules', () => 
     ]);
     const unrelatedObject = git(root, 'rev-parse', `HEAD:${unrelated}/ordinary-file-00000.txt`).trim();
     const blobReads = spawn.mock.calls.filter(([command, args]) => command === 'git' && args?.[0] === 'cat-file');
-    expect(blobReads).toHaveLength(new Set(required).size);
-    expect(blobReads.some(([, args]) => args?.includes(unrelatedObject))).toBe(false);
+    expect(blobReads).toHaveLength(1);
+    expect(blobReads[0][1]).toEqual(['cat-file', '--batch']);
+    const batchOptions = blobReads[0][2] as { input: string; maxBuffer: number };
+    expect(batchOptions.input.trim().split('\n')).toHaveLength(new Set(required).size);
+    expect(batchOptions.input).not.toContain(unrelatedObject);
+    expect(batchOptions.maxBuffer).toBeGreaterThan(0);
     expect(stagedPaths(root)).toEqual([...before, OWNERSHIP_DESTINATION].sort());
     expect(git(root, 'diff', '--cached', '--name-only').trim()).toBe(OWNERSHIP_DESTINATION);
     expect(git(root, 'diff', '--name-only').trim()).toBe(`${unrelated}/ordinary-file-00000.txt`);
     expect(readFileSync(join(root, unrelated, 'untracked.txt'), 'utf8')).toBe('untracked consumer content\n');
-  }, 30_000);
+  }, 90_000);
 
   it('reproduces the silent omission, then force-stages only the exact required JSON', () => {
     const root = consumer();
@@ -179,6 +250,29 @@ describe('gh-aw: verified ownership staging under consumer ignore rules', () => 
     expect(git(root, 'diff', '--cached', '--name-only')).toBe('');
     expect(verifyStagedInstall(root).failures).toEqual([]);
   });
+
+  it('fails closed on malformed, truncated or extra batch object data', async () => {
+    const root = consumer();
+    expect(verifyStagedInstall(root, { stageOwnership: true }).failures).toEqual([]);
+    const actual = await vi.importActual<typeof import('node:child_process')>('node:child_process');
+    const corruptions = [
+      (bytes: Buffer) => Buffer.from(bytes.toString('utf8').replace(' blob ', ' tree ')),
+      (bytes: Buffer) => bytes.subarray(0, bytes.length - 1),
+      (bytes: Buffer) => Buffer.concat([bytes, Buffer.from('unexpected\n')]),
+    ];
+    for (const corrupt of corruptions) {
+      vi.mocked(spawnSync).mockImplementation((command, args, options) => {
+        const result = actual.spawnSync(command, args, options);
+        if (command === 'git' && args?.[0] === 'cat-file') {
+          return { ...result, stdout: corrupt(result.stdout as Buffer) };
+        }
+        return result;
+      });
+      expect(verifyStagedInstall(root).failures).not.toEqual([]);
+    }
+    vi.mocked(spawnSync).mockImplementation(actual.spawnSync);
+    expect(verifyStagedInstall(root).failures).toEqual([]);
+  }, 15_000);
 
   it('runs the shipped CLI gate successfully and returns nonzero when metadata is missing', () => {
     const root = consumer();

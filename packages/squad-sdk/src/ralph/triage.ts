@@ -102,7 +102,7 @@ export function parseModuleOwnership(routingMd: string): ModuleOwnership[] {
   return modules;
 }
 
-/** Parse team roster from team.md content */
+/** Parse active domain specialists from the current or legacy roster table. */
 export function parseRoster(teamMd: string): TeamMember[] {
   const table =
     parseTableSection(teamMd, /^##\s*members\b/i) ??
@@ -114,14 +114,20 @@ export function parseRoster(teamMd: string): TeamMember[] {
   const roleIndex = findColumnIndex(table.headers, ['role']);
   if (nameIndex < 0 || roleIndex < 0) return [];
 
-  const excluded = new Set(['scribe', 'ralph', 'Rai']);
+  const statusIndex = findColumnIndex(table.headers, ['status']);
+  const excludedNames = new Set(['squad', 'scribe', 'ralph', 'rai', 'fact checker', 'fact-checker', 'factchecker', '@copilot', 'copilot']);
+  const excludedRoles = new Set(['coordinator', 'scribe', 'ralph', 'rai', 'rai reviewer', 'fact checker', 'fact-checker', 'coding agent', 'work monitor', 'durable decision merger']);
   const members: TeamMember[] = [];
 
   for (const row of table.rows) {
     const name = cleanCell(row[nameIndex] ?? '');
     const role = cleanCell(row[roleIndex] ?? '');
     if (!name || !role) continue;
-    if (excluded.has(name.toLowerCase())) continue;
+    if (excludedNames.has(normalizeName(name)) || excludedRoles.has(normalizeName(role))) continue;
+    const status = statusIndex >= 0 ? cleanCell(row[statusIndex] ?? '') : '';
+    // The first lifecycle label owns assignment state; trailing guidance can be pending.
+    const lifecycle = status.match(/\b(active|inactive|retired|archived|alumni|removed|disabled|pending|proposed)\b/i)?.[1];
+    if (lifecycle && lifecycle.toLowerCase() !== 'active') continue;
 
     members.push({
       name,

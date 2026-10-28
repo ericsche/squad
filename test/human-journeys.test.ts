@@ -136,7 +136,9 @@ describe('Journey 1: I just installed this (squad init)', () => {
     await harness.close();
 
     // The human needs a clear next step — not silence
-    expect(output).toContain('Squad initialized');
+    expect(output).toContain('Squad files installed.');
+    expect(output).toContain('Team not yet constituted.');
+    expect(output).toContain('Squad will propose a team for your confirmation before starting domain work.');
     expect(output).toContain('copilot --agent squad');
   });
 

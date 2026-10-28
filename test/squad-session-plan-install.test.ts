@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
@@ -31,6 +31,15 @@ function assertInstalled(): void {
       readFileSync(join(fixture.templatesDir, 'extensions', 'squad-session-plan', name), 'utf8'),
     );
   }
+}
+
+function assertPlanDefaultsInstalled(): void {
+  const agent = readFileSync(join(project, '.github', 'agents', 'squad.agent.md'), 'utf8').replace(/\r\n?/g, '\n');
+  const bundled = readFileSync(join(canonical, 'squad.agent.md'), 'utf8').replace(/\r\n?/g, '\n');
+  const plan = bundled.match(/### Visible Main-Session Plan[\s\S]*?(?=\n### )/)?.[0];
+  expect(plan, 'missing canonical plan guidance').toBeDefined();
+  expect(agent).toContain(plan!);
+  expect(agent, 'installed defaults must use native SQL task state, not only Markdown').toContain('single authoritative task-state source');
 }
 
 beforeEach(() => {
@@ -84,6 +93,7 @@ describe('current-session plan extension installation', () => {
   it('squad init installs the native extension', async () => {
     await runInit(project);
     assertInstalled();
+    assertPlanDefaultsInstalled();
   });
 
   it('squad init preserves an existing customized extension entry', async () => {
@@ -111,6 +121,7 @@ describe('current-session plan extension installation', () => {
     rmSync(join(project, '.github', 'extensions'), { recursive: true, force: true });
     await runUpgrade(project);
     assertInstalled();
+    assertPlanDefaultsInstalled();
     writeFileSync(installed('extension.mjs'), '// customized entry\n');
     writeFileSync(installed('plan-tools.mjs'), '// customized helper\n');
     await runUpgrade(project);
@@ -121,4 +132,109 @@ describe('current-session plan extension installation', () => {
   it('canonical file set matches the manifest (no companion omitted from installation)', () => {
     expect(readdirSync(join(canonical, 'extensions', 'squad-session-plan')).sort()).toEqual([...filenames].sort());
   });
+});
+
+describe('cold-start team readiness through actual init', () => {
+  const options = { includeWorkflows: false, includeVscodeDefault: false };
+  const pendingMessage = 'Team not yet constituted. Squad will propose a team for your confirmation before starting domain work.';
+  const configuredMessage = 'Existing specialist roster preserved.';
+  const team = (rows: string, heading = 'Members') =>
+    `# Custom team\n\n## ${heading}\n\n| Name | Role | Charter | Status |\n|---|---|---|---|\n${rows}\n`;
+  const output = () => vi.mocked(console.log).mock.calls.flat().join('\n').replace(/\x1b\[[0-9;]*m/g, '');
+
+  it('reports pending formation for a scaffold while preserving project instructions and skills', async () => {
+    const instructions = '# Existing project instructions\nKeep the current architecture.\n';
+    const skill = '---\nname: project-guide\ndescription: Existing project guide.\n---\nKeep this skill.\n';
+    mkdirSync(join(project, '.github', 'skills', 'project-guide'), { recursive: true });
+    writeFileSync(join(project, '.github', 'copilot-instructions.md'), instructions);
+    writeFileSync(join(project, '.github', 'skills', 'project-guide', 'SKILL.md'), skill);
+
+    await runInit(project, options);
+
+    const roster = readFileSync(join(project, '.squad', 'team.md'), 'utf8');
+    expect(roster).toMatch(/## Members\s+\| Name \| Role \| Charter \| Status \|\s+\|[-|]+\|\s+## Project Context/);
+    const registry = JSON.parse(readFileSync(join(project, '.squad', 'casting', 'registry.json'), 'utf8'));
+    expect(registry.agents).toEqual({});
+    expect(readFileSync(join(project, '.github', 'copilot-instructions.md'), 'utf8')).toBe(instructions);
+    expect(readFileSync(join(project, '.github', 'skills', 'project-guide', 'SKILL.md'), 'utf8')).toBe(skill);
+    expect(output()).toContain('Squad files installed.');
+    expect(output()).toContain(pendingMessage);
+    expect(output()).not.toContain(configuredMessage);
+    expect(output()).not.toMatch(/Team (?:hired|ready)/);
+  });
+
+  it.each([
+    ['empty roster', ''],
+    ['support and coding-agent rows only', [
+      '| Squad | Coordinator | - | Active |',
+      '| Scribe | Durable Decision Merger | - | Active |',
+      '| Ralph | Work Monitor | - | Active |',
+      '| Rai | RAI Reviewer | - | Active |',
+      '| Fact Checker | Fact Checker | - | Active |',
+      '| @copilot | Coding Agent | - | Active |',
+    ].join('\n')],
+    ['inactive specialist', '| Nori | Developer | .squad/agents/nori/charter.md | Retired |'],
+  ])('does not confuse %s with a constituted team on re-init', async (_name, rows) => {
+    await runInit(project, options);
+    const content = team(rows);
+    writeFileSync(join(project, '.squad', 'team.md'), content);
+    vi.mocked(console.log).mockClear();
+
+    await runInit(project, options);
+
+    expect(readFileSync(join(project, '.squad', 'team.md'), 'utf8')).toBe(content);
+    expect(output()).toContain(pendingMessage);
+    expect(output()).not.toContain(configuredMessage);
+  }, 15_000);
+
+  it.each(['Members', 'Team Roster'])('preserves an existing populated %s team without calling it pending', async heading => {
+    await runInit(project, options);
+    const content = team('| Nori | Developer | .squad/agents/nori/charter.md | Active |', heading);
+    const routing = '# Custom routing\n\n## Routing Table\n\n| Work Type | Route To | Examples |\n|---|---|---|\n| Implementation | Nori | code |\n';
+    const charter = '# Nori\n\n## What I Own\n\nImplementing code.\n';
+    writeFileSync(join(project, '.squad', 'team.md'), content);
+    writeFileSync(join(project, '.squad', 'routing.md'), routing);
+    mkdirSync(join(project, '.squad', 'agents', 'nori'), { recursive: true });
+    writeFileSync(join(project, '.squad', 'agents', 'nori', 'charter.md'), charter);
+    vi.mocked(console.log).mockClear();
+
+    await runInit(project, options);
+
+    expect(output()).toContain(configuredMessage);
+    expect(output()).not.toContain(pendingMessage);
+    expect(readFileSync(join(project, '.squad', 'team.md'), 'utf8')).toBe(content);
+    expect(readFileSync(join(project, '.squad', 'routing.md'), 'utf8')).toBe(routing);
+    expect(readFileSync(join(project, '.squad', 'agents', 'nori', 'charter.md'), 'utf8')).toBe(charter);
+  }, 15_000);
+
+  it('uses the linked team roster instead of labelling an empty project scaffold pending', async () => {
+    await runInit(project, options);
+    const shared = join(sandbox, 'shared-team', '.squad');
+    cpSync(join(project, '.squad'), shared, { recursive: true });
+    writeFileSync(join(shared, 'team.md'), team('| Nori | Developer | - | Active |'));
+    const configPath = join(project, '.squad', 'config.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    writeFileSync(configPath, JSON.stringify({ ...config, teamRoot: join(sandbox, 'shared-team') }));
+    vi.mocked(console.log).mockClear();
+
+    await runInit(project, options);
+
+    expect(output()).toContain(configuredMessage);
+    expect(output()).not.toContain(pendingMessage);
+    expect(readFileSync(join(shared, 'team.md'), 'utf8')).toContain('Nori');
+  }, 15_000);
+
+  it('does not label a preserved populated legacy .ai-team roster pending', async () => {
+    await runInit(project, options);
+    const content = team('| Nori | Developer | - | Active |', 'Team Roster');
+    writeFileSync(join(project, '.squad', 'team.md'), content);
+    renameSync(join(project, '.squad'), join(project, '.ai-team'));
+    vi.mocked(console.log).mockClear();
+
+    await runInit(project, options);
+
+    expect(output()).toContain(configuredMessage);
+    expect(output()).not.toContain(pendingMessage);
+    expect(readFileSync(join(project, '.ai-team', 'team.md'), 'utf8')).toBe(content);
+  }, 15_000);
 });

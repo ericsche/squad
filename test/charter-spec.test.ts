@@ -175,7 +175,7 @@ function schemaErrorKeywords(errors: ErrorObject[] | null | undefined): string[]
 
 async function readCaseSource(testCase: ManifestCase): Promise<string> {
   if (testCase.input.fixture !== null) {
-    return readFile(path.join(FIXTURE_ROOT, testCase.input.fixture), 'utf8');
+    return (await readFile(path.join(FIXTURE_ROOT, testCase.input.fixture), 'utf8')).replace(/\r\n/g, '\n');
   }
   if (testCase.input.text !== null) return testCase.input.text;
   throw new Error(`${testCase.id}: exactly one input source is required`);
@@ -535,10 +535,10 @@ describe('Squad Charter Profile v0.1 portable conformance manifest', () => {
         applyEdits(parsed, testCase);
         const output = serializeCharter(parsed, { format: testCase.serialization.mode });
         const expectedOutput = testCase.expected.serialization?.outputFixture
-          ? await readFile(
+          ? (await readFile(
               path.join(FIXTURE_ROOT, testCase.expected.serialization.outputFixture),
               'utf8',
-            )
+            )).replace(/\r\n/g, '\n')
           : testCase.expected.serialization?.output;
         expect(output, `${testCase.id}: serialized output`).toBe(expectedOutput);
         expect(eolName(output), `${testCase.id}: line endings`)

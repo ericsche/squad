@@ -11,6 +11,7 @@ import {
   type ModuleOwnership,
 } from '../packages/squad-sdk/src/ralph/triage.js';
 import type { GhIssue, GhPullRequest } from '../packages/squad-cli/src/cli/core/gh-cli.js';
+import { buildTeamCapabilityProfile } from '../packages/squad-sdk/src/config/team-capabilities.js';
 
 const TEAM_MD = [
   '# Team',
@@ -113,6 +114,86 @@ describe('ralph triage parser helpers', () => {
       const roster = parseRoster(TEAM_MD);
       expect(roster.some((member) => member.name === 'Scribe')).toBe(false);
       expect(roster.some((member) => member.name === 'Ralph')).toBe(false);
+    });
+
+    it('does not advertise support, coordinator or coding-agent rows as domain specialists', () => {
+      const supportOnly = [
+        '## Members', '',
+        '| Name | Role | Status |', '|---|---|---|',
+        '| Squad | Coordinator | Active |',
+        '| SCRIBE | Durable Decision Merger | Active |',
+        '| Ralph | Work Monitor | Active |',
+        '| Rai | RAI Reviewer | Active |',
+        '| Fact Checker | Verifier | Active |',
+        '| fact-checker | Verifier | Active |',
+        '| @copilot | Coding Agent | Active |',
+        '| Helper | Coding Agent | Active |',
+      ].join('\n');
+      expect(parseRoster(supportOnly)).toEqual([]);
+    });
+
+    it('excludes explicitly inactive Members rows while retaining active and legacy status-free specialists', () => {
+      const content = [
+        '## Members', '',
+        '| Name | Role | Status |', '|---|---|---|',
+        '| Active Owner | Developer | ✅ Active |',
+        '| Legacy Owner | Architect | |',
+        ...['Inactive', 'Retired', 'Archived', 'Alumni', 'Removed', 'Disabled', 'Pending', 'Proposed'].map(
+          (status, index) => `| Former ${index} | Developer | ${status} |`,
+        ),
+      ].join('\n');
+      expect(parseRoster(content).map(member => member.name)).toEqual(['Active Owner', 'Legacy Owner']);
+    });
+
+    describe('primary lifecycle status', () => {
+      const teamWithStatus = (status: string) => [
+        '## Members', '',
+        '| Name | Role | Charter | Status |', '|---|---|---|---|',
+        '| Lead | Architecture | .squad/agents/lead/charter.md | Active |',
+        `| Backend | .NET and Microsoft 365 agent development | .squad/agents/backend/charter.md | ${status} |`,
+        '| Infra | Infrastructure | .squad/agents/infra/charter.md | Active |',
+        '| Tester | Testing | .squad/agents/tester/charter.md | Active |',
+      ].join('\n');
+
+      it.each([
+        'Active; SDK guidance preparation pending',
+        'aCtIvE; SDK guidance preparation PENDING',
+        '✅ **Active**; optional guidance proposed',
+        'Active (SDK guidance preparation pending)',
+      ])('retains an active assignment with a nonblocking annotation: %s', status => {
+        expect(parseRoster(teamWithStatus(status)).map(member => member.name)).toEqual([
+          'Lead', 'Backend', 'Infra', 'Tester',
+        ]);
+      });
+
+      it.each([
+        'Inactive; previously Active',
+        'Retired; guidance Active',
+        'Archived; previously Active',
+        'Alumni; previously Active',
+        'Removed; previously Active',
+        'Disabled; previously Active',
+        'Pending; requested Active',
+        'Proposed; awaiting Active assignment',
+      ])('does not reactivate a non-active primary lifecycle from later text: %s', status => {
+        expect(parseRoster(teamWithStatus(status)).map(member => member.name)).toEqual([
+          'Lead', 'Infra', 'Tester',
+        ]);
+      });
+
+      it.each(['active', 'retired'])('keeps guidance annotations separate from registry lifecycle %s in capability profiles', status => {
+        const profile = buildTeamCapabilityProfile({
+          teamMarkdown: teamWithStatus('Active; SDK guidance preparation pending'),
+          routingMarkdown: '## Routing Table\n\n| Work Type | Route To | Examples |\n|---|---|---|\n| .NET development | Backend | C#, SDK |\n',
+          registry: {
+            agents: { backend: { persistent_name: 'Backend', status } },
+          },
+        });
+        expect(profile.specialists.map(member => member.name)).toEqual(
+          status === 'active' ? ['Lead', 'Backend', 'Infra', 'Tester'] : ['Lead', 'Infra', 'Tester'],
+        );
+        expect(profile.taskTypes.includes('.NET development')).toBe(status === 'active');
+      });
     });
 
     it('returns empty array for empty roster', () => {

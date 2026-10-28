@@ -181,6 +181,18 @@ export const TEMPLATE_MANIFEST: TemplateFile[] = [
     overwriteOnUpgrade: false,
     description: 'Current-session plan RPC helpers (user-owned)',
   },
+  {
+    source: 'extensions/squad-provider-onboarding/extension.mjs',
+    destination: '../.github/extensions/squad-provider-onboarding/extension.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Opt-in external provider onboarding bridge (user-owned)',
+  },
+  {
+    source: 'extensions/squad-provider-onboarding/onboarding-tools.mjs',
+    destination: '../.github/extensions/squad-provider-onboarding/onboarding-tools.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Same-host Microsoft 365 .NET provider onboarding helpers (user-owned)',
+  },
 
   // User-owned files (never overwrite)
   {
