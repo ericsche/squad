@@ -1,6 +1,6 @@
 {
   "protocol": "upgrade-matrix/v1",
-  "description": "Record of real old-release → Squad 2.0 upgrade runs. Produced by test/squad-20-upgrade-matrix.test.ts (SQUAD_UPGRADE_MATRIX=1) in CI at the recorded targetSha, merged with `node scripts/render-upgrade-matrix.mjs --merge <results.json>`, rendered into docs/src/content/docs/scenarios/upgrading.md. Producers are pinned, immutable artifacts: npm tarballs by exact version + sha1 shasum + sha512 integrity (fetched through the registry npm is configured for; integrity mismatch fails closed), or GitHub Release assets by release tag + asset id + sha256 (downloaded by asset id; mismatch fails closed). Each recorded run carries the harnessHash of the suite/renderer/workflow/fixture it ran with; the integrity test refuses runs whose harness differs from the committed one, so a fold commit may change only the runs data.",
+  "description": "Record of real old-release → Squad 2.0 upgrade runs. Produced by test/squad-20-upgrade-matrix.test.ts (SQUAD_UPGRADE_MATRIX=1) in CI at the recorded targetSha, merged with `node scripts/render-upgrade-matrix.mjs --merge <results.json>`, rendered into docs/src/content/docs/scenarios/upgrading.md. Producers are pinned, immutable artifacts: npm tarballs by exact version + sha1 shasum + sha512 integrity (fetched through the registry npm is configured for; integrity mismatch fails closed), or GitHub Release assets by release tag + asset id + sha256 (downloaded by asset id; mismatch fails closed). Current runs carry the harnessHash of the suite/renderer/workflow/fixture they used; the integrity test refuses runs whose harness differs from the committed one. Earlier results are preserved separately in historicalRuns and are not evidence for the current harness.",
   "concepts": {
     "upgrade": "`squad upgrade` with the current CLI: refreshes Squad-owned files, migrates casting/state, preserves user state. The only supported direction.",
     "projection uninstall": "`uninstallClients()` from `@bradygaster/squad-sdk/client`: removes generated host projections and restores shared files byte-exact. Does not change the installed CLI, `.squad/` state, or the repository's Squad version.",
@@ -322,7 +322,7 @@
       "platforms": "*"
     }
   ],
-  "runs": [
+  "historicalRuns": [
     {
       "platform": "linux",
       "arch": "x64",
@@ -6019,5 +6019,6 @@
         }
       ]
     }
-  ]
+  ],
+  "runs": []
 }

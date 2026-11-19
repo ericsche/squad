@@ -24,6 +24,7 @@ export const CAPABILITIES = ['supported', 'degraded', 'unsupported', 'n/a'];
 export const VALIDATION_LEVELS = ['validated-live', 'validated-test', 'static-only', 'untested', 'blocked'];
 const CAPABILITY_ICON = { supported: '✅', degraded: '⚠️', unsupported: '❌', 'n/a': '—' };
 const VALIDATION_ICON = { 'validated-live': '🖥️', 'validated-test': '🧪', 'static-only': '📄', untested: '❔', blocked: '⛔' };
+const escapeTableCell = (value) => value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 
 export function evidenceKind(entry) {
   return entry.split(':')[0];
@@ -122,7 +123,7 @@ export function render(matrix) {
     lines.push('| Feature | Test (title; each generated test appends the host as `[<host>]`) | Hosts | Meaning |');
     lines.push('|---------|-----------------------------|-------|---------|');
     for (const e of matrix.expectedFailures) {
-      lines.push(`| [${e.featureId}](#${e.featureId}) | \`${e.test.replace(/\|/g, '\\|')}\` (${e.kind}${e.perHost ? ', per host' : ''}) | ${(e.hosts ?? []).map((h) => `\`${h}\``).join(' ')} | ${e.meaning} |`);
+      lines.push(`| [${e.featureId}](#${e.featureId}) | \`${escapeTableCell(e.test)}\` (${e.kind}${e.perHost ? ', per host' : ''}) | ${(e.hosts ?? []).map((h) => `\`${h}\``).join(' ')} | ${e.meaning} |`);
     }
     lines.push('');
   }
@@ -145,7 +146,7 @@ export function render(matrix) {
         const c = f.cells[h];
         return `${CAPABILITY_ICON[c.capability]} ${VALIDATION_ICON[c.validation]}`;
       });
-      lines.push(`| [${f.name.replace(/\|/g, '\\|')}](#${f.id}) | ${f.dependsOn.join(', ')}${f.hostIndependent ? ' (host-independent)' : ''} | ${cells.join(' | ')} |`);
+      lines.push(`| [${escapeTableCell(f.name)}](#${f.id}) | ${f.dependsOn.join(', ')}${f.hostIndependent ? ' (host-independent)' : ''} | ${cells.join(' | ')} |`);
     }
     lines.push('');
   }
@@ -167,7 +168,7 @@ export function render(matrix) {
       const notes = c.notes ? ` _${c.notes}_` : '';
       const flags = [c.expectedFailure ? ' (expected failure)' : '', c.blockedReason ? ` — ${c.blockedReason}` : ''].join('');
       const evidence = c.evidence.map((v) => `\`${v}\``).join('<br>') || '—';
-      lines.push(`| \`${h}\` | ${CAPABILITY_ICON[c.capability]} ${c.capability} | ${VALIDATION_ICON[c.validation]} ${c.validation}${flags.replace(/\|/g, '\\|')} | ${c.mechanism.replace(/\|/g, '\\|')}${notes.replace(/\|/g, '\\|')} | ${evidence.replace(/\|/g, '\\|')} |`);
+      lines.push(`| \`${h}\` | ${CAPABILITY_ICON[c.capability]} ${c.capability} | ${VALIDATION_ICON[c.validation]} ${c.validation}${escapeTableCell(flags)} | ${escapeTableCell(c.mechanism)}${escapeTableCell(notes)} | ${escapeTableCell(evidence)} |`);
     }
     lines.push('');
   }
@@ -179,7 +180,7 @@ export function render(matrix) {
     lines.push('| Date | Host | Scenario | Outcome | Observed tools | Notes |');
     lines.push('|------|------|----------|---------|----------------|-------|');
     const OUTCOME = { pass: '✅ pass', partial: '⚠️ partial', fail: '🔴 fail', blocked: '⛔ blocked' };
-    for (const r of matrix.liveRuns) lines.push(`| ${r.date} | \`${r.host}\` | ${r.scenario} | ${OUTCOME[r.outcome] ?? r.outcome} | ${(r.observedTools ?? []).map((t) => `\`${t}\``).join(', ') || '—'} | ${(r.notes ?? '').replace(/\|/g, '\\|')} |`);
+    for (const r of matrix.liveRuns) lines.push(`| ${r.date} | \`${r.host}\` | ${r.scenario} | ${OUTCOME[r.outcome] ?? r.outcome} | ${(r.observedTools ?? []).map((t) => `\`${t}\``).join(', ') || '—'} | ${escapeTableCell(r.notes ?? '')} |`);
     lines.push('');
   }
   return lines.join('\n') + '\n';
