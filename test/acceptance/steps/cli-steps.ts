@@ -40,7 +40,7 @@ export function registerCLISteps(registry: StepDefinitions): void {
       // #2015 isolation). Mirrors the sibling "without a .squad directory"
       // step's use of an isolated temp dir, and downstream "I run" steps pick
       // up context.tempDir automatically.
-      const tempDir = mkdtempSync(join(tmpdir(), 'squad-e2e-'));
+      const tempDir = makeTempDir();
       // consult/check commands gate on "is this a git repo" before the
       // .squad check, so the sandbox must actually be a git repo (same
       // convention as test/cli/consult.test.ts, test/sdk/consult.test.ts).
