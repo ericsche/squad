@@ -11,14 +11,20 @@ import { success, BOLD, RESET, YELLOW, GREEN, DIM } from './output.js';
 import { fatal } from './errors.js';
 import { detectProjectType } from './project-type.js';
 import { getPackageVersion, stampVersion } from './version.js';
-import { initSquad as sdkInitSquad, cleanupOrphanInitPrompt, ensurePersonalSquadDir, resolveGlobalSquadPath, resolvePersonalSquadDir, clearResolveSquadCache, type InitOptions } from '@bradygaster/squad-sdk';
+import { initSquad as sdkInitSquad, cleanupOrphanInitPrompt, clearResolveSquadCache, type InitOptions } from '@bradygaster/squad-sdk';
 import { installGitHooks } from '../commands/install-hooks.js';
 import { liftInitMutableStateOntoOrphan } from '../commands/migrate-backend.js';
-import { projectSquadStateMcpSpec, resolveSquadStateMcpSpec } from './mcp-spec.js';
-import { describeMcpSpec, ensureUserOwnedTemplates } from './upgrade.js';
+import { projectSquadStateMcpSpec, resolveCommittedSquadStateMcpSpec } from './mcp-spec.js';
+import { describeMcpSpec, ensureUserOwnedTemplates, recordShippedFilesAfterInit } from './upgrade.js';
 import { syncCopilotInstructionsFile } from './managed-file.js';
 import { getTemplatesDir } from './templates.js';
-import { ensureSquadStateMcpInRoot, tombstoneStaleSquadStateInProjectMcp } from './mcp-root.js';
+import {
+  ensureSquadStateMcpInRoot,
+  reconcileSquadStateUserConfig,
+  tombstoneStaleSquadStateInProjectMcp,
+} from './mcp-root.js';
+import { applyClientProjectionsForInit, linkedTeamSquadDir, readConfiguredClients, reportClientResults, type ClientId } from './clients.js';
+import { getHostProjection, readClaudePluginMode } from '@bradygaster/squad-sdk/client';
 import {
   readTeamMd,
   writeTeamMd,
@@ -91,6 +97,21 @@ export function detectParentGitRepo(dest: string): string | null {
   return null;
 }
 
+/**
+ * True only when a human can actually answer a prompt: stdin AND stdout are TTYs and the run
+ * is not CI / explicitly non-interactive. squad init must never block on stdin otherwise
+ * (headless model runs, pipes, redirected output).
+ */
+export function isInteractiveSession(
+  env: NodeJS.ProcessEnv = process.env,
+  stdin: { isTTY?: boolean } = process.stdin,
+  stdout: { isTTY?: boolean } = process.stdout,
+): boolean {
+  if (!stdin.isTTY || !stdout.isTTY) return false;
+  const off = (v: string | undefined): boolean => v !== undefined && v !== '' && v !== '0' && v.toLowerCase() !== 'false';
+  return !off(env['CI']) && !off(env['SQUAD_NONINTERACTIVE']);
+}
+
 /** True when animations should be suppressed (NO_COLOR, dumb term, non-TTY). */
 export function isInitNoColor(): boolean {
   return (
@@ -141,7 +162,7 @@ function showDeprecationWarning(): void {
   console.log();
   console.log(`${YELLOW}⚠️  DEPRECATION: .ai-team/ is deprecated and will be removed in v1.0.0${RESET}`);
   console.log(`${YELLOW}    Run 'npx @bradygaster/squad-cli upgrade --migrate-directory' to migrate to .squad/${RESET}`);
-  console.log(`${YELLOW}    Details: https://github.com/bradygaster/squad/issues/101${RESET}`);
+  console.log(`${YELLOW}    Details: https://github.com/github/squad/issues/101${RESET}`);
   console.log();
 }
 
@@ -151,22 +172,67 @@ function showDeprecationWarning(): void {
 export interface RunInitOptions {
   /** Project description prompt — stored for REPL auto-casting. */
   prompt?: string;
-  /** If true, disable extraction from consult sessions (read-only consultations) */
-  extractionDisabled?: boolean;
   /** If false, skip GitHub workflow installation (default: true) */
   includeWorkflows?: boolean;
   /** If true, generate squad.config.ts with SDK builder syntax (default: false) */
   sdk?: boolean;
   /** If true, use built-in base roles instead of fictional universe casting (default: false) */
   roles?: boolean;
-  /** If true, this is a global (personal squad) init — bootstrap personal-squad/ dir */
-  isGlobal?: boolean;
   /** State backend to configure at init time (local, orphan, two-layer) */
   stateBackend?: string;
   /** If true, write MCP server config into squad.agent.md frontmatter instead of .copilot/mcp-config.json */
   mcpFrontmatter?: boolean;
+  /** Client hosts to project (copilot, claude, kiro, opencode, cursor, codex, antigravity) */
+  clients?: ClientId[];
+  /** `--claude-plugin` (true) / `--no-claude-plugin` (false): Claude projection plugin mode. */
+  claudePlugin?: boolean;
   /** If false, skip writing "chat.newSession.defaultMode": "Squad" to .vscode/settings.json (default: true) */
   includeVscodeDefault?: boolean;
+}
+
+/** A next-step line; `on`/`off` wrap the command (colour codes in the terminal, empty in tests). */
+type Styled = (on: string, off: string) => string;
+
+/**
+ * What `squad init` tells the user to run next, for the hosts they chose (#2453).
+ * No `--client` means Copilot, the default host. With one host the line is
+ * bare; with several, each line is prefixed with the host's name.
+ */
+/**
+ * Claude Code applies the project's allow rules only in a trusted folder, so until the first
+ * interactive run (and in `claude -p` before it) every Squad tool call prompts or is denied.
+ */
+export const CLAUDE_TRUST_NOTE =
+  'Run claude interactively here first and accept "trust this folder": until then Claude Code ignores the permission rules Squad added, so its tools prompt each time (and claude -p denies them).';
+
+export function initNextSteps(
+  clients: readonly ClientId[] | undefined,
+  claudePlugin?: boolean,
+): { lines: Styled[]; tips: string[]; notes: string[] } {
+  const chosen: ClientId[] = clients && clients.length > 0 ? [...new Set(clients)] : ['copilot'];
+  if (claudePlugin && !chosen.includes('claude')) chosen.push('claude');
+  const steps: { host: string; text: Styled }[] = [];
+  const tips: string[] = [];
+  const notes: string[] = [];
+  for (const id of chosen) {
+    const host = getHostProjection(id).label;
+    if (id === 'copilot') {
+      steps.push({ host, text: (on, off) => `Run ${on}copilot --agent squad${off} and tell it what you're building.` });
+      tips.push('"squad:copilot": "copilot --agent squad --additional-mcp-config @.mcp.json"');
+    } else if (id === 'claude' && claudePlugin) {
+      steps.push({ host, text: (on, off) => `Run ${on}claude${off}; the Squad plugin's coordinator starts by default in this repository.` });
+      tips.push('"squad:claude": "claude -p --agent squad:squad"');
+      notes.push(CLAUDE_TRUST_NOTE);
+    } else if (id === 'claude') {
+      steps.push({ host, text: (on, off) => `Run ${on}claude --agent squad --mcp-config .mcp.json${off} and tell it what you're building.` });
+      tips.push('"squad:claude": "claude -p --agent squad --mcp-config .mcp.json"');
+      notes.push(CLAUDE_TRUST_NOTE);
+    } else {
+      steps.push({ host, text: () => `Open ${host} in this repository and ask for the squad agent.` });
+    }
+  }
+  if (steps.length === 1) return { lines: [steps[0]!.text], tips, notes };
+  return { lines: steps.map(s => (on: string, off: string) => `${s.host}: ${s.text(on, off)}`), tips, notes };
 }
 
 /**
@@ -223,7 +289,7 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
       console.log();
 
       let useShared = true;
-      if (process.stdin.isTTY) {
+      if (isInteractiveSession()) {
         const { createInterface } = await import('node:readline/promises');
         const rl = createInterface({ input: process.stdin, output: process.stdout });
         try {
@@ -256,9 +322,15 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
     showDeprecationWarning();
   }
 
+  // A project linked to a team repository (`squad link`, `init --mode remote`) uses that team.
+  const linkedTeamDir = linkedTeamSquadDir(dest);
+  const linkedTeam = linkedTeamDir !== null;
+
   // Build SDK options
   const initOptions: InitOptions = {
     teamRoot: dest,
+    linkedTeam,
+    ...(linkedTeamDir ? { linkedTeamDir } : {}),
     agentFileRoot,
     projectName: path.basename(dest) || 'my-project',
     agents: [
@@ -273,8 +345,8 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
         displayName: 'Ralph',
       },
       {
-        name: 'Rai',
-        role: 'Rai',
+        name: 'rai',
+        role: 'rai',
         displayName: 'Rai',
       },
       {
@@ -292,7 +364,6 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
     projectType: projectType as any,
     version,
     prompt: options.prompt,
-    extractionDisabled: options.extractionDisabled,
     roles: options.roles,
     stateBackend: options.stateBackend,
   };
@@ -334,30 +405,11 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
   // entries with overwriteOnUpgrade: false and copies each one only if absent.
   try {
     const templatesDir = getTemplatesDir();
-    ensureUserOwnedTemplates(dest, templatesDir);
+    ensureUserOwnedTemplates(dest, templatesDir, linkedTeam);
+    // Baseline for `squad upgrade`: hashes of every squad-owned file as shipped by this init.
+    recordShippedFilesAfterInit(dest, squadDir, templatesDir, version);
   } catch {
     // Non-fatal: if templates dir is not found (unusual install), skip silently.
-  }
-
-  // ── Personal squad linking ─────────────────────────────────────────
-  // When a personal squad directory exists and this is a repo init (not global),
-  // set teamRoot in config.json to point to the global squad root that contains
-  // `.squad/`. This enables "remote mode" resolution so the project inherits
-  // team identity from the personal squad. (See #984, #1010)
-  if (!options.isGlobal) {
-    const personalDir = resolvePersonalSquadDir();
-    if (personalDir) {
-      const configPath = path.join(squadDir, 'config.json');
-      let config: Record<string, unknown> = {};
-      try {
-        const raw = storage.readSync(configPath);
-        if (raw) config = JSON.parse(raw);
-      } catch { /* start fresh */ }
-      if (!config['teamRoot']) {
-        config['teamRoot'] = resolveGlobalSquadPath();
-        storage.writeSync(configPath, JSON.stringify(config, null, 2) + '\n');
-      }
-    }
   }
 
   // Ensure version is fully stamped in squad.agent.md
@@ -452,7 +504,7 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
         // stale project-level entry left by the SDK init writer in
         // `.copilot/mcp-config.json`. No HOME modifications.
         try {
-          const mcpSpec = projectSquadStateMcpSpec(await resolveSquadStateMcpSpec(getPackageVersion()));
+          const mcpSpec = projectSquadStateMcpSpec(await resolveCommittedSquadStateMcpSpec(getPackageVersion(), dest, squadDir));
           const rootResult = ensureSquadStateMcpInRoot(dest, getPackageVersion(), mcpSpec);
           if (rootResult.written) {
             success(`installed squad_state MCP server to .mcp.json (${describeMcpSpec(mcpSpec)}) — Copilot CLI will auto-load on next invocation`);
@@ -461,6 +513,11 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
           const tomb = tombstoneStaleSquadStateInProjectMcp(dest);
           if (tomb.removed) {
             success(`removed stale squad_state from ${tomb.path} (now lives in .mcp.json)`);
+          }
+          const userConfig = reconcileSquadStateUserConfig(dest);
+          if (userConfig.action === 'removed') {
+            success(`removed duplicate ${(userConfig.keys ?? [userConfig.key]).join(', ')} from ${userConfig.path} (.mcp.json takes precedence)`);
+            console.log(`${DIM}  backup: ${userConfig.backupPath}${RESET}`);
           }
         } catch (err) {
           console.warn(`${YELLOW}⚠ Could not install squad_state MCP entry in .mcp.json: ${err instanceof Error ? err.message : err}${RESET}`);
@@ -475,7 +532,7 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
   // for vanilla `squad init` (no --state-backend flag) so the squad_state
   // MCP entry is reachable regardless of init path. No HOME modifications.
   try {
-    const mcpSpec = projectSquadStateMcpSpec(await resolveSquadStateMcpSpec(version));
+    const mcpSpec = projectSquadStateMcpSpec(await resolveCommittedSquadStateMcpSpec(version, dest, squadDir));
     const rootResult = ensureSquadStateMcpInRoot(dest, version, mcpSpec);
     if (rootResult.written) {
       success(`installed squad_state MCP server to .mcp.json (${describeMcpSpec(mcpSpec)}) — Copilot CLI will auto-load on next invocation`);
@@ -491,12 +548,30 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
     if (tomb.removed) {
       success(`removed stale squad_state from ${tomb.path} (now lives in .mcp.json)`);
     }
+    const userConfig = reconcileSquadStateUserConfig(dest);
+    if (userConfig.action === 'removed') {
+      success(`removed duplicate ${(userConfig.keys ?? [userConfig.key]).join(', ')} from ${userConfig.path} (.mcp.json takes precedence)`);
+      console.log(`${DIM}  backup: ${userConfig.backupPath}${RESET}`);
+    }
   } catch {
     // best-effort: .mcp.json write failure does not block init
   }
 
+  if ((options.clients && options.clients.length > 0) || options.claudePlugin !== undefined) {
+    try {
+      const synced = await applyClientProjectionsForInit(dest, squadDir, {
+        clients: options.clients,
+        version,
+        claudePlugin: options.claudePlugin,
+      });
+      reportClientResults(synced.results, (m) => console.log(m.startsWith('⚠') ? `${YELLOW}${m}${RESET}` : `${GREEN}${m}${RESET}`));
+    } catch (err) {
+      console.warn(`${YELLOW}⚠ Could not project client files: ${err instanceof Error ? err.message : err}${RESET}`);
+    }
+  }
+
   // Apply VS Code default chat session mode (opt-out: --no-vscode-default)
-  if (options.includeVscodeDefault !== false && !options.isGlobal) {
+  if (options.includeVscodeDefault !== false) {
     try {
       await applyVscodeDefaultMode(dest);
     } catch {
@@ -525,9 +600,10 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
   // Ask if the user wants to add @copilot as an autonomous team member.
   // This enables .github/copilot-instructions.md and adds Coding Agent
   // to the team roster, allowing squad-labeled issues to be auto-assigned.
-  const teamContent = readTeamMd(squadDir);
-  if (!hasCopilot(teamContent)) {
-    if (process.stdin.isTTY) {
+  // A linked project's roster lives in the team repository: add @copilot there.
+  const teamContent = linkedTeam ? '' : readTeamMd(squadDir);
+  if (!linkedTeam && !hasCopilot(teamContent)) {
+    if (isInteractiveSession()) {
       const { createInterface } = await import('node:readline/promises');
       const rl = createInterface({ input: process.stdin, output: process.stdout });
       try {
@@ -576,26 +652,23 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
 
   if (!isInitNoColor()) await sleep(80);
   console.log();
-  console.log(`${GREEN}${BOLD}Squad initialized.${RESET} Run ${CYAN}${BOLD}copilot --agent squad${RESET} and tell it what you're building.`);
-  console.log();
-  console.log(`${DIM}Tip: for non-interactive scripts that need squad_state tools, add to package.json:${RESET}`);
-  console.log(`${DIM}  "squad:copilot": "copilot --agent squad --additional-mcp-config @.mcp.json"${RESET}`);
-  console.log();
-
-  // ── Personal squad bridge ───────────────────────────────────────────
-  if (options.isGlobal) {
-    // Global init: ensure personal-squad/ directory exists alongside .squad/
-    const personalDir = ensurePersonalSquadDir();
-    console.log(`${GREEN}${BOLD}✓${RESET} Personal squad initialized at ${DIM}${personalDir}${RESET}`);
-    console.log(`${DIM}  Add agents with: squad personal add <name> --role <role>${RESET}`);
-    console.log();
+  // What this repository is now set up for: the flags, else what .squad/config.json already records
+  // (re-running `squad init` keeps an earlier --client and plugin mode).
+  const effectiveClients = options.clients && options.clients.length > 0 ? options.clients : readConfiguredClients(squadDir);
+  const next = initNextSteps(effectiveClients, options.claudePlugin ?? readClaudePluginMode(squadDir));
+  const steps = next.lines.map(line => line(CYAN + BOLD, RESET));
+  if (steps.length === 1) {
+    console.log(`${GREEN}${BOLD}Squad initialized.${RESET} ${steps[0]}`);
   } else {
-    // Repo init: inform user if personal squad is available
-    const personalDir = resolvePersonalSquadDir();
-    if (personalDir) {
-      console.log(`${GREEN}${BOLD}✓${RESET} Personal squad detected — your personal agents will be available here.`);
-      console.log();
-    }
+    console.log(`${GREEN}${BOLD}Squad initialized.${RESET} Next, in the host you want to use:`);
+    for (const step of steps) console.log(`  ${step}`);
+  }
+  for (const note of next.notes) console.log(`${DIM}${note}${RESET}`);
+  console.log();
+  if (next.tips.length > 0) {
+    console.log(`${DIM}Tip: for non-interactive scripts that need squad_state tools, add to package.json:${RESET}`);
+    for (const tip of next.tips) console.log(`${DIM}  ${tip}${RESET}`);
+    console.log();
   }
 
   if (squadInfo.isLegacy) {

@@ -117,6 +117,53 @@ If below v22.5, upgrade to the latest LTS:
 
 ---
 
+## `state-mcp` processes remain after Copilot sessions close
+
+**Problem:** Many `state-mcp` processes remain on a long-running development
+machine.
+
+**Cause:** Copilot host sessions can remain alive after their visible UI session
+closes. Every live host keeps its stdio MCP children alive. Older Squad
+installations also used `npx`/shell wrapper chains and duplicate hashed user
+declarations, which multiplied the process count.
+
+**Fix:**
+
+1. Run `squad upgrade --force`. The repository `.mcp.json` declaration takes
+   precedence, uses the installed CLI entry directly when available, and removes
+   only the matching legacy `squad_state_<hash>` user declaration after backing
+   up `~/.copilot/mcp-config.json`.
+2. Restart the affected Copilot sessions so they load the new declaration.
+3. If cleanup is still required, stop only confirmed parent-gone bridge PIDs.
+   Never kill processes by image/name:
+
+   ```powershell
+   $all = Get-CimInstance Win32_Process
+   $byPid = @{}
+   $all | ForEach-Object { $byPid[[int]$_.ProcessId] = $_ }
+   $orphans = $all | Where-Object {
+     $_.CommandLine -match 'state-mcp' -and
+     -not $byPid.ContainsKey([int]$_.ParentProcessId)
+   }
+   $orphans | Select-Object ProcessId, ParentProcessId, CommandLine
+   $orphans | ForEach-Object { Stop-Process -Id ([int]$_.ProcessId) }
+   ```
+
+   If the list is empty, do not kill anything. The live Copilot parent owns
+   those processes; close or restart that specific session instead.
+
+---
+
+## `squad_state` or Claude hooks fail after cloning
+
+**Problem:** On a fresh clone or another machine, the `squad_state` MCP server doesn't start, or every Claude Code hook reports an error. `squad doctor` shows **portable squad_state launch** failing.
+
+**Cause:** The repository was set up with a Squad version that wrote absolute paths from one machine into `.mcp.json` and `.claude/settings.json`.
+
+**Fix:** run `squad upgrade` once and commit the result. It replaces those paths with `node .squad/squad.mjs`, a launcher that finds the Squad CLI on each machine. If the launcher says no Squad CLI was found, install one (`npm install -g @bradygaster/squad-cli`) or set `SQUAD_ALLOW_NPX=1`.
+
+---
+
 ## Upgrade doesn't change anything
 
 **Problem:** Running `squad upgrade` completes but nothing changes.

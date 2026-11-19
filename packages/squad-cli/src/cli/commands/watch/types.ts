@@ -6,6 +6,8 @@
  */
 
 import type { PlatformAdapter } from '@bradygaster/squad-sdk/platform';
+import type { ExecutorIdentity, WorkClaimProvider } from '@bradygaster/squad-sdk/ralph/claims';
+import type { WatchClaimMetrics } from './claim-metrics.js';
 
 /** Phase within a single watch round. */
 export type WatchPhase = 'pre-scan' | 'post-triage' | 'post-execute' | 'housekeeping';
@@ -43,11 +45,43 @@ export interface WatchContext {
   config: Record<string, unknown>;
   /** Hidden --agent-cmd override. */
   agentCmd?: string;
+  /** Built-in runner: `copilot` (default) or `claude`. `agentCmd` takes precedence. */
+  agentPreset?: 'copilot' | 'claude';
   copilotFlags?: string;
+  /** Extra flags for the Claude preset (execute mode defaults to `--permission-mode bypassPermissions`). */
+  claudeFlags?: string;
+  /**
+   * MCP config for the Claude preset holding only `squad_state`, resolved by this CLI from its own
+   * install (not the repository's `.mcp.json`, whose other servers keep Claude Code's approval).
+   */
+  claudeMcpConfig?: string;
   /** Verbose diagnostic output enabled. */
   verbose?: boolean;
   /** PID tracker for child process cleanup (optional — only set when watch is running). */
   pidTracker?: { track(pid: number, name: string): void; untrack(pid: number): void };
+  /**
+   * Work claim provider (ADR-002). Capabilities that spawn agents acquire a
+   * claim per issue and dispatch only issues they won. Unset behaves like
+   * `NoopClaimProvider` (no cross-process exclusion).
+   */
+  claims?: WorkClaimProvider;
+  /** Claim-holder identity of this watch process. */
+  executor?: ExecutorIdentity;
+  /** Claim lease timing. Renewals run every `ttlMs / 3`. */
+  claimTiming?: { ttlMs: number; skewMarginMs: number; now?: () => number };
+  /** Stable `owner/repo` (or `org/project`) used in claim work keys. */
+  workRepo?: string;
+  /**
+   * Issue numbers already dispatched in the current round. Shared by every
+   * capability in one round so hybrid execute + fleet-dispatch never send the
+   * same issue twice, whatever claim provider is configured.
+   */
+  dispatchedThisRound?: Set<number>;
+  /**
+   * Claim outcome counters (ADR-002 telemetry). Set only when the provider
+   * excludes other executors; unset leaves claim helpers uninstrumented.
+   */
+  claimMetrics?: WatchClaimMetrics;
 }
 
 /** Contract that every watch capability must implement. */

@@ -322,12 +322,6 @@ export class AgentLifecycleManager {
         await this.emitPolicyOutcome(agentName, resolvedModel);
       }
       
-      // Surface the cost-policy outcome — this was the #1089 bug: the policy
-      // result was computed but never wired/emitted. Never swallow it.
-      if (resolvedModel.policy && resolvedModel.policy.action !== 'none') {
-        await this.emitPolicyOutcome(agentName, resolvedModel);
-      }
-      
       // Step 4: Create session
       // Use compiled charter's resolved reasoning effort (already validated/normalized),
       // with spawn-time override taking precedence. Validate before passing to session.

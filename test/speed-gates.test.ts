@@ -10,6 +10,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { resolve } from 'node:path';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { TerminalHarness } from './acceptance/harness.js';
 import { parseInput } from '@bradygaster/squad-cli/shell/router';
 import { isInitNoColor } from '@bradygaster/squad-cli/core/init';
@@ -42,8 +43,9 @@ describe('Speed: --help is scannable', { timeout: 30_000 }, () => {
     const output = harness.captureFrame();
     const lines = output.split('\n').filter(l => l.trim());
     // Budget grew to accommodate `sync` + `state-mcp` commands. Hard cap
-    // keeps us honest if help text starts ballooning again.
-    expect(lines.length).toBeLessThanOrEqual(150);
+    // keeps us honest if help text starts ballooning again. +1 for `lockout`,
+    // +1 for `dashboard`.
+    expect(lines.length).toBeLessThanOrEqual(152);
   });
 
   it('first 5 lines tell user what to do next', async () => {
@@ -75,7 +77,7 @@ describe('Speed: squad init ceremony', () => {
   });
 
   it('init ceremony in non-TTY completes under 5 seconds', async () => {
-    const tmpDir = resolve(process.cwd(), 'test-fixtures', '_speed-test-init-' + Date.now());
+    const tmpDir = resolve(tmpdir(), '_speed-test-init-' + Date.now());
     mkdirSync(tmpDir, { recursive: true });
 
     let harness: TerminalHarness | null = null;

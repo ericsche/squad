@@ -1,10 +1,23 @@
 import { expect } from 'vitest';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
 import { TerminalHarness } from '../harness.js';
 import { StepDefinitions, registerStep } from '../support/runner.js';
+
+const tempDirs = new Set<string>();
+
+export function cleanupAcceptanceTempDirs(): void {
+  for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+  tempDirs.clear();
+}
+
+function makeTempDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'squad-e2e-'));
+  tempDirs.add(dir);
+  return dir;
+}
 
 /**
  * CLI step definitions for Gherkin acceptance tests.
@@ -27,7 +40,7 @@ export function registerCLISteps(registry: StepDefinitions): void {
       // #2015 isolation). Mirrors the sibling "without a .squad directory"
       // step's use of an isolated temp dir, and downstream "I run" steps pick
       // up context.tempDir automatically.
-      const tempDir = mkdtempSync(join(tmpdir(), 'squad-e2e-'));
+      const tempDir = makeTempDir();
       // consult/check commands gate on "is this a git repo" before the
       // .squad check, so the sandbox must actually be a git repo (same
       // convention as test/cli/consult.test.ts, test/sdk/consult.test.ts).
@@ -53,10 +66,22 @@ export function registerCLISteps(registry: StepDefinitions): void {
 
   registerStep(
     'Given',
+    /a temporary project with an existing "\.squad" directory/,
+    async (_stepText, context) => {
+      const tempDir = makeTempDir();
+      const squadDir = join(tempDir, '.squad');
+      mkdirSync(squadDir, { recursive: true });
+      writeFileSync(join(squadDir, 'team.md'), '# Acceptance team\n');
+      context.tempDir = tempDir;
+    },
+    registry
+  );
+
+  registerStep(
+    'Given',
     /a directory without a "\.squad" directory/,
     async (_stepText, context) => {
-      const tempDir = mkdtempSync(join(tmpdir(), 'squad-e2e-'));
-      context.tempDir = tempDir;
+      context.tempDir = makeTempDir();
     },
     registry
   );

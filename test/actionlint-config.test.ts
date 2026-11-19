@@ -53,6 +53,9 @@ const EXPECTED_IGNORES: Record<string, string[]> = {
   ],
   // gh-aw code-generator output: an intentional empty `choice` option.
   '**/agentics-maintenance.yml': ['string should not be empty'],
+  // Immutable preview-matrix attestation block: GitHub expands the required
+  // input before bash evaluates it, but shellcheck sees only the template.
+  '.github/workflows/squad-upgrade-matrix.yml': ['SC2193'],
 };
 
 interface ActionlintConfig {
@@ -114,5 +117,22 @@ describe('actionlint config (#1827)', () => {
     // condition #1827 was filed about.
     expect(workflow).not.toMatch(/automatically generated\|DO NOT EDIT/i);
     expect(workflow).toMatch(/actionlint \.github\/workflows\/\*\.yml/);
+  });
+
+  it('binds a manually requested SHA to the selected ref before checkout', () => {
+    const workflow = parse(readFileSync(LINT_WORKFLOW_PATH, 'utf8'));
+    const steps = workflow.jobs.actionlint.steps as Array<{
+      name?: string;
+      if?: string;
+      env?: Record<string, string>;
+      run?: string;
+      with?: Record<string, string>;
+    }>;
+    const validate = steps.find((step) => step.name === 'Validate requested SHA');
+    const checkout = steps.find((step) => step.if === "github.event_name == 'workflow_dispatch'" && step.with?.ref);
+    expect(validate?.env?.DISPATCH_SHA).toBe('${{ github.sha }}');
+    expect(validate?.run).toContain('[ "$SOURCE_SHA" = "$DISPATCH_SHA" ]');
+    expect(checkout?.with?.ref).toBe('${{ github.sha }}');
+    expect(steps.indexOf(validate!)).toBeLessThan(steps.indexOf(checkout!));
   });
 });

@@ -2,7 +2,9 @@
 
 > **Quick answer:** Not sure which interface to use? See [Choose your interface](../get-started/choose-your-interface.md) for a concise decision tree and comparison.
 
-Squad runs on multiple Copilot surfaces — each with its own agent spawning mechanism, tool set, and constraints. This document maps Squad's core capabilities across CLI, VS Code, JetBrains, and GitHub.com to help you understand what works where.
+> **New in Squad 2.0:** `squad init --client copilot|claude|kiro|opencode|cursor|codex|antigravity|all` and `squad upgrade --client ...` now project host-native adapters across all 7 supported hosts (GitHub Copilot, Claude Code, Kiro, OpenCode, Cursor, OpenAI Codex, and Google Antigravity) while keeping the backend contract portable. Start with [Using Squad across clients](./using-squad-across-clients.md) for the hands-on walkthrough and [Squad 2.0 architecture](../concepts/squad-2-0-architecture.md) for the three-plane model, MCP-vs-HTTP transport story, and the `G1`-`G9` conformance gates.
+
+Squad runs on multiple Copilot surfaces — each with its own agent spawning mechanism, tool set, and constraints. This document maps Squad's core capabilities across CLI, VS Code, JetBrains, and GitHub.com to help you understand what works where. The Quick Reference table covers Copilot surfaces only; [Claude Code](#claude-code) has its own section below, and the [Host Feature Matrix](../reference/host-feature-matrix.md) covers every supported host feature by feature.
 
 ## Quick Reference
 
@@ -181,6 +183,78 @@ Squad runs on VS Code with **conditional support**. Key differences from CLI:
 - Can GitHub Copilot spawn agents for background work?
 - Can agents read `.ai-team/` files from the repository?
 - Is there a GitHub-specific command protocol for delegation?
+
+---
+
+## Claude Code
+
+**Status:** Supported through `squad init --client claude` (or `squad upgrade --client claude`), with live lab runs. Per-feature status is in the [Host Feature Matrix](../reference/host-feature-matrix.md); work to make Claude Code a first-class host is tracked in [#2438](https://github.com/github/squad/issues/2438).
+
+### What Squad projects
+
+- `.claude/agents/squad.md` — the coordinator, as a Claude Code subagent named `squad`
+- `.claude/agents/<member>.md` — one subagent per team member, built-ins included, generated from `.squad/agents/<member>/charter.md`. `squad cast` adds the new member's file. If you already have your own file at one of these paths, Squad leaves it alone and reports it as skipped.
+- `.claude/skills/<name>/SKILL.md` — Squad's skills as native Claude Code skills, plus `squad-coordinator-*` skills the coordinator loads on demand (Init Mode, Ralph, ceremonies, GitHub Issues and PRD modes), which keeps its always-loaded prompt smaller. A team skill of the same name in `.squad/skills/` takes precedence, so that template isn't projected. Your own skills in `.claude/skills/` are left alone.
+- `.mcp.json` — the `squad_state` MCP server, merged without touching your other servers
+- `CLAUDE.md` — a Squad-managed marker block
+- `.gitignore` — `.claude/worktrees/` under a `# squad:claude` comment
+- `.claude/settings.json` — Squad's governance hooks, only if you opt in (see below). Your other settings and hooks are kept.
+
+`squad init --client claude` also writes the GitHub Copilot files: `.github/agents/squad.agent.md`, `.github/skills/`, `.copilot/mcp-config.json`, the Squad workflows under `.github/workflows/` and `.vscode/settings.json`. This is intended. GitHub Copilot is the base host. The Claude Code coordinator is generated from the same shared source as Copilot's `.github/agents/squad.agent.md` and is complete on its own: it doesn't read Copilot's file ([ADR-003](https://github.com/github/squad/blob/dev/docs/specification/adr-003-host-neutral-canonical-coordinator.md), option C). Skip the workflows with `--no-workflows` and the VS Code setting with `--no-vscode-default`.
+
+### Starting a session
+
+```bash
+claude --agent squad --mcp-config .mcp.json
+```
+
+Interactive Claude Code doesn't load project-scoped `.mcp.json` servers until you approve them, so pass the config explicitly. Headless runs (`claude -p`) need `--mcp-config` too, or a prior approval for the project; without it, the coordinator stops at the state-backend handshake.
+
+### Capabilities
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **Sub-agent spawning** | ✅ `Agent` tool | Each member runs as its own subagent (`subagent_type: "<member>"`), which reads its charter. Squad dispatches specialists only from the coordinator; members don't spawn subagents of their own. This is Squad's dispatch policy and doesn't depend on whether your Claude Code version allows nested subagents. |
+| **Parallel fan-out** | ✅ | Independent `Agent` calls in one message run in parallel. |
+| **Background/async execution** | ✅ `run_in_background` | Validated in live runs. |
+| **Worktree isolation** | ✅ `isolation: "worktree"` | Claude Code creates worktrees under `.claude/worktrees/`, which Squad ignores in git. |
+| **Per-spawn model selection** | ✅ | A member's subagent uses the Claude model in its charter's `Preferred` field, and the reasoning effort from `.squad/config.json` or the charter. The coordinator passes a per-call `model` when your request, `agentModelOverrides`, `defaultModel` or the session's model takes precedence. Re-run `squad upgrade` after changing reasoning-effort config. A non-Claude model, a one-off effort request and `long_context` without a long-context Claude model are reported rather than applied. |
+| **MCP server access** | ✅ | `squad_state` tools appear as `mcp__squad_state__*`; subagents inherit them. |
+| **Hooks** | ✅ Opt-in, advisory | Off by default. See [Governance hooks](#governance-hooks). |
+| **`squad watch --execute`** | ✅ Preset | `squad watch --execute --agent-preset claude` (or `"agentPreset": "claude"` under `watch` in `.squad/config.json`) runs each round as `claude -p … --agent squad` with a `squad_state`-only MCP config written by the `squad` CLI (never the repository's `.mcp.json`, whose other servers keep Claude Code's approval). Execute mode defaults to `--permission-mode bypassPermissions`, the counterpart of Copilot's `--yolo`; override it with `--claude-flags`. Fleet dispatch (`--dispatch-mode fleet`) stays Copilot-only. |
+
+### Permissions for Squad's own tools
+
+`squad init --client claude` and `squad upgrade --client claude` add these rules to `permissions.allow` in `.claude/settings.json`, so the coordinator can cast a team and use its state without a permission prompt for each call:
+
+- each `squad_state` tool the coordinator uses, by name: `mcp__squad_state__squad_decide`, `…__squad_state_read`, `…_write`, `…_append`, `…_delete`, `…_list`, `…_create_if_absent`, `…_health` and `…_upstreams` (in plugin mode, the same tools under `mcp__plugin_squad_squad_state__`). Not the whole server: the experimental backend tools, such as approving a harness request, and the `memory.*` tools still ask.
+- `Bash(squad cast:*)`, `Bash(squad client sync:*)`, `Bash(squad lockout reject:*)` and `Bash(squad lockout status:*)`. Recording a rejection only adds a restriction. The steps that move a lockout toward release (`assign`, `submit`, `approve` and `override`) always ask, so an agent can't clear a lockout on its own.
+- The same commands through the repository launcher, `node .squad/squad.mjs …`, only while `.mcp.json` runs Squad's own launcher from a folder inside the repository. A `squad.mjs` Squad didn't write is never pre-approved.
+
+Nothing else is allowed: no edits, no other commands, no other MCP servers. `squad cast` refuses to write through a symbolic link, so a pre-approved cast can't be pointed at a file outside the team folder. Your own rules stay first and are never changed. Squad records the rules it added in `.claude/.squad-permissions.json` (commit it with `settings.json`), and removing Claude Code from the team, or turning the allowlist off, removes only those: a rule you had already written stays. Claude Code applies a project's allow rules only once you've trusted the folder (the trust prompt on your first interactive `claude` run there); until then, and in headless runs in an untrusted folder, it ignores them and says so. To turn the allowlist off, set `"claudePermissions": "off"` in `.squad/config.json` and run `squad upgrade --client claude`.
+
+### Governance hooks
+
+To turn the hooks on, add `"claudeHooks": "advisory"` to `.squad/config.json` and run `squad upgrade --client claude`. Squad then adds these hooks to `.claude/settings.json`:
+
+- **Session start:** the coordinator starts with the roster, routing, active reviewer lockouts and the CLI version its `squad_state` bridge must match.
+- **Before an edit:** a member who is locked out of a review subject gets a warning when it edits a file that subject covers. You see the warning too.
+- **After a member finishes:** the coordinator gets a handoff summary and a reminder to record decisions and run the reviewer gate.
+- **When the coordinator stops:** it's reminded to run Scribe if `.squad/decisions/inbox/` has entries, and you're told if Ralph's circuit breaker is open.
+
+The hooks only warn. They never block a tool call or permission, and they print nothing when hooks are off. To turn them off, set `"claudeHooks": "off"` and run `squad upgrade --client claude` again. Squad removes its hooks and leaves the rest of `.claude/settings.json` as it was.
+
+Reviewer lockouts come from `squad lockout`. For example, after Ripley rejects Dallas's work on issue 42:
+
+```bash
+squad lockout reject issue-42 --author dallas --reviewer ripley --reason "no tests for the auth path" --paths "src/auth/**"
+```
+
+```bash
+squad lockout assign issue-42 --successor lambert
+```
+
+`squad lockout status` lists each subject with its state and who can take the next revision. `submit` and `approve` record the revision and its approval, which ends the lockout. `override` lets you, or a member listed in `governance.authorities` in `.squad/config.json`, let a locked-out author back in, with a reason. If no eligible member is left, the subject is marked deadlocked until someone records an override.
 
 ---
 

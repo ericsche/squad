@@ -4,7 +4,7 @@
 
 **Human-led AI agent teams for any project.** One command. A team that helps you move faster with your code.
 
-[![Platform](https://img.shields.io/badge/platform-GitHub%20Copilot-blue)](#what-is-squad)
+[![Platform](https://img.shields.io/badge/platform-GitHub%20Copilot%20%2B%206%20more%20hosts-blue)](#use-squad-in-other-ai-hosts)
 
 Breaking changes are documented in [CHANGELOG.md](CHANGELOG.md).
 
@@ -19,6 +19,18 @@ Squad is a productivity tool for humans, not a replacement for engineers, review
 It's not a chatbot wearing hats. Each team member runs in its own context, reads only its own knowledge, and writes back what it learned so the work stays inspectable.
 
 > **Responsible AI stance** — Squad is built to amplify a human operator with GitHub Copilot, not to remove humans from the loop. Use it to delegate faster, review better, and keep governance close to the code.
+
+### See it in Claude Code
+
+![Squad's team dashboard following a Claude Code session: the coordinator sends Dallas (Node.js engineer) to build a CLI and Parker (tester) to write tests at the same time, then Jordan (lead) reviews and Scribe records the decisions](docs/src/assets/images/squad-claude-dashboard.gif)
+
+A real run, sped up 12×: a fresh repository, `squad init --client claude`, then two prompts to `claude --agent squad`. "Cast a small team" ran `squad cast` for a lead, an engineer and a tester in 50 seconds. "Team, build the MVP" sent the engineer and the tester out in parallel, then the lead reviewed. The result was a commit with 22 passing `node --test` tests, about $2.60 of model time for both prompts. The page is `squad dashboard`, which reads Claude Code's own session files and needs no setup.
+
+```bash
+squad init --client claude
+claude --agent squad --mcp-config .mcp.json   # "Cast a team for this repo", then give it work
+squad dashboard --open                        # watch the team in your browser
+```
 
 ---
 
@@ -42,14 +54,14 @@ Choose the install method for your platform:
 | npm (all platforms, Node.js 22.5+) | `npm install -g @bradygaster/squad-cli` |
 | Homebrew (macOS) | `brew install --cask bradygaster/squad/squad` |
 | WinGet (Windows) | `winget install --id bradygaster.Squad --exact` |
-| Install script (macOS/Linux, no npm) | See [Standalone Install](https://bradygaster.github.io/squad/docs/features/standalone-install/) |
+| Install script (macOS/Linux, no npm) | See [Standalone Install](https://github.github.com/squad/docs/features/standalone-install/) |
 
 Preview and insider builds are available as `squad-preview` and
 `squad-insider` Homebrew casks, or as `bradygaster.Squad.Preview` and
 `bradygaster.Squad.Insider` WinGet packages.
 
 Direct archives for macOS, Linux, and Windows are also available from
-[GitHub Releases](https://github.com/bradygaster/squad/releases/latest).
+[GitHub Releases](https://github.com/github/squad/releases/latest).
 
 ```bash
 squad init
@@ -57,7 +69,7 @@ squad init
 
 All methods install the same CLI. Standalone installs vendor Node.js, so they do
 not require Node.js or access to the npm registry. See the
-[complete installation guide](https://bradygaster.github.io/squad/docs/get-started/installation/)
+[complete installation guide](https://github.github.com/squad/docs/get-started/installation/)
 for prerequisites and platform details.
 
 > **⚡ Want to be up and running in under a second?** Use `squad init --preset default` to start with a fully-configured squad — complete with members, charters, and routing rules — ready to go immediately. The default `squad init` (without the flag) walks you through setup step by step, ideal if you prefer to build and customize your squad deliberately.
@@ -112,8 +124,8 @@ Use the same channel you installed from:
 | npm | `npm install -g @bradygaster/squad-cli@latest` |
 | Homebrew | `brew upgrade --cask squad` |
 | WinGet | `winget upgrade --id bradygaster.Squad --exact` |
-| Install script | Re-run the [install script](https://bradygaster.github.io/squad/docs/features/standalone-install/#macos-and-linux) |
-| Direct archive | Download the newer archive from [GitHub Releases](https://github.com/bradygaster/squad/releases/latest) |
+| Install script | Re-run the [install script](https://github.github.com/squad/docs/features/standalone-install/#macos-and-linux) |
+| Direct archive | Download the newer archive from [GitHub Releases](https://github.com/github/squad/releases/latest) |
 
 **Step 2: Update Squad-owned files in your project**
 
@@ -121,9 +133,30 @@ Use the same channel you installed from:
 squad upgrade
 ```
 
-`squad upgrade` updates `squad.agent.md`, templates, and GitHub workflows to the latest versions. It never touches your `.squad/` team state — your agents, decisions, and history are always preserved.
+`squad upgrade` updates `squad.agent.md`, `.github/skills`, Squad workflows and `.squad/templates/` to the latest versions, comparing content first so a re-run (or a CRLF checkout) changes nothing, and backing up any file you customized to `<file>.local-backup` before overwriting it. It never touches your `.squad/` team state — your agents, decisions, and history are always preserved.
 
 Use `--force` to re-apply updates even when your installed version already matches the latest.
+
+### Use Squad in other AI hosts
+
+Squad is not tied to one client. Add `--client` to project the same team and the `squad_state` backend into Claude Code, Kiro, OpenCode, Cursor, OpenAI Codex or Google Antigravity (alongside Copilot):
+
+```bash
+squad init --client claude,opencode      # or: --client all
+squad upgrade --client codex             # add a host later; refreshes every configured host
+```
+
+Each host gets a native coordinator file plus MCP wiring; your own settings in `.mcp.json`, `opencode.json` and the like are never clobbered.
+
+In Claude Code, Squad also installs as a plugin that carries the coordinator, `squad_state`, skills, hooks and slash commands, including `/squad:dashboard`, a live local page of the team at work (also `squad dashboard`):
+
+```bash
+claude plugin marketplace add github/squad
+claude plugin install squad@squad --scope project
+squad init --client claude --claude-plugin
+```
+
+See [Squad for Claude Code (plugin)](docs/src/content/docs/features/claude-code-plugin.md). See [Using Squad across clients](docs/src/content/docs/scenarios/using-squad-across-clients.md), [Squad 2.0 architecture](docs/src/content/docs/concepts/squad-2-0-architecture.md), and the [multi-client quickstart](docs/tutorials/multi-client-quickstart.md).
 
 ---
 
@@ -133,7 +166,7 @@ To install and run Squad from source for development:
 
 ```bash
 # Clone the repository
-git clone https://github.com/bradygaster/squad.git
+git clone https://github.com/github/squad.git
 cd squad
 
 # Install dependencies (npm workspaces)
@@ -163,9 +196,10 @@ Say **"squad commands"** in chat to see a categorized menu of common operations 
 
 | Command | What it does |
 |---------|-------------|
-| `squad init` | **Init** — scaffold Squad in the current directory (idempotent — safe to run multiple times); alias: `cast`; use `--global` to init in personal squad directory, `--mode remote <path>` for dual-root mode |
-| `squad upgrade` | Update Squad-owned files to latest; never touches your team state; use `--global` to upgrade personal squad, `--migrate-directory` to rename `.ai-team/` → `.squad/` |
-| `squad upgrade --self` | Update the Squad CLI package itself; add `--insider` for dev-channel prerelease builds |
+| `squad init` | **Init** — scaffold Squad in the current directory (idempotent — safe to run multiple times); alias: `cast`; `--client <list>` also projects Claude Code, Kiro, OpenCode, Cursor, Codex and Antigravity; use `--mode remote <path>` for dual-root mode |
+| `squad upgrade` | Update Squad-owned files to latest; never touches your team state; `--client <list>` adds hosts and refreshes every configured projection; use `--migrate-directory` to rename `.ai-team/` → `.squad/` |
+| `squad upgrade --self` | Update the Squad CLI package itself on its own channel (prerelease installs follow `@insider`, stable follows `@latest`); `--dry-run` prints the command without installing; `--insider` forces the prerelease channel; a downgrade is refused unless `--force` |
+| `squad client list` | Show the client hosts configured in `.squad/config.json` and whether their projected files are present; `squad client add <list>` projects more hosts |
 | `squad update-check` | Report cached CLI update status for tooling/CI; use `--json` for structured output, `--refresh` to bypass the cache |
 | `squad status` | Show which squad is active and why |
 | `squad triage` | **Watch mode** — poll for issues and auto-triage to team (aliases: `watch`, `loop`); use `--interval <minutes>` to set polling frequency (default: 10); with `--execute` dispatch Copilot agents; use `--agent-cmd`, `--copilot-flags`, `--auth-user` to customize agent execution; `--health` shows watch status; `--log-file` for diagnostics |
@@ -181,6 +215,7 @@ Say **"squad commands"** in chat to see a categorized menu of common operations 
 | `squad upstream add\|remove\|list\|sync` | Manage upstream Squad sources |
 | `squad nap` | Context hygiene — compress, prune, archive; use `--deep` for aggressive compression, `--dry-run` to preview changes |
 | `squad aspire` | Open Aspire dashboard for observability |
+| `squad dashboard` | Live local page of the team's Claude Code sessions on 127.0.0.1; `stop`, `status`, `--detach`, `--open`, `--session <id>`, `--stream <file>` |
 | `squad scrub-emails [directory]` | Remove email addresses from Squad state files (default: `.squad/`) |
 
 ---
@@ -430,7 +465,7 @@ When agents finish, the coordinator records follow-up work and leaves a breadcru
 
 **And it's all in git.** Anyone who clones your repo gets the team — with all their accumulated knowledge.
 
-**Each agent gets the right model.** Squad picks models quality-first by default: premium for architecture, research and review, standard for code and docs, fast for mechanical work. Opt in to the `balanced` or `economy` profile, or to the `hydrafusion` research preview with `"modelProfile": "hydrafusion"` in `.squad/config.json`. Per-agent selection works in the Copilot CLI and app; VS Code runs every agent on the one session model. See [Model Selection](https://bradygaster.github.io/squad/docs/features/model-selection/).
+**Each agent gets the right model.** Squad picks models quality-first by default: premium for architecture, research and review, standard for code and docs, fast for mechanical work. Opt in to the `balanced` or `economy` profile, or to the `hydrafusion` research preview with `"modelProfile": "hydrafusion"` in `.squad/config.json`. Per-agent selection works in the Copilot CLI and app; VS Code runs every agent on the one session model, and so do the other hosts (Claude Code, Kiro, OpenCode, Cursor, Codex, Antigravity) for now — see the [Host Feature Matrix](docs/src/content/docs/reference/host-feature-matrix.md). See [Model Selection](https://github.github.com/squad/docs/features/model-selection/).
 
 ---
 
@@ -588,7 +623,24 @@ test "$(gh api "repos/${owner_repo}" --jq '.has_issues')" = "true" || {
 }
 
 SQUAD_SHA="<40-character-commit-sha>"  # explicit, maintainer-approved; never `commits/dev`
-gh aw add "bradygaster/squad/workflows@${SQUAD_SHA}"
+[[ "${SQUAD_SHA}" =~ ^[0-9a-f]{40}$ ]] || {
+  echo "STOP: SQUAD_SHA must be an explicit 40-character Squad commit SHA, not a branch name or shortened hash." >&2
+  exit 1
+}
+squad_package="$(gh api --hostname github.com -H 'Accept: application/vnd.github.raw+json' \
+  "repos/github/squad/contents/workflows/squad-workflows.manifest.json?ref=${SQUAD_SHA}" \
+  --jq '.package')" || squad_package=""
+test "${squad_package}" = "github/squad/workflows" || {
+  if [ -z "${squad_package}" ]; then
+    echo "STOP: cannot read workflows/squad-workflows.manifest.json from github/squad at ${SQUAD_SHA}." >&2
+    echo "Check gh auth status --hostname github.com and network access, and confirm SQUAD_SHA is a github/squad commit that has this manifest, then retry." >&2
+  else
+    echo "STOP: Squad ${SQUAD_SHA} does not declare the github/squad/workflows package (found '${squad_package}')." >&2
+    echo "Use a revision whose manifest declares github/squad/workflows, or ask the Squad maintainers for one. Older revisions download the Squad CLI from the bradygaster/squad fork, which has no releases." >&2
+  fi
+  exit 1
+}
+gh aw add "github/squad/workflows@${SQUAD_SHA}"
 rm -f .github/skills/agentic-workflows/SKILL.md
 git add -- \
   .github/aw/ \
@@ -598,6 +650,14 @@ git add -- \
 git commit -m "Add Squad workflow"
 git push
 ```
+
+`github/squad/workflows` verifies only at Squad revisions whose
+`workflows/squad-workflows.manifest.json` declares
+`"package": "github/squad/workflows"`, so the identity check stops on any other
+revision. Do not install an older revision as `bradygaster/squad/workflows`
+instead: its activation downloads the Squad CLI from the separately controlled
+`bradygaster/squad` fork, which has no releases. Use a revision whose manifest
+declares `github/squad/workflows`, or ask the Squad maintainers for one.
 
 `gh aw add` compiles the workflows automatically. If it reports unapproved
 safe-update changes, review them and run `gh aw compile --approve`.
@@ -642,7 +702,7 @@ durable human handoff after exhaustion. Both workers produce drafts only;
 open, merged and closed-unmerged linked PRs suppress automatic duplicates.
 Human review and merge are always required.
 
-See [the gh-aw guide](https://bradygaster.github.io/squad/docs/guide/gh-aw/#retrospective-auto-implementation-opt-in) for the full authority model.
+See [the gh-aw guide](https://github.github.com/squad/docs/guide/gh-aw/#retrospective-auto-implementation-opt-in) for the full authority model.
 
 ### Slash commands
 
@@ -663,7 +723,7 @@ See [the gh-aw guide](https://bradygaster.github.io/squad/docs/guide/gh-aw/#retr
 
 Write a detailed team description in the issue body, then comment `/squad cast` — the issue becomes your casting brief. The more context you give, the better Squad tailors your team.
 
-📖 See [GitHub Agentic Workflows guide](https://bradygaster.github.io/squad/docs/guide/gh-aw/) for the complete setup, configuration, and usage reference.
+📖 See [GitHub Agentic Workflows guide](https://github.github.com/squad/docs/guide/gh-aw/) for the complete setup, configuration, and usage reference.
 
 ---
 

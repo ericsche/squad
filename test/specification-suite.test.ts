@@ -19,6 +19,8 @@ const requirementsDocuments = [
   'coordination-handoff-v0.1.md',
   'automation-v0.1.md',
   'state-memory-requirements-v0.1.md',
+  'client-backend-decoupling-v0.2.md',
+  'client-harness-adapters-v0.2.md',
 ] as const;
 
 async function readJson(file: string): Promise<unknown> {
@@ -72,16 +74,30 @@ async function markdownFiles(root: string): Promise<string[]> {
   return nested.flat().sort();
 }
 
+function withoutHeadingTags(value: string): string {
+  const parts: string[] = [];
+  let cursor = 0;
+  while (cursor < value.length) {
+    const open = value.indexOf('<', cursor);
+    if (open === -1) break;
+    const close = value.indexOf('>', open + 1);
+    if (close === -1) break;
+    parts.push(value.slice(cursor, close === open + 1 ? close + 1 : open));
+    cursor = close + 1;
+  }
+  parts.push(value.slice(cursor));
+  return parts.join('');
+}
+
 function markdownHeadingAnchors(content: string): Set<string> {
   const anchors = new Set<string>();
   const counts = new Map<string, number>();
 
   for (const match of content.matchAll(/^#{1,6}\s+(.+?)\s*#*\s*$/gm)) {
-    const heading = match[1]
+    const heading = withoutHeadingTags(match[1]
       .replace(/`([^`]+)`/g, '$1')
       .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .replace(/<[^>]+>/g, '')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'))
       .replace(/[*_~]/g, '')
       .trim();
     const base = heading
