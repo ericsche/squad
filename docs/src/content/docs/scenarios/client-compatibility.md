@@ -91,7 +91,7 @@ A host may require its native `security-review` agent **first** for a security
 review request. That higher-priority requirement takes precedence over Squad's
 other dispatch: use the mandated reviewer, not an inline audit or a substitute
 reviewer. In the Copilot App, Squad runs it as the first action of one branded
-security session, such as `🔒 Security · Dependency review`, created on the
+security session, such as `🛡️ Security · Dependency review`, created on the
 current worktree read-only. The review therefore appears as a linked
 sub-session with the same reviewer, target, scope and result. That session
 shows any findings table or question and hands the complete report back. This

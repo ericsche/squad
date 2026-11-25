@@ -34,7 +34,7 @@ An internal check runs a known test selector or checks an explicit output agains
 an existing requirement, without taking ownership of a new specialist deliverable.
 Lightweight means a smaller prompt, not a hidden native specialist.
 A runtime-required reviewer is not a small internal check. In the App it runs
-as the first action of one branded security session (`🔒 Security · {mission}`
+as the first action of one branded security session (`🛡️ Security · {mission}`
 via `create_session`, parent worktree path read-only), with SQL tasks and the
 readable plan written no later than the reviewer's tool batch, without changing
 the review; its report is genuine bounded App restitution, even with zero

@@ -168,7 +168,7 @@ describe('runtime-required review composition: instruction contracts, not securi
     const recipe = firstResponse();
     expect(recipe, 'reads come first').toMatch(/First tool batch, metadata reads only[^.]*squad_session_plan_read/i);
     expect(recipe, 'writes share the batch that creates the branded security session')
-      .toMatch(/Second tool batch[^.]*SQL tasks[^.]*native plan[^.]*create_session[^.]*🔒 Security · \{mission\}/i);
+      .toMatch(/Second tool batch[^.]*SQL tasks[^.]*native plan[^.]*create_session[^.]*🛡️ Security · \{mission\}/i);
     expect(recipe).toMatch(/native `security-review` its first action, on the parent worktree path read-only/i);
     expect(recipe, 'the plan gets the real sub-session link').toMatch(/update the plan with the child's verified `app_url`/i);
     expect(recipe).toMatch(/without polling, reviewing in parallel or running the reviewer again/i);
@@ -252,7 +252,7 @@ describe('runtime-required review composition: instruction contracts, not securi
     }
     for (const key of ['spawn', 'client', 'response'] as const) {
       const ref = sources[key].replace(/\s+/g, ' ');
-      expect(sources[key], `${key}: branded security title missing`).toContain('🔒 Security · {mission}');
+      expect(sources[key], `${key}: branded security title missing`).toContain('🛡️ Security · {mission}');
       expect(ref, `${key}: security session must review the parent worktree read-only`).toMatch(/create_session[^.]*parent worktree path read-only/i);
       expect(ref, `${key}: framing must be written no later than the reviewer's batch`).toMatch(/no later than the reviewer's tool batch/i);
       expect(ref, `${key}: main-session fallback missing`).toMatch(/(?:If|Without) `create_session`/i);

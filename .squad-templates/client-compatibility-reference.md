@@ -29,7 +29,7 @@ an existing requirement, without assuming a specialist-owned deliverable.
 A runtime-required reviewer such as native `security-review` takes precedence
 when the host requires it first. It is a full review, not an internal check.
 In the App, it runs as the first action of one branded security session
-(`🔒 Security · {mission}`, created with `create_session` on the parent worktree
+(`🛡️ Security · {mission}`, created with `create_session` on the parent worktree
 path read-only), so it appears as a linked sub-session with the same reviewer,
 target, scope and result. Write the mission's SQL tasks and readable plan no
 later than the reviewer's tool batch (that creation) when supported; this
