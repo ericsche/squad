@@ -742,6 +742,30 @@ describe('App specialist visibility: canonical contracts', () => {
     key => assertOutsideProjectChat(sources[key], paths[key]),
   );
 
+  // One child per mission keeps work isolated, but finished children piled up in the App sidebar
+  // (user feedback after App test 11), so verified, integrated missions are archived.
+  it('archives a finished request\'s verified, integrated children and never one with live or unintegrated work', () => {
+    const rules = sources.coordinator.replace(/\s+/g, ' ');
+    expect(rules, 'archive at the end of the request, not after each mission')
+      .toMatch(/\*\*Lifecycle:\*\*[^*]*Archive at the end of the user's request, not after each mission: once every mission in the current request is verified completed \(handoff verified, its commits integrated into the parent or the mission read-only\) and the plan is marked completed, archive that request's finished children with `archive_session`/i);
+    expect(rules, 'finished children stay available for follow-ups while the request continues')
+      .toMatch(/Until then, keep finished children for same-mission follow-ups/i);
+    expect(rules).not.toMatch(/archive that child with `archive_session`/i);
+    expect(rules).toMatch(/Never archive a child that is busy, awaiting input or plan approval, holds unintegrated commits or uncommitted work, has an open pull request or an attached session automation, or may still receive a same-mission follow-up[^.]*never one the user asked to keep or that you did not create/i);
+    expect(rules, 'continuation keeps the conversation through a user restore, or starts fresh from the report')
+      .toMatch(/Only the user can restore an archived session, and only a restored session brings back its full working conversation[^:]*: for a later follow-up on that mission, ask the user to restore it, or start a new child carrying its previous kickoff and report/i);
+    for (const key of ['after', 'client'] as const) {
+      const text = sources[key].replace(/\s+/g, ' ');
+      expect(text, `${key}: archive finished missions at the end of the request`)
+        .toMatch(/whole request is done[^.]*archive|archive[^.]*whole request is done/i);
+      expect(text, `${key}: never archive live or unintegrated work`)
+        .toMatch(/Never archive a child that is busy, awaiting input, holds unintegrated work|never while it is busy, awaiting input, holding unintegrated work/i);
+    }
+    const docs = readFileSync(resolve(ROOT, 'docs/src/content/docs/scenarios/client-compatibility.md'), 'utf8').replace(/\s+/g, ' ');
+    expect(docs).toMatch(/Finished missions are archived when your request is done[^]*never archives a sub-session that is busy, waiting for your answer, holding changes not yet integrated/i);
+    expect(docs).toMatch(/Squad asks you to restore it or starts a new sub-session from its kickoff and report/i);
+  });
+
   it('makes the actual project-child example select the parent project and isolated worktree', () => {
     const template = sources.spawn.match(/create_session\(\{([\s\S]*?)\n\}\)/)?.[1];
     expect(template, `${paths.spawn}: missing concrete project-child template`).toBeDefined();

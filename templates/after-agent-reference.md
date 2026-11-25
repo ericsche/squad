@@ -83,6 +83,14 @@ integrated into the parent. Arrange authorized integration before claiming that
 the parent's branch contains the change. A complete research/proposal result
 does not imply implementation permission.
 
+When the user's whole request is done and every App child's mission in it is
+verified completed and integrated (or read-only), archive those children with
+`archive_session` in the same batch as the final plan update, following the
+coordinator's sub-session Lifecycle rule; keep finished children until then for
+same-mission follow-ups. Never archive a child that is busy, awaiting input,
+holds unintegrated work, an open pull request or a session automation, or may
+still receive a same-mission follow-up.
+
 #### Follow-up and reviewer gates
 
 Keep the accountable owner for the same mission unless routing or rejection
