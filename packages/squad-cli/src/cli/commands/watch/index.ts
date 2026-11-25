@@ -12,7 +12,7 @@ import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { FSStorageProvider } from '@bradygaster/squad-sdk';
 import { effectiveSquadDir } from '../../core/effective-squad-dir.js';
-import { fatal } from '../../core/errors.js';
+import { fatal, fatalNoSquad } from '../../core/errors.js';
 import { GREEN, RED, DIM, BOLD, RESET, YELLOW } from '../../core/output.js';
 import { withAdditionalMcpConfig } from '../../core/copilot-invocation.js';
 import {
@@ -734,7 +734,7 @@ export async function runWatch(dest: string, options: WatchOptions | WatchConfig
   const teamRoot = path.dirname(squadDirInfo.path);
 
   if (!storage.existsSync(teamMd)) {
-    fatal('No squad found — run init first.');
+    fatalNoSquad();
   }
 
   // Create platform adapter
@@ -1044,8 +1044,14 @@ export async function runWatch(dest: string, options: WatchOptions | WatchConfig
 
     // Update executed count from execute capability
     const execResult = execResults.get('execute');
-    if (execResult?.data?.['executed']) {
-      roundState.executed = execResult.data['executed'] as number;
+    const executedCount =
+      typeof execResult?.data?.['executed'] === 'number'
+        ? (execResult.data['executed'] as number)
+        : typeof execResult?.data?.['dispatched'] === 'number'
+          ? (execResult.data['dispatched'] as number)
+          : 0;
+    if (executedCount > 0) {
+      roundState.executed = executedCount;
     }
 
     // Phase 4: housekeeping (monitoring, retro, decision hygiene)

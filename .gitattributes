@@ -60,8 +60,8 @@ Dockerfile.* text eol=lf
 
 # Charter conformance binds exact document bytes across platform checkouts.
 docs/specification/charter-v0.1.md text eol=lf
-
 # Workflow package provenance hashes exact bytes, including on Windows.
 workflows/**/*.md text eol=lf
 workflows/**/*.json text eol=lf
 **/skills/gh-aw-enlistment/SKILL.md text eol=lf
+scripts/release/manifest.schema.json text eol=lf

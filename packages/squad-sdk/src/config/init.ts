@@ -152,8 +152,6 @@ export interface InitOptions {
   version?: string;
   /** Project description prompt — stored for REPL auto-casting. */
   prompt?: string;
-  /** If true, disable extraction from consult sessions (read-only consultations) */
-  extractionDisabled?: boolean;
   /** Optional SubSquad definitions — generates .squad/workstreams.json when provided */
   streams?: SubSquadDefinition[];
   /** If true, use built-in base roles with useRole() in SDK config (default: false) */
@@ -227,6 +225,11 @@ const AGENT_TEMPLATES: Record<string, { displayName: string; description: string
     displayName: 'Ralph',
     description: 'Persistent memory agent that maintains context across sessions.'
   },
+  'rai': {
+    displayName: 'Rai',
+    description: 'Responsible AI reviewer ensuring content safety, bias detection, and ethical standards.'
+  },
+  // Legacy capitalized role id (pre-2.0 init passed `Rai`); canonical id is `rai`.
   'Rai': {
     displayName: 'Rai',
     description: 'Responsible AI reviewer ensuring content safety, bias detection, and ethical standards.'
@@ -1106,10 +1109,6 @@ All findings logged to \`.squad/fact-checker/audit-trail.md\` (append-only, succ
       if (introspectedTypes?.length) {
         adoSection._availableTypes = introspectedTypes;
       }
-    }
-    // Only include extractionDisabled if explicitly set
-    if (options.extractionDisabled) {
-      squadConfig.extractionDisabled = true;
     }
     if (mcpConfigMode === 'agent-frontmatter') {
       squadConfig.mcpConfigMode = mcpConfigMode;

@@ -4,20 +4,151 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0-preview.2] - 2026-10-25
+
+Second Squad 2.0 preview. Published primarily to the npm `insider` dist-tag, which powers `squad upgrade --self --insider`, with `preview` retained as a compatibility alias; `latest` stays at 1.1.0. This release focuses on upgrade safety, state-bridge lifecycle, health compatibility, and dogfood fixes discovered after preview.1.
+
+### Added
+
+- Recognize optional charter `Examples` sections without a noncanonical-section warning and preserve them through structured SDK edits (#2275, #2276).
+
+### Fixed
+
+- Refuse to overwrite external state owned by a different project (#2283).
+- Generate resolvable versioned `squad_state` bridge declarations, probe them in `squad doctor`, report bridge identity in health output, and terminate stdio servers when their host transport closes (#2301).
+- Make `squad health` accept legacy charter identity forms and built-in support agents, ignore routing headers/separators/placeholders, warn rather than fail for missing identity blocks, and report optional Rai/Fact Checker charters absent from `team.md` as INFO (`available but not configured`). `squad upgrade` never modifies `team.md`; opt in explicitly with `squad roster add <rai|fact-checker|all>` (#2303; #2298, #2234, #1785).
+- Accept documented legacy routing headers, column orders, and flattened long tables while still failing closed on missing/off-roster targets and zero parseable rules; report duplicate or conflicting work types deterministically (#2307).
+- Fix preview commands and migrations: list configured clients, record the `Rai` → `rai` case-only rename, show the project name in upgrade previews, expire update-check caches after 24 hours, route `squad_decide` to the active workstream inbox without over-truncating slugs, and remove local-mode/Node deprecation diagnostics (#2303; #2299, #2174).
+- Allow backend root aliases only for list-shaped operations; file and destructive operations reject them before accessing or erasing the state tree (#2301).
+- Make `squad upgrade --self` honor `--dry-run`, follow the installed prerelease channel through `insider`, and refuse downgrades unless `--force` is supplied (#2303; #2295).
+- Parse YAML block-sequence arrays and quoted scalar/inline-array values in skill frontmatter (#2236).
+- Make `squad upgrade` content-aware and idempotent across managed templates, skills, workflows, mirrors, backups, obsolete files, and line endings, with exact dry-run reporting and verified `.local-backup` preservation (#2303; #2297, #2266, #2047, #2232).
+
+## [2.0.0-preview.1] - 2026-10-23
+
+First Squad 2.0 preview. Published primarily to the npm `insider` dist-tag, which powers `squad upgrade --self --insider`, with `preview` retained as a compatibility alias; `latest` stays at 1.1.0. Upgrade guidance, the tested old-version × OS upgrade matrix and the full list of breaking changes live in [Upgrading to Squad 2.0](docs/src/content/docs/scenarios/upgrading.md).
+
+### Breaking
+
+- **Personal squads, consult mode and the global squad (`--global`) were removed.** Existing `personal-squad/` and global `.squad/` directories under the user profile are no longer read or written and may be deleted manually. Squad resolves `.squad/` only from the current directory and its parents; `squad status`, `squad doctor`, `squad cast` and `squad cost` outside a project now fail with "No squad in this directory … run `squad init`", and `squad init` / `squad upgrade` only ever write inside the project `.squad/`. The SDK exports, CLI subcommands, flags, environment switches, templates and coordinator sections that backed the removed features are gone; `resolveGlobalSquadPath()` remains only as the base of externalized project state (`squad externalize`). A retired-symbol gate (`test/retired-symbols.test.ts`) keeps the removed concepts out of source, templates, skills, docs, help text, schemas and the built package output (#2279).
+- `@bradygaster/squad-sdk/clients` is now a deprecated alias for the canonical `@bradygaster/squad-sdk/client` subpath, and `@bradygaster/squad-sdk/backend` is exported only from the `./backend` subpath, not from the root barrel (#2251, #2253).
+- Plain `squad init` and `squad upgrade` (without `--client`) remain Copilot-only and no longer add `.claude/worktrees/` or `NUL` to `.gitignore` unless `--client claude` is enabled; `.squad/backend/` is added to `.gitignore` on upgrade (#2251).
+- `SQUAD_BACKEND_URL` alone no longer enables the `squad_backend_*` MCP tools (pass `--experimental-backend` or `SQUAD_EXPERIMENTAL_BACKEND=1`). `createSquadBackend({ kind: 'durable-http', ... })` and `DurableHttpSquadBackend` require an explicit `baseUrl` (`https://`, or `http://` only for localhost) and optional `token` (#2253).
+- Coordinator instructions and `squad_state_*` tools separate mutable runtime state from static team configuration (`team.md`, `routing.md`, `config.json`, `charter.md`) and forbid hand-editing `.squad/casting/` or killing processes by image name (#2254).
+- Upstream precedence is clarified: **earlier** entries in `upstream.json` win conflicts (the 1.x docs said later-wins; the code implemented neither) (#2278).
+- The dangling `./shell/sdk-bridge` CLI subpath export, which pointed at a module that does not exist in the package, was removed (#2285).
+
+### Added
+
+- Seven AI hosts via `squad init --client <list>` and `squad upgrade [--dry-run] --client <list>`: GitHub Copilot, Claude Code, Kiro, OpenCode, Cursor, OpenAI Codex and Google Antigravity (or `all`), each receiving a native coordinator projection and `squad_state` MCP wiring; configured hosts persist as portable slugs in `.squad/config.json` `clients[]` (#2251).
+- Shared charters and capability negotiation in `@bradygaster/squad-sdk/client` (`HostProjection`, `createClientAdapter`, `installClients`, `uninstallClients`, `CAPABILITY_TOKENS_BY_HOST`, `capabilityFlagsFromTokens`, `resolveEffectiveCapabilityTokens`), with `effectiveCapabilities = client ∩ backend ∩ policy` (#2251, #2277).
+- Transactional casting repair in `@bradygaster/squad-sdk/casting`: `squad upgrade` (including `--dry-run`) normalizes handwritten `.squad/casting/registry.json` per record, backfills empty registries from `.squad/team.md` using provable `.squad/agents/<id>/charter.md` folder IDs, archives pre-repair originals under `.squad/casting/handwritten-archive-<sha256>/`, never rolls back a durable commit, and fails closed with an actionable `dropped` list (#2252).
+- Experimental backend and harness SPI in `@bradygaster/squad-sdk/backend` (`BACKEND_CONTRACT_STAGE = 'experimental'`): `SquadBackend`, `createSquadBackend`, `LocalSquadBackend`, `DurableHttpSquadBackend`, `createFileStateStore`, `createStateBackendStore`, `HarnessAdapter`, `DefaultHarnessRegistry`, `validateExtensions`, plus 11 opt-in `squad_backend_*` tools in `squad state-mcp`, validated against the `squad-protocol-v2.0-rc1` golden conformance trace (`G1`–`G9`) (#2253).
+- Runtime upstream inheritance (F1): the `squad_state_upstreams` tool resolves every declared upstream from its locally synced snapshot with `upstream:<name>@<ref>` provenance, deterministic precedence, diamond de-duplication, cycle detection and `missing` / `invalid` / `unavailable` / `stale` diagnostics, never fetching at session start; snapshot reads are confined and race-safe (`lstat` walk, size budgets, `O_NOFOLLOW` + `fstat` verification); git sources are allow-listed to `https://`, `ssh://` and `git@host:path` with remote helpers and the file protocol disabled; inherited content is labelled `UNTRUSTED`; `squad doctor` and `squad status` report upstream state (#2278).
+- Squad feature × host matrix documentation with live Claude Code and OpenCode runs and bridge tests (#2277).
+- Attested old-version × OS upgrade matrix (0.9.1 through 1.1.0 on Windows and Linux) rendered into the upgrading guide from `test-fixtures/spec/suite-v0.2/upgrade-matrix.json` (#2282).
+- `test/package-exports-targets.test.ts` verifies every `exports` target of both packages exists in the built `dist/` (#2285).
+
+### Fixed
+
+- `squad_state_health` reports `State backend: local|orphan|two-layer` plus storage class and team squad dir (F6); `squad_state_list` without `dir` lists the root on git-backed backends instead of failing (F8); Claude Code declares `background-runs` in `capability-matrix.json` and `CAPABILITY_TOKENS_BY_HOST` (F7) (#2279).
+- Shared JSON, TOML, `.gitignore` and markdown marker merges preserve existing line endings, indentation and user entries atomically, refuse malformed JSON or commented `opencode.jsonc`, and restore preexisting files byte-for-byte via `uninstallClients` (#2251).
+- When a non-local state backend is configured, `createStateBackendStore` places lock files in a deterministic machine-local directory derived from the shared `.git` common dir so `.squad/backend/` is never materialized in the working tree (#2253).
+
+### Known limitations
+
+- Squad ships the backend interfaces, the local backend and the `durable-http` client; it does not bundle a remote DurableSquad server. Server-side DurableSquad Phase 2 integration (remote durable approvals and lease-epoch coordination) is pending, and `squad state-mcp` bundles no execution harness (`executionAvailable: false` until a `HarnessAdapter` is registered).
+- Squad 0.9.1's `squad upgrade --dry-run` is not dry (finding F3 in the upgrade matrix); no older CLI has a newer-version guard, so never run an older CLI against an upgraded repository. There is no supported downgrade.
+
+## [1.1.0] - 2026-10-19
+
+### Added
+
+- Add a central, provenance-aware model resolver with explicit precedence across user, config, session, charter, task, and default sources; forward-only availability and cost-policy fallback; platform-default omission; lifecycle telemetry; and stable SDK exports (#1720).
+- Add GA-backed `quality-first`, `balanced`, and `economy` model profiles with task-aware tier selection, persistent configuration, live-model availability handling, and updated public catalog/fallback chains (#1598).
+- Add opt-in HydraFusion model support and a `hydrafusion` quality profile while keeping preview models out of default chains and GA recommendations; unavailable HydraFusion selections fall forward safely within the active cost ceiling (#2014).
+- Implement persisted `squad cast --name <name> --role <role>` and `squad hire`, live rebuilds for `squad build --watch`, and an explicit unsupported-provider error for `squad memory provider --provider copilot` (#2191, #2192, #2193).
+- Add the draft `squad-charter/v0.1` artifact profile, explicit conformance profile selection, validation-before-runtime compilation, typed diagnostics, operation-exact capability metadata, canonical and lossless extension-preserving serialization, a schema-defined language-neutral conformance manifest, and implementation-independent specification documents (#2069, #2074).
+- Add atomic repository-scoped `createIfAbsent` operation across all state backends (`local`, `git-notes`, `orphan-branch`, `two-layer`), `StorageProvider` implementations, `StateBackendStorageAdapter`, and the `squad_state_create_if_absent` MCP tool with `StateKeyConflictError` and `StateBackendUncertaintyError` (#1947).
+- Persist runtime turn starts and usage events to a backend-aware JSONL ledger, report telemetry coverage, and make `squad cost` prefer structured telemetry before falling back to self-reported orchestration logs (#1716, #2063).
+- Track context-window utilization from runtime and estimated token data, publish typed events and OpenTelemetry metrics, warn interactive-shell users at a configurable threshold, and report estimated utilization from `squad watch` (#1718, #2064).
+
+### Changed
+
+- Add a human-triggered protected-main promotion mode that validates an existing sanitized release branch and opens a bot-authored pull request for independent maintainer approval.
+- Allow automatic economy-profile resolutions to continue into available cheaper tiers after exhausting the initially selected tier.
+- Update `squad economy` status examples to use the current economy substitution model IDs.
+- Align native Squad workflow installation and bundled enlistment guidance with the exact `gh-aw` `v0.91.5` compiler, preserving strict package ownership and integrity verification, supporting an explicit schedule seed, verifying 24-hour failure-report retention digests, and binding activation App tokens to the full current repository identity (#2195).
+- Make `issue-assign` the sole Copilot assignment workflow, fail visibly on missing tokens or unconfirmed API responses, dispatch automated auto-assign handoffs explicitly, and disclose deterministic keyword triage provenance (#2156).
+- Clarify Ralph's monitor-only role and reserve pull request merging for humans in the distributed reference templates (#2156).
+- Limit team markdown table parsing to supported roster sections, preserving the legacy `Team Roster` heading while excluding auxiliary tables (#2079, #2156).
+- Update bundled enlistment guidance for repository-scoped Agentic Research bootstrap proposal titles, including compatible legacy-title recognition and the required package-update-before-rename order.
+
+### Fixed
+
+- Preserve user-authored `.github/copilot-instructions.md` content during `squad init`, `squad upgrade`, and `squad copilot` by updating only the Squad-managed marker block (#2186, #2221).
+- Spill multiline and oversized Windows `squad watch --execute` prompts to temporary Markdown files so `cmd.exe` cannot truncate them at the first newline, and report dispatched issue counts in round summaries (#2070).
+- Automatically migrate supported unversioned casting state before upgrading managed files (including already-current upgrades), support historical `assigned_at` casting timestamps with conflict detection and preserved original dates, archive original registry/history bytes without overwriting, and fail closed on unsupported or inconsistent state (#2190).
+- Keep standalone `squad_state` MCP commands portable in shared project configuration while retaining machine-local launch resolution, and preserve existing destination newline style when upgrading managed text files and refreshing coordinator capabilities (#2190).
+- Validate real numeric task and epic issue references and add an explicit activation reader for independently verified current-state-authorized reconciliations, preserving valid legacy activation records while rejecting ambiguous, malformed, or unverified replacements.
+- Bind native review runs whose API metadata identifies the PR head through exact PR base/head linkage while preserving base-controlled workflow provenance, and validate required Coordinator and Coding Agent sections and the disabled auto-assignment marker before publishing a generated Cast.
+- Give the native review safe-output guard read access to same-repository workflow run evidence needed for signed Bootstrap provenance, and correct Cast generation guidance for Scribe's decision-only role and native specialist assignment.
+- Keep automatic bootstrap limited to the Cast PR and linked proposals issue, publish research only on explicit `/squad research` before triage, and recognize the deterministic bootstrap Cast branch during team-required command gating (#2194).
+- Fix `squad init` re-run on an existing project leaving the `squad.agent.md` first-response greeting stamped with a stale version (`stampVersion` in `squad-cli` and `stampVersionInContent` in `squad-sdk` now update resolved SemVer literals idempotently) (#1995).
+- Allow state tools to append evidence to the exact Rai and Fact Checker audit-trail keys while rejecting writes and deletes, reconcile built-in scaffold charters with the append-only evidence contract, and make orphan-backed state appends compare-and-swap against the exact ref snapshot (#2159).
+- Fix `squad-heartbeat.yml`'s "Repair orphaned squad labels" step returning `403` when a fork PR closes by switching the trigger to `pull_request_target` across all 5 synced workflow copies (#2155).
+- Support both `teamRoot` forms for linked teams (the team repository written by `squad link` and the team's `.squad/` directory shown in docs) via `teamSquadDir` on `ResolvedSquadPaths`, and export `MUTABLE_STATE_PATHS` and `isMutableStateKey()` from `@bradygaster/squad-sdk/tools` (#2107, #2119).
+- Fix `squad init` and team casting failing on Windows with `EPERM: operation not permitted, fsync` and handle Windows directory rename `EPERM` lock contention in the durable casting registry (#2106, #2114).
+- Validate `squad doctor` team state files (`team.md`, `routing.md`, `agents/`, `casting/registry.json`, `decisions.md`) against the resolved team root in remote (linked) mode instead of the local `.squad/` stub (#2056, #2057).
+
+## [1.0.1] - 2026-10-03
+
+### Fixed
+
+- `squad health` now accepts casting registry persistent names as valid routing references alongside registry IDs, avoiding false unknown-agent failures (#2165).
+- The immutable activation action now binds to an approved installer that fails closed on checksum-download failure, invalid checksum entries, or archive tampering, with offline pinned-installer regression coverage (#2167).
+
+### Changed
+
+- Root, SDK, and CLI npm versions advance together to 1.0.1 to satisfy the existing release and npm publication workflows. The CLI SDK dependency floor is now `>=1.0.1`; SDK source is unchanged from v1.0.0.
+- Agentic Workflow activation installs the latest stable standalone GitHub Release by default, independently of immutable workflow/action source pins, and no longer rewrites a CLI version pin after publication (#2167).
+- Consumed only the CLI health persistent-routing patch changeset. Historical changesets are unchanged; this release does not promote unrelated `dev` changes or republish `Squad.Agents.AI` NuGet 1.0.0.
+
 ## [1.0.0] - 2026-10-02
 
 Squad CLI and SDK (the `@bradygaster/squad-cli` and `@bradygaster/squad-sdk` npm packages) graduate to 1.0.0. This is a stabilization release: there are no breaking API or command changes from 0.13.1. It marks the npm packages as stable per the project's independent per-package versioning policy (distinct from the already-stable `Squad.Agents.AI` NuGet package, which reached 1.0.0 separately in #2143).
+
+### Added
+
+- Add the `gh-aw-enlistment` skill: an operationalized, safety-gated guide for enlisting a repository into Squad via GitHub Agentic Workflows (`gh aw`) (#1946).
+- Install Squad's seven agentic workflows (including `squad-bootstrap` and `squad-retro`), fifteen runtime resources, and enlistment skill from one isolated native package, with fail-closed manifest, ownership, path, and hosted bootstrap verification (#2005).
+- Publish and validate a versioned producer-owned agent identity provenance contract with stable IDs, rename preservation, retirement tombstones, durable manifest-backed roll-forward transactions, and repository-scoped work-to-agent activation bindings.
+- Automate insider, preview, and stable distribution through npm, standalone archives, Homebrew, and WinGet (#1593).
+- Add `.squad/templates/README.md` to `squad init` output explaining which files are runtime inputs vs bootstrap templates (#1494, #1949).
 
 ### Changed
 
 - Removed the blanket "Experimental — Squad is alpha software" disclaimer banner from 87 documentation pages under `docs/src/content/docs/**`. Genuine preview-channel and feature-specific warnings (SDK-first mode, GitLab Issues Mode, the plugin security MVP gate, and preview/insider release channels) are unchanged and still documented.
 - `@bradygaster/squad-cli`'s declared dependency floor on `@bradygaster/squad-sdk` is now `>=1.0.0` (previously `>=0.11.0`), reflecting the SDK's own stabilization.
+- Require `gh-aw` `v0.89.22` across the Squad workflow package, enlistment guidance, integrity contract, CI, and hosted E2E controller, proving the exact compiler version during enlistment (#2118).
+- Make shipped Squad templates, build inputs, CI policy, and issue-routing automation independent of the repository's current team state, and refresh shipped reskill and template skill scaffolding (#2015, #2025, #2029, #2030).
+- Require coordinators to preserve user-approved scope and prevent directive or reflection capture from falling back to local Markdown proposals (#2110).
+- Use the base-controlled deterministic relay's native `Squad Review / review` job as the authoritative review result only when it validates the exact trusted automatic workflow run (#2109).
+
+### Fixed
+
+- Harden the Squad GH-AW source contract across command routing, approval relay (`squad_approval_relay`), review guard (`squad-review-guard.mjs`), install verification (`squad-install-verifier.mjs`), and bootstrap-PR-fallback signed provenance attribution (#2116, #2120, #2136, #2141, #2145, #2147, #2148, #2149).
+- Transport automatic bootstrap Cast and research payloads through bounded, integrity-checked chunks (#2043), keep compiled workflow expressions valid at GitHub runtime (#2037), and close installed runtime resources.
+- Require GitHub Issues to be enabled before installing Squad Agentic Workflows, and correct first-install credentials guidance in `gh-aw-enlistment` (#1973).
+- Standardize the Rai built-in agent on the canonical lowercase directory/template ID `rai` and migrate legacy `.squad/agents/Rai/` directories during `squad upgrade` (#1990).
+- Reject ambiguous legacy casting generations, revision-bearing snapshot keys in legacy Cast genesis history, and incomplete or malformed casting history before synchronizing team capabilities.
 
 ## [0.13.1] - 2026-08-26
 
 ### Fixed
 
 - Allow runtime state tools to persist the casting policy, registry, and history keys required by the coordinator (`casting/policy.json`, `casting/registry.json`, and `casting/history.json`), while continuing to reject unrelated casting paths (#1876, #1898).
+- Preserve user-supplied `env` on the `squad_state` entry in `.mcp.json` across `squad init` and `squad upgrade` runs (#1894).
 
 ## [0.13.0] - 2026-08-25
 

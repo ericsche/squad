@@ -117,6 +117,8 @@ export function parseRoster(teamMd: string): TeamMember[] {
   const statusIndex = findColumnIndex(table.headers, ['status']);
   const excludedNames = new Set(['squad', 'scribe', 'ralph', 'rai', 'fact checker', 'fact-checker', 'factchecker', '@copilot', 'copilot']);
   const excludedRoles = new Set(['coordinator', 'scribe', 'ralph', 'rai', 'rai reviewer', 'fact checker', 'fact-checker', 'coding agent', 'work monitor', 'durable decision merger']);
+  // Built-in support agents are never triage targets or advertised specialists.
+  // Compared after `toLowerCase()`, so the keys must be lowercase too (`Rai` never matched).
   const members: TeamMember[] = [];
 
   for (const row of table.rows) {

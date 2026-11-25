@@ -12,6 +12,7 @@
 
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
 import type { SquadTool, SquadToolResult } from '../adapter/types.js';
 import { trace, SpanStatusCode } from '../runtime/otel-api.js';
 import type { StorageProvider } from '../storage/storage-provider.js';
@@ -21,8 +22,11 @@ import type { SquadState } from '../state/squad-state.js';
 import { validateStateKey } from '../state-backend.js';
 import { spawnParallel, type FanOutDependencies } from '../coordinator/fan-out.js';
 import { LocalMemoryStore, type CopilotMemoryProviderClient, type MemoryClass } from '../memory/index.js';
+import { resolveUpstreams, buildEffectiveUpstreamContext, formatUpstreamReport } from '../upstream/resolver.js';
 
 const tracer = trace.getTracer('squad-sdk');
+const require = createRequire(import.meta.url);
+const SQUAD_STATE_VERSION = (require('../../package.json') as { version?: string }).version ?? 'unknown';
 
 // --- Argument Sanitization ---
 
@@ -116,6 +120,11 @@ export interface StateListRequest {
 export interface StateCreateIfAbsentRequest {
   key: string;
   content: string;
+}
+
+export interface StateUpstreamsRequest {
+  /** When true, include the inherited decisions/routing/wisdom/skill bodies, not just the summary. */
+  detail?: boolean;
 }
 
 export interface StatusQuery {
@@ -255,6 +264,7 @@ function normalizeStateToolDir(dir?: string): string {
     .replace(/^\/+/, '')
     .replace(/^\.squad(?:\/|$)/, '')
     .replace(/\/+$/, '');
+  if (normalized === '.') return '';
   if (normalized.length > 0) {
     validateStateKey(normalized);
   }
@@ -269,6 +279,9 @@ function normalizeStateToolDir(dir?: string): string {
 export const MUTABLE_STATE_PATHS: ReadonlyArray<{ readonly root: string; readonly kind: 'file' | 'dir'; readonly pattern?: RegExp }> = [
   { root: 'decisions.md', kind: 'file' },
   { root: 'decisions/inbox', kind: 'dir' },
+  // Per-workstream decision inboxes (`.squad/workstreams/active/<slug>/decisions/inbox/`), the
+  // convention squad_decide targets when a workstream is active (#2299).
+  { root: 'workstreams', kind: 'dir', pattern: /^workstreams\/active\/[A-Za-z0-9._-]+\/decisions\/inbox\/[^/]+$/ },
   { root: 'casting/policy.json', kind: 'file' },
   { root: 'agents', kind: 'dir', pattern: /^agents\/[a-zA-Z0-9_-]+\/history\.md$/ },
   { root: 'log', kind: 'dir' },
@@ -277,6 +290,43 @@ export const MUTABLE_STATE_PATHS: ReadonlyArray<{ readonly root: string; readonl
   { root: '.scratch', kind: 'dir' },
   { root: 'identity', kind: 'dir' },
 ];
+
+const WORKSTREAM_SLUG = /^[A-Za-z0-9._-]+$/;
+
+/**
+ * Where `squad_decide` drops a note, relative to the squad dir:
+ *  1. `SQUAD_WORKSTREAM=<slug>` when `workstreams/active/<slug>/` exists;
+ *  2. the slug in the project's `.squad-workstream` activation file, same condition;
+ *  3. the single entry under `workstreams/active/` when there is exactly one;
+ *  4. otherwise the root `decisions/inbox`.
+ * Pure: never creates directories.
+ */
+export function resolveDecisionInboxDir(
+  squadRoot: string,
+  storage: Pick<StorageProvider, 'existsSync' | 'readSync' | 'listSync' | 'isDirectorySync'>,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const activeDir = path.join(squadRoot, 'workstreams', 'active');
+  const inboxFor = (slug: string) => path.join(activeDir, slug, 'decisions', 'inbox');
+  const isActive = (slug: string | undefined): slug is string =>
+    !!slug && WORKSTREAM_SLUG.test(slug) && storage.existsSync(path.join(activeDir, slug)) && storage.isDirectorySync(path.join(activeDir, slug));
+
+  const fromEnv = env['SQUAD_WORKSTREAM']?.trim();
+  if (isActive(fromEnv)) return inboxFor(fromEnv);
+
+  const activationFile = path.join(path.dirname(squadRoot), '.squad-workstream');
+  if (storage.existsSync(activationFile)) {
+    const fromFile = (storage.readSync(activationFile) ?? '').split(/\r?\n/)[0]?.trim();
+    if (isActive(fromFile)) return inboxFor(fromFile);
+  }
+
+  if (storage.existsSync(activeDir) && storage.isDirectorySync(activeDir)) {
+    const streams = storage.listSync(activeDir).filter((e) => WORKSTREAM_SLUG.test(e) && storage.isDirectorySync(path.join(activeDir, e)));
+    if (streams.length === 1) return inboxFor(streams[0]!);
+  }
+
+  return path.join(squadRoot, 'decisions', 'inbox');
+}
 
 /** True when the state tools may write `key` (a normalized, `/`-separated state key). */
 export function isMutableStateKey(key: string): boolean {
@@ -311,6 +361,15 @@ export class ToolRegistry {
   private state?: SquadState;
   private fanOutDepsGetter?: () => FanOutDependencies | undefined;
   private memoryStore: LocalMemoryStore;
+  private backendName: string;
+  private runtimeVersion: string;
+  /**
+   * Where `upstream.json` and `_upstream_repos/` live. Upstream declarations are project-local:
+   * `squad upstream add|sync` writes them beside the project's `.squad/config.json` and
+   * `squad externalize` keeps them in the working tree, so in linked (remote-mode) projects this
+   * is the project `.squad/`, not the shared team root the state tools operate on.
+   */
+  private upstreamDir: string;
 
   constructor(
     squadRoot = '.squad',
@@ -319,12 +378,17 @@ export class ToolRegistry {
     state?: SquadState,
     fanOutDepsGetter?: () => FanOutDependencies | undefined,
     hostInjectedCopilotAdapterClient?: CopilotMemoryProviderClient,
+    options: { backendName?: string; upstreamDir?: string; runtimeVersion?: string } = {},
   ) {
     this.squadRoot = squadRoot;
     this.sessionPoolGetter = sessionPoolGetter;
     this.storage = storage;
     this.state = state;
     this.fanOutDepsGetter = fanOutDepsGetter;
+    // Plain FS storage is the `local` backend; adapters wrap a named git backend.
+    this.backendName = options.backendName ?? (storage instanceof FSStorageProvider ? 'local' : 'unknown');
+    this.runtimeVersion = options.runtimeVersion ?? SQUAD_STATE_VERSION;
+    this.upstreamDir = options.upstreamDir ?? squadRoot;
     this.memoryStore = new LocalMemoryStore(storage, squadRoot, {
       rootKind: 'squad',
       hostInjectedCopilotAdapterClient,
@@ -508,15 +572,21 @@ export class ToolRegistry {
           return { textResultForLlm: 'Invalid author name: must contain only printable ASCII characters and be at most 200 characters long', resultType: 'failure', error: 'Invalid author' };
         }
         try {
-          const inboxDir = path.join(this.squadRoot, 'decisions', 'inbox');
+          // Workstream layout lives in the working tree, so probe it with the plain FS
+          // provider even when decisions themselves go to an orphan/two-layer backend.
+          const inboxDir = resolveDecisionInboxDir(this.squadRoot, new FSStorageProvider());
+          const inboxRel = path.relative(this.squadRoot, inboxDir).split(path.sep).join('/');
 
           const decisionId = randomUUID();
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          // Lowercase agent slug + summary slug; the summary keeps up to 80 characters so a
+          // note is not cut mid-word at 50 (#2299).
           const slug = args.summary
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-|-$/g, '')
-            .slice(0, 50);
+            .slice(0, 80)
+            .replace(/-$/, '');
           const authorSlug = args.author
             .toLowerCase()
             .replace(/[^a-z0-9_-]+/g, '-')
@@ -544,9 +614,9 @@ export class ToolRegistry {
           this.storage.writeSync(filename, content);
 
           return {
-            textResultForLlm: `Decision written: ${authorSlug}-${slug}.md (ID: ${decisionId})`,
+            textResultForLlm: `Decision written: ${inboxRel}/${authorSlug}-${slug}.md (ID: ${decisionId})`,
             resultType: 'success',
-            toolTelemetry: { decisionId, filename, slug },
+            toolTelemetry: { decisionId, filename, slug, inbox: inboxRel },
           };
         } catch (error) {
           return {
@@ -839,13 +909,49 @@ export class ToolRegistry {
 
     const stateHealth = defineTool<Record<string, never>>({
       name: 'squad_state_health',
-      description: 'Report the active Squad state storage layer so agents can verify they are using runtime-owned state instead of manual git/file choreography.',
+      description: 'Report the active Squad state backend (local, orphan, two-layer, ...) and storage layer so agents can verify they are using runtime-owned state instead of manual git/file choreography.',
       parameters: { type: 'object', properties: {} },
       handler: async () => ({
-        textResultForLlm: `State backend storage: ${this.storage.constructor.name}`,
+        textResultForLlm: `squad-state ${this.runtimeVersion}\nState backend: ${this.backendName}\nState backend storage: ${this.storage.constructor.name}\nTeam squad dir: ${this.squadRoot}`,
         resultType: 'success',
-        toolTelemetry: { storage: this.storage.constructor.name },
+        toolTelemetry: { version: this.runtimeVersion, backend: this.backendName, storage: this.storage.constructor.name },
       }),
+    });
+
+    const stateUpstreams = defineTool<StateUpstreamsRequest>({
+      name: 'squad_state_upstreams',
+      description: [
+        'Resolve the upstream squads declared in .squad/upstream.json from their locally materialized snapshots',
+        '(never fetches; run "squad upstream sync" to refresh). Returns every upstream with provenance',
+        '(upstream:<name>@<ref>), status and diagnostics, plus the effective inherited skills, decisions, routing,',
+        'wisdom and casting policy after precedence (local .squad/ wins, then declared order). Call once at session',
+        'start when upstream.json exists; pass detail=true to receive the inherited content bodies.',
+      ].join(' '),
+      parameters: {
+        type: 'object',
+        properties: {
+          detail: { type: 'boolean', description: 'Include inherited decisions/routing/wisdom/skill bodies (default false: summary only)' },
+        },
+      },
+      handler: async (args) => {
+        try {
+          const resolution = resolveUpstreams(this.upstreamDir);
+          const effective = buildEffectiveUpstreamContext(resolution, this.localSkillNames(), this.hasLocalCastingPolicy());
+          const detail = (args as Record<string, unknown> | undefined)?.['detail'] === true;
+          const statuses = resolution?.upstreams.map(u => `${u.name}=${u.status}`) ?? [];
+          return {
+            textResultForLlm: formatUpstreamReport(resolution, effective, { detail }),
+            resultType: 'success',
+            toolTelemetry: { upstreams: statuses.length, diagnostics: resolution?.diagnostics.length ?? 0 },
+          };
+        } catch (error) {
+          return {
+            textResultForLlm: `Failed to resolve upstreams: ${sanitizeErrorForLlm(error, this.upstreamDir)}`,
+            resultType: 'failure',
+            error: String(error),
+          };
+        }
+      },
     });
 
     const memoryClassify = defineTool<GovernedMemoryRequest>({
@@ -1296,6 +1402,7 @@ export class ToolRegistry {
     this.tools.set('squad_state_list', stateList);
     this.tools.set('squad_state_create_if_absent', stateCreateIfAbsent);
     this.tools.set('squad_state_health', stateHealth);
+    this.tools.set('squad_state_upstreams', stateUpstreams);
     this.tools.set('memory.classify', memoryClassify);
     this.tools.set('memory.write', memoryWrite);
     this.tools.set('memory.search', memorySearch);
@@ -1309,6 +1416,42 @@ export class ToolRegistry {
   /** Get all registered tools for session config */
   getTools(): SquadTool<any>[] {
     return Array.from(this.tools.values());
+  }
+
+  /**
+   * Skill names the local squad already owns (they win over inherited skills).
+   * Reads the working tree directly: skills are static config, not backend state.
+   */
+  private localSkillNames(): string[] {
+    const fsStorage = new FSStorageProvider();
+    const projectDir = path.dirname(path.resolve(this.upstreamDir));
+    const names = new Set<string>();
+    // Same roots, same order, as the coordinator's skill-aware routing (digest item 17).
+    const roots = [
+      path.join(this.upstreamDir, 'skills'),
+      ...(path.resolve(this.squadRoot) !== path.resolve(this.upstreamDir) ? [path.join(this.squadRoot, 'skills')] : []),
+      path.join(projectDir, '.copilot', 'skills'),
+      path.join(projectDir, '.github', 'skills'),
+      path.join(projectDir, '.claude', 'skills'),
+      path.join(projectDir, '.agents', 'skills'),
+    ];
+    for (const dir of roots) {
+      if (!fsStorage.existsSync(dir)) continue;
+      try {
+        for (const entry of fsStorage.listSync(dir)) {
+          if (fsStorage.existsSync(path.join(dir, entry, 'SKILL.md'))) names.add(entry);
+        }
+      } catch {
+        // unreadable skill dir: treat as no local skills from that root
+      }
+    }
+    return [...names];
+  }
+
+  private hasLocalCastingPolicy(): boolean {
+    const fsStorage = new FSStorageProvider();
+    return fsStorage.existsSync(path.join(this.squadRoot, 'casting', 'policy.json'))
+      || fsStorage.existsSync(path.join(this.upstreamDir, 'casting', 'policy.json'));
   }
 
   /** Get tools filtered by agent's allowed tool list */

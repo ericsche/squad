@@ -121,9 +121,20 @@ Use the same channel you installed from:
 squad upgrade
 ```
 
-`squad upgrade` updates `squad.agent.md`, templates, and GitHub workflows to the latest versions. It never touches your `.squad/` team state — your agents, decisions, and history are always preserved.
+`squad upgrade` updates `squad.agent.md`, `.github/skills`, Squad workflows and `.squad/templates/` to the latest versions, comparing content first so a re-run (or a CRLF checkout) changes nothing, and backing up any file you customized to `<file>.local-backup` before overwriting it. It never touches your `.squad/` team state — your agents, decisions, and history are always preserved.
 
 Use `--force` to re-apply updates even when your installed version already matches the latest.
+
+### Use Squad in other AI hosts
+
+Squad is not tied to one client. Add `--client` to project the same team and the `squad_state` backend into Claude Code, Kiro, OpenCode, Cursor, OpenAI Codex or Google Antigravity (alongside Copilot):
+
+```bash
+squad init --client claude,opencode      # or: --client all
+squad upgrade --client codex             # add a host later; refreshes every configured host
+```
+
+Each host gets a native coordinator file plus MCP wiring; your own settings in `.mcp.json`, `opencode.json` and the like are never clobbered. See [Using Squad across clients](docs/src/content/docs/scenarios/using-squad-across-clients.md), [Squad 2.0 architecture](docs/src/content/docs/concepts/squad-2-0-architecture.md), and the [multi-client quickstart](docs/tutorials/multi-client-quickstart.md).
 
 ---
 
@@ -163,9 +174,10 @@ Say **"squad commands"** in chat to see a categorized menu of common operations 
 
 | Command | What it does |
 |---------|-------------|
-| `squad init` | **Init** — scaffold Squad in the current directory (idempotent — safe to run multiple times); alias: `cast`; use `--global` to init in personal squad directory, `--mode remote <path>` for dual-root mode |
-| `squad upgrade` | Update Squad-owned files to latest; never touches your team state; use `--global` to upgrade personal squad, `--migrate-directory` to rename `.ai-team/` → `.squad/` |
-| `squad upgrade --self` | Update the Squad CLI package itself; add `--insider` for dev-channel prerelease builds |
+| `squad init` | **Init** — scaffold Squad in the current directory (idempotent — safe to run multiple times); alias: `cast`; `--client <list>` also projects Claude Code, Kiro, OpenCode, Cursor, Codex and Antigravity; use `--mode remote <path>` for dual-root mode |
+| `squad upgrade` | Update Squad-owned files to latest; never touches your team state; `--client <list>` adds hosts and refreshes every configured projection; use `--migrate-directory` to rename `.ai-team/` → `.squad/` |
+| `squad upgrade --self` | Update the Squad CLI package itself on its own channel (prerelease installs follow `@insider`, stable follows `@latest`); `--dry-run` prints the command without installing; `--insider` forces the prerelease channel; a downgrade is refused unless `--force` |
+| `squad client list` | Show the client hosts configured in `.squad/config.json` and whether their projected files are present; `squad client add <list>` projects more hosts |
 | `squad update-check` | Report cached CLI update status for tooling/CI; use `--json` for structured output, `--refresh` to bypass the cache |
 | `squad status` | Show which squad is active and why |
 | `squad triage` | **Watch mode** — poll for issues and auto-triage to team (aliases: `watch`, `loop`); use `--interval <minutes>` to set polling frequency (default: 10); with `--execute` dispatch Copilot agents; use `--agent-cmd`, `--copilot-flags`, `--auth-user` to customize agent execution; `--health` shows watch status; `--log-file` for diagnostics |
@@ -429,6 +441,8 @@ When agents finish, the coordinator records follow-up work and leaves a breadcru
 **Knowledge compounds across sessions.** Every time an agent works, it writes lasting learnings to its `history.md`. After a few sessions, agents know your conventions, your preferences, your architecture. They stop asking questions they've already answered.
 
 **And it's all in git.** Anyone who clones your repo gets the team — with all their accumulated knowledge.
+
+**Each agent gets the right model.** Squad picks models quality-first by default: premium for architecture, research and review, standard for code and docs, fast for mechanical work. Opt in to the `balanced` or `economy` profile, or to the `hydrafusion` research preview with `"modelProfile": "hydrafusion"` in `.squad/config.json`. Per-agent selection works in the Copilot CLI and app; VS Code runs every agent on the one session model. See [Model Selection](https://bradygaster.github.io/squad/docs/features/model-selection/).
 
 ---
 
