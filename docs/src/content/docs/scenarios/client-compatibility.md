@@ -112,7 +112,9 @@ with that report, named as a synthesis for its owner role, for example
 review. That framing changes what you see, never the review's prompt, scope,
 order or result. A findings table or follow-up question required by the host
 after the review does not end the mission: Squad creates the restitution owner
-alongside the question rather than waiting for its answer.
+and the owner of any follow-up you asked for that needs only the report, such
+as dependency updates, alongside the question rather than waiting for its
+answer. A fix you choose in that answer goes to the matching owner.
 
 A substantive security review includes bounded App restitution, even with
 zero findings or a read-only request such as "Review this project's security

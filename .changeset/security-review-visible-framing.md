@@ -17,5 +17,7 @@ request and writes the mission's SQL tasks and readable plan; the native
 reviewer is the only agent doing the review, so no waiting child is created.
 When the report returns, the coordinator creates the restitution owner with
 it, named as a synthesis such as `🏗️ Lead · Security report synthesis` and
-linked in the plan, alongside any host-required findings table or question;
-requested follow-up such as dependency updates is dispatched afterwards.
+linked in the plan, alongside any host-required findings table or question.
+Requested follow-up that needs only the report, such as dependency updates, is
+dispatched to its branded owner in that same step instead of waiting behind
+the question; a fix chosen in the answer goes to the matching owner.

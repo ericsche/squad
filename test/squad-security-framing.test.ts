@@ -46,6 +46,7 @@ describe('squad-security-framing hooks', () => {
     const post = await hooks.onPostToolUse(input(result.modifiedArgs)) as { additionalContext: string };
     expect(post.additionalContext).toMatch(/has returned its report/);
     expect(post.additionalContext).toMatch(/create the restitution owner with create_session, clearly named as a synthesis[^]*Lead · Security report synthesis[^]*carrying the complete report/);
+    expect(post.additionalContext).toMatch(/Backend · Dependency updates[^]*Neither restitution nor requested follow-up waits for that answer/);
   });
 
   it('returns the framing steps with a background handle', async () => {
@@ -59,6 +60,10 @@ describe('squad-security-framing hooks', () => {
       .toMatch(/only agent doing this review: do not start another review, scan or audit, and do not create the restitution owner yet/);
     expect(post.additionalContext.indexOf('create_session')).toBeGreaterThan(post.additionalContext.indexOf('When its report returns:'));
     expect(post.additionalContext).not.toMatch(/send_session_message|wait for the report message/);
+    expect(post.additionalContext, 'requested follow-up is dispatched with the host question')
+      .toMatch(/also create the branded App owner for each follow-up the user requested that needs only the report[^]*ask any host-required follow-up question/);
+    expect(post.additionalContext).toMatch(/Neither restitution nor requested follow-up waits for that answer/);
+    expect(post.additionalContext).not.toMatch(/then dispatch the requested follow-up work/i);
   });
 
   it('is a no-op for other agents, subagents, tools, reviewers and unknown hosts', async () => {

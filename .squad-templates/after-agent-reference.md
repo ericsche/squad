@@ -37,7 +37,9 @@ restitution mission. Bounded App restitution is part of every substantive
 security review, even with zero findings or a read-only request; do not wait
 for a separate follow-up request. A host-required findings table or follow-up
 question does not end the mission; create or reuse the owner with the report,
-named as a synthesis, in the question's tool batch, never after its answer. Continue through one actual suitable App
+named as a synthesis, in the question's tool batch, never after its answer;
+requested follow-up that needs only the report, such as dependency updates,
+is dispatched in that same batch. Continue through one actual suitable App
 owner using the existing report to explain scope, coverage, limitations and
 result; do not rerun the audit or create a shell child for appearance.
 After the report, reconcile the current-request SQL tasks and readable plan

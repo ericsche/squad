@@ -257,7 +257,16 @@ describe('runtime-required review composition: instruction contracts, not securi
     const firstResponse = section(sources.coordinator, '### Security Requests in the App — First Response').replace(/\s+/g, ' ');
     expect(firstResponse, 'the owner is created with the report and the host question')
       .toMatch(/one tool batch create the restitution owner with `create_session`[^.]*ask any host-required follow-up question/i);
-    expect(firstResponse).toMatch(/Restitution never waits for that answer/i);
+    // App test 9 (.10): the host question blocked the turn for two hours, and the requested dependency
+    // updates waited behind it and a second host question before any owner was created.
+    expect(firstResponse, 'requested follow-up that needs only the report is dispatched with the host question')
+      .toMatch(/in that same batch also create the branded App owner for each requested follow-up that needs only the report[^.]*ask any host-required follow-up question/i);
+    expect(firstResponse).toMatch(/A host question blocks your turn until it is answered, so nothing that needs only the report may wait behind it: neither restitution nor requested follow-up waits for that answer/i);
+    expect(firstResponse).toMatch(/forward any chosen remediation to the matching owner \(reuse it rather than creating a duplicate\)/i);
+    expect(text).toMatch(/same tool batch as any host-required question create or reuse that owner with the report, create the branded owner of each requested follow-up that needs only the report[^.]*never delays or cancels restitution or requested follow-up/i);
+    for (const source of [firstResponse, text]) {
+      expect(source, 'requested follow-up must not queue behind the host question').not.toMatch(/dispatched afterwards|Then dispatch each requested follow-up/i);
+    }
     expect(firstResponse).toMatch(/never the review's prompt, scope, agent or result/i);
     expect(sources.coordinator.indexOf('### Security Requests in the App — First Response'),
       'the recipe must precede the routing sections where the first action is chosen')
@@ -268,6 +277,8 @@ describe('runtime-required review composition: instruction contracts, not securi
         .toMatch(/findings table or (?:follow-up )?question does not end/i);
       expect(sources[key].replace(/\s+/g, ' '), `${key}: owner must be created with the question`)
         .toMatch(/question's tool batch|same tool batch as the question/i);
+      expect(sources[key].replace(/\s+/g, ' '), `${key}: requested follow-up must not wait for the answer`)
+        .toMatch(/follow-up that needs only the report/i);
     }
     for (const key of ['spawn', 'client', 'response'] as const) {
       expect(sources[key], `${key}: branded native reviewer label missing`).toContain('🛡️ Security · {mission}');

@@ -42,7 +42,9 @@ the substantive security review, not a separately requested follow-up; a
 host-required findings table or question does not end it. Create the
 restitution owner only after the reviewer call returns its report, never as a
 waiting child, named as a synthesis (for example
-`🏗️ Lead · Security report synthesis`), in the question's tool batch.
+`🏗️ Lead · Security report synthesis`), in the question's tool batch, with
+the owner of requested follow-up that needs only the report (such as
+dependency updates); the question's answer never holds that work back.
 Explain examined scope/coverage/limitations/result without rerunning the audit,
 and reconcile current-request SQL tasks and readable plan after the report
 using actual tool discovery/calls. Read-only repository scope does not forbid

@@ -41,7 +41,8 @@ explain examined scope, coverage, limitations and result from that report,
 without repeating the audit. A host-required findings table or follow-up
 question does not end the mission; create or reuse the owner with the report,
 named as a synthesis (for example `🏗️ Lead · Security report synthesis`), in
-the question's tool batch. Reconcile SQL tasks and readable plan after the
+the question's tool batch, with the owner of any requested follow-up that
+needs only the report, such as dependency updates. Reconcile SQL tasks and readable plan after the
 report using actual schema discovery/calls, not an assumption that unchanged
 repository files forbids mission metadata. Zero findings is not a security
 certification or a reason to invent remediation work.

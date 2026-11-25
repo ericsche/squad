@@ -33,6 +33,13 @@ const SYNTHESIS = 'create the restitution owner with create_session, clearly nam
   '(for example "🏗️ Lead · Security report synthesis"), never with the reviewer\'s own label, and carrying the complete report ' +
   '(it explains the examined scope, coverage, limitations and findings, even zero findings, and starts no review, scan or security-review)';
 
+// A host question blocks the turn until answered: work that needs only the
+// report must be dispatched with it, never queued behind its answer.
+const FOLLOW_UP = 'also create the branded App owner for each follow-up the user requested that needs only the report ' +
+  '(for example "🔧 Backend · Dependency updates")';
+const ANSWER = 'Neither restitution nor requested follow-up waits for that answer; when it arrives, forward any chosen remediation ' +
+  'to the matching owner (reuse it rather than creating a duplicate) or dispatch one new owner for it.';
+
 function runningGuidance(label) {
   return `Squad App framing: the native security-review "${label}" now runs in the background, ` +
     'so the host\'s "security-review first" order is already satisfied. It is the only agent doing this review: ' +
@@ -41,16 +48,16 @@ function runningGuidance(label) {
     '(2) one read batch: this request\'s SQL tasks and squad_session_plan_read; ' +
     '(3) one tool batch: record the SQL tasks (native review in_progress; App restitution and each requested follow-up pending, gated on the report) ' +
     'and publish or update the native plan naming the restitution owner. Then wait for the review\'s completion notification without polling. ' +
-    `When its report returns: present any host-required findings table, then in one tool batch ${SYNTHESIS}, ` +
-    'update the SQL tasks and native plan with its verified app_url, and ask any host-required follow-up question; ' +
-    'then dispatch the requested follow-up work. If create_session is unavailable, say so and keep restitution in this chat.';
+    `When its report returns: present any host-required findings table, then in one tool batch ${SYNTHESIS}, ${FOLLOW_UP}, ` +
+    'update the SQL tasks and native plan with their verified app_urls, and ask any host-required follow-up question. ' +
+    `${ANSWER} If create_session is unavailable, say so and keep restitution in this chat.`;
 }
 
 function returnedGuidance(label) {
   return `Squad App framing: the native security-review "${label}" has returned its report. ` +
-    `Present any host-required findings table, then in one tool batch ${SYNTHESIS}, ` +
-    'update the SQL tasks and native plan with its verified app_url, and ask any host-required follow-up question. ' +
-    'Then dispatch the requested follow-up work. If create_session is unavailable, say so and keep restitution in this chat.';
+    `Present any host-required findings table, then in one tool batch ${SYNTHESIS}, ${FOLLOW_UP}, ` +
+    'update the SQL tasks and native plan with their verified app_urls, and ask any host-required follow-up question. ' +
+    `${ANSWER} If create_session is unavailable, say so and keep restitution in this chat.`;
 }
 
 /**
