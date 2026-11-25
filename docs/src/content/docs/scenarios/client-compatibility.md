@@ -89,10 +89,19 @@ An end-of-agent-turn, idle notification or native `onSubagentStop` hook is not p
 
 A host may require its native `security-review` agent **first** for a security
 review request. That higher-priority requirement takes precedence over Squad's
-App dispatch and plan preparation: use the mandated reviewer, not an inline
-audit or a replacement App session. This is a full review, not a small internal
-check, and its result is not an App child. A synchronous result may have no
-native agent ID, and even a native ID is not a canonical App session URL.
+App dispatch: use the mandated reviewer, not an inline audit or a replacement
+App session. This is a full review, not a small internal check, and its result
+is not an App child. A synchronous result may have no native agent ID, and even
+a native ID is not a canonical App session URL.
+
+Squad still frames the mission visibly before the review starts. When the
+plan tools are available, it publishes the SQL tasks and readable plan (review
+in progress; restitution and any requested follow-up, such as dependency
+updates, pending) and labels the native reviewer with the specialist title
+pattern, for example `🛡️ Security · Dependency review`. That framing changes
+what you see, never the review's prompt, scope, order or result. A findings
+table or follow-up question required by the host after the review does not end
+the mission; Squad continues with the visible restitution owner.
 
 A substantive security review includes bounded App restitution, even with
 zero findings or a read-only request such as "Review this project's security

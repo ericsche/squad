@@ -28,11 +28,15 @@ an existing requirement, without assuming a specialist-owned deliverable.
 
 A runtime-required reviewer such as native `security-review` takes precedence
 when the host requires it first. It is a full review, not an internal check or
-an App child. Bounded App restitution is part of every substantive security
+an App child. Immediately before it, publish the mission's SQL tasks and
+readable plan when supported and label the native call
+`🛡️ Security · {mission}`; this framing changes the experience, not the review.
+Bounded App restitution is part of every substantive security
 review, even with zero findings or a read-only request; no separate follow-up
 request is needed. Once its report returns, use a real suitable App owner to
 explain examined scope, coverage, limitations and result from that report,
-without repeating the audit. Reconcile SQL tasks and readable plan after the
+without repeating the audit. A host-required findings table or follow-up
+question does not end the mission. Reconcile SQL tasks and readable plan after the
 report using actual schema discovery/calls, not an assumption that unchanged
 repository files forbids mission metadata. Zero findings is not a security
 certification or a reason to invent remediation work.

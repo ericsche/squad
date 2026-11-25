@@ -35,11 +35,13 @@ including original severity/confidence/evidence and required host formatting or
 user decisions. That native result is not an App child or a completed
 restitution mission. Bounded App restitution is part of every substantive
 security review, even with zero findings or a read-only request; do not wait
-for a separate follow-up request. Continue through one actual suitable App
+for a separate follow-up request. A host-required findings table or follow-up
+question does not end the mission. Continue through one actual suitable App
 owner using the existing report to explain scope, coverage, limitations and
 result; do not rerun the audit or create a shell child for appearance.
-After the report, reconcile current-request SQL tasks and readable plan with
-actual tool discovery/calls, including a zero-finding outcome. Read-only
+After the report, reconcile the current-request SQL tasks and readable plan
+published before the review with actual tool discovery/calls, including a
+zero-finding outcome. Read-only
 repository constraints do not forbid mission metadata. Keep native completion
 separate from restitution in progress until verified handoff, and link only
 the real session. Do not invent a required remediation/decision task or treat

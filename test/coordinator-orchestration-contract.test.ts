@@ -197,6 +197,28 @@ describe('runtime-required review composition: instruction contracts, not securi
     expect(review).toMatch(/no suitable owner[^.]*user decision[^.]*do not[^.]*recast/i);
   });
 
+  it('frames the mission visibly before the required reviewer without changing the review', () => {
+    const text = reviewProtocol();
+    expect(text, 'tasks and plan are published immediately before the native reviewer')
+      .toMatch(/publish its visible context immediately before invoking the required reviewer[^.]*SQL[^.]*plan/i);
+    expect(text, 'framing is metadata, not a review, probe, delegation or dispatch')
+      .toMatch(/not a review, routing probe, delegation or App dispatch[^.]*never changes the reviewer's prompt, scope, order or result/i);
+    expect(text, 'the native reviewer carries the App title pattern without a fake session')
+      .toMatch(/icon · specialist label · mission[^.]*without implying an App session/i);
+    expect(text, 'a host-required table or question must not end the mission')
+      .toMatch(/findings table or follow-up question does not end the mission[^.]*continue[^.]*restitution owner/i);
+    expect(text, 'framing yields to a stricter higher-priority instruction')
+      .toMatch(/forbids any action before the reviewer[^.]*skip this framing/i);
+    expect(text).not.toMatch(/routing probes or plan writes/i);
+    for (const key of ['spawn', 'client', 'response', 'after'] as const) {
+      expect(sources[key].replace(/\s+/g, ' '), `${key}: host follow-up continuation missing`)
+        .toMatch(/findings table or (?:follow-up )?question does not end/i);
+    }
+    for (const key of ['spawn', 'client', 'response'] as const) {
+      expect(sources[key], `${key}: branded native reviewer label missing`).toContain('🛡️ Security · {mission}');
+    }
+  });
+
   it('keeps reference surfaces consistent without granting general recursive native delegation', () => {
     for (const key of ['spawn', 'client', 'response', 'after'] as const) {
       expect(sources[key], `${key}: missing required-reviewer composition`).toContain('runtime-required reviewer');

@@ -33,9 +33,12 @@ An internal check runs a known test selector or checks an explicit output agains
 an existing requirement, without taking ownership of a new specialist deliverable.
 Lightweight means a smaller prompt, not a hidden native specialist.
 A runtime-required reviewer is not a small internal check or an App child.
-Honor any native-first obligation, then use its report for genuine bounded App
+Frame the mission visibly first (SQL tasks, readable plan and a branded
+`🛡️ Security · {mission}` native label) without changing the review, then honor
+any native-first obligation and use its report for genuine bounded App
 restitution, even with zero findings or a read-only request. This is part of
-the substantive security review, not a separately requested follow-up.
+the substantive security review, not a separately requested follow-up; a
+host-required findings table or question does not end it.
 Explain examined scope/coverage/limitations/result without rerunning the audit,
 and reconcile current-request SQL tasks and readable plan after the report
 using actual tool discovery/calls. Read-only repository scope does not forbid
