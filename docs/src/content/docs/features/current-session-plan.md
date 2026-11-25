@@ -183,7 +183,7 @@ App session, show the actual state without a fabricated link. If the child
 exists but its canonical URL is unavailable, say "launched; link unavailable".
 Do not construct App URLs, use a raw GUID as the only navigation pointer, or
 link a charter in place of the working session. Preserve existing valid user
-links and reconcile any change of mission rather than silently repointing them.
+links and reconcile any change of mission rather than silently redirecting them.
 
 This is a standard Markdown link in readable plan context, **not** a native
 task-row hyperlink or a guarantee of successful navigation. SQL task titles

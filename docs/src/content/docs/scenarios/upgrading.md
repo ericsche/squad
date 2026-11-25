@@ -313,6 +313,7 @@ Paths a plain `squad upgrade` may create or rewrite (the only changes `user-stat
 - `^\.github/agents/squad\.agent\.md(\.local-backup)?$`
 - `^\.github/copilot-instructions\.md$`
 - `^\.github/skills/`
+- `^\.github/extensions/squad-(provider-onboarding|session-plan)/`
 - `^\.copilot/skills/`
 - `^\.github/workflows/(squad-[\w-]+|sync-squad-labels)\.yml(\.local-backup)?$`
 - `^\.squad/\.first-run$`

@@ -49,7 +49,7 @@ If `create_session` is unavailable, native `task` or VS Code `runSubagent` can p
 
 ### Native visual identity
 
-Use the child's native `name` field for **icon + specialist label + mission**, for example `🧭 Orchestration · Sessions visibles`. Resolve identity from the active specialist's charter/roster and role emoji mapping, not a historical cast or invented member. Keep the icon and readable label stable for that specialist. The exact canonical specialist name stays explicit in the kickoff prompt and main-session plan.
+Use the child's native `name` field for **icon + specialist label + mission**, for example `🧭 Orchestration · Visible sessions`. Resolve identity from the active specialist's charter/roster and role emoji mapping, not a historical cast or invented member. Keep the icon and readable label stable for that specialist. The exact canonical specialist name stays explicit in the kickoff prompt and main-session plan.
 
 Titles are limited to 40 characters: shorten the mission first, then choose a stable compact role label if necessary. This static identity is not the App's **busy/idle/error** state. Do not simulate avatars, colors, status badges or a custom sidebar canvas; the host owns status and rendering.
 
