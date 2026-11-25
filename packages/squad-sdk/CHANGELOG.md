@@ -2,6 +2,58 @@
 
 <!-- cspell:words ambiently -->
 
+## 2.0.0
+
+### Major Changes
+
+- Release Squad 2.0 stable with shared host projections and capability negotiation
+  in `/client` (`/clients` remains a deprecated alias), transactional casting
+  repair, governed memory migration and source-branch casting configuration.
+- Experimental backend and harness APIs remain isolated in `/backend`, including
+  Copilot SDK and optional Claude Agent SDK execution harnesses. Remote durable
+  server integration and profile promotion remain experimental.
+- Includes all four Squad 2.0 previews and subsequent host-adapter improvements.
+  Repository metadata points at `github/squad`; the npm scope stays `@bradygaster`.
+  See the root changelog for breaking changes and migration details.
+
+## 2.0.0-preview.4
+
+### Patch Changes
+
+- Point published package metadata, SDK build and distribution defaults, user-facing links, and the shipped `gh-aw-enlistment` skill and verifier at `github/squad` (`github/squad/workflows` package identity, explicit `SQUAD_SHA` manifest preflight verification, legacy migration guidance, and Windows/XDG `gh` extension environment preservation).
+
+- Keep `.squad/casting/` configuration on the normal source branch across every state backend, reject runtime casting policy mutations, and align memory and identity safeguards with their actual scope.
+
+- Serialize governed-memory index updates across local store instances and processes, and coordinate memory index locks across worktrees with the configured state backend.
+
+- Hold `@github/copilot-sdk` below `1.0.29` to prevent `vscode-jsonrpc` 10 ESM export errors in the CLI (#2414).
+
+- Expose versioned machine-readable runtime and state-backend metadata in health reports.
+
+- Read legacy `## Role` and `## Owns` charter sections during team capability advertisement so declared implementers and reviewers are not reported as advisory-only.
+
+- Fix `history-shadow` section parsing by replacing the invalid `\Z` regex anchor so terminal sections match without duplicate headers and preserve a blank line before the next section.
+
+## 2.0.0-preview.3
+
+### Minor Changes
+
+- Export the ADR-002 work-claim contract (`WorkClaimProvider`, fenced handles, canonical work keys, executor identity, and in-memory/no-op providers) plus `GitRefClaimProvider`, which coordinates distributed leases with compare-and-swap git refs and never touches the worktree or index. `getPodId()` now accepts an optional `env` argument.
+
+- Treat governed memory class names case-insensitively, reject unknown classes, and export `MEMORY_CLASSES`, `parseMemoryClass`, and `UnknownMemoryClassError`. The `memory.promote` tool now requires `targetClass` and refuses `FORBIDDEN` and `TRANSIENT` targets.
+
+### Patch Changes
+
+- Migrate evidence-backed Squad 0.9.x casting arrays without guessing identities or assignments, preserve byte-exact originals and assignment semantics, tolerate CRLF manifests, and keep unresolved casting isolated so other upgrade work can continue.
+
+- Carry an optional Squad shell session id in usage records so CLI cost reporting can group one shell run without breaking older ledgers.
+
+- Make governed memory search degrade to local results when an optional host-injected adapter is absent or fails, and guard registered provider calls with timeouts, status isolation, and governance checks on recalled data.
+
+- Let the Claude coordinator inherit all MCP tools present in the session, correct MCP configuration guidance, mark the old cross-machine task-file skill as an unimplemented proposal, and tell claimed-work agents to operate only on their fenced assignment.
+
+- Validate lease timing and claim records, cap claim output, use a fixed non-personal commit identity, pseudonymize hostname-derived machine ids, and expose whole-process-group fencing for lost claims.
+
 ## 2.0.0-preview.2
 
 ### Minor Changes

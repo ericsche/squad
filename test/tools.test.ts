@@ -159,6 +159,18 @@ describe('ToolRegistry', () => {
       expect(toolNames).toEqual(expect.arrayContaining(builtInToolNames));
     });
 
+    it('preserves flat state roots in health metadata', async () => {
+      const health = registry.getTool('squad_state_health')!;
+      const result = await health.handler({});
+      const metadataLine = result.textResultForLlm
+        .split('\n')
+        .find(line => line.startsWith('Health metadata: '));
+
+      expect(metadataLine).toBeDefined();
+      expect(JSON.parse(metadataLine!.slice('Health metadata: '.length)))
+        .toMatchObject({ resolvedTeamDir: path.resolve(testRoot) });
+    });
+
     it('should register tools with descriptions and parameters', () => {
       const routeTool = registry.getTool('squad_route');
       expect(routeTool).toBeDefined();
@@ -318,7 +330,7 @@ describe('ToolRegistry', () => {
   // #2107: doctor reads this allowlist to find state stranded in a linked team repo.
   describe('isMutableStateKey (#2107)', () => {
     it.each([
-      'decisions.md', 'decisions/inbox/a.md', 'casting/policy.json', 'agents/edie/history.md',
+      'decisions.md', 'decisions/inbox/a.md', 'agents/edie/history.md',
       'log/a.md', 'orchestration-log/a.md', 'sessions/s.json', '.scratch/n.md', 'identity/now.md',
     ])('accepts %s', (key) => {
       expect(isMutableStateKey(key), `${key} must be writable by the state tools`).toBe(true);
@@ -326,7 +338,7 @@ describe('ToolRegistry', () => {
 
     it.each([
       'team.md', 'routing.md', 'config.json', 'decisions', 'decisions/a.md', 'decisions.md/x',
-      'casting/registry.json', 'casting/history.json', 'agents/edie/charter.md', 'agents/edie/history.md/x',
+      'casting/policy.json', 'casting/registry.json', 'casting/history.json', 'agents/edie/charter.md', 'agents/edie/history.md/x',
       'agents/a/b/history.md', 'log', 'logs/a.md', 'identity', 'skills/x/SKILL.md',
     ])('rejects %s', (key) => {
       expect(isMutableStateKey(key), `${key} must not be writable by the state tools`).toBe(false);
@@ -565,6 +577,25 @@ describe('squad_decide handler', () => {
 
 // #1256: on-behalf-of authors with spaces/parens/etc must be accepted;
 //        filename must be slugified; author > 200 chars must be rejected.
+describe('squad_decide says where a git-branch backend stored the decision (live scenario, 2026-11-13)', () => {
+  const testRoot = path.join('.', '.test-squad-decide-where-' + randomUUID());
+  afterEach(() => fs.rmSync(testRoot, { recursive: true, force: true }));
+  const decide = (registry: ToolRegistry) =>
+    registry.getTool('squad_decide')!.handler(
+      { author: 'fenster', summary: 'Use ESM', body: 'Named exports only.' } as DecisionRecord,
+      { sessionId: 's', toolCallId: 't', toolName: 'squad_decide', arguments: {} },
+    );
+
+  it('names the squad-state branch for orphan and two-layer, and adds nothing for local', async () => {
+    for (const backendName of ['orphan', 'two-layer']) {
+      const r = await decide(new ToolRegistry(testRoot, undefined, undefined, undefined, undefined, undefined, { backendName }));
+      expect(r.textResultForLlm).toContain(`That path is a key on the \`squad-state\` git branch (${backendName} backend): it is stored only there, and there is no file in the working tree.`);
+    }
+    const local = await decide(new ToolRegistry(testRoot));
+    expect(local.textResultForLlm).not.toMatch(/squad-state/);
+  });
+});
+
 describe('squad_decide author validation (Issue #1256)', () => {
   let registry: ToolRegistry;
   let testRoot: string;

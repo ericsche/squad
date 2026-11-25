@@ -33,8 +33,11 @@ export function upsertBlock(existing: string, content: string, id?: string): str
   if (start !== -1 && end > start) {
     return existing.slice(0, start) + block + existing.slice(end + endMarker.length);
   }
-  const sep = existing.length === 0 ? '' : existing.endsWith('\n\n') ? '' : existing.endsWith('\n') ? '\n' : '\n\n';
-  return `${existing}${sep}${block}\n`;
+  // One blank line before the block, and a final newline only if the file had one, so
+  // removeBlock can undo exactly this and restore the original bytes (§15.7).
+  if (existing.length === 0) return `${block}\n`;
+  if (existing.endsWith('\n')) return `${existing}\n${block}\n`;
+  return `${existing}\n\n${block}`;
 }
 
 const linesMarker = (id: string) => `# squad:${id}`;
@@ -70,7 +73,16 @@ export function removeLines(existing: string, lines: readonly string[], id: stri
   return rows.join('\n');
 }
 
-const SECTION_RE = /^\s*(\[\[?)\s*([^\]\r\n]+?)\s*(\]\]?)\s*(?:#.*)?$/;
+const SECTION_RE = /^\s*(\[\[?)([^\]\r\n]+)(\]\]?)\s*(?:#.*)?$/;
+
+function withoutTrailingLineBreaks(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '\n') {
+    end--;
+    if (end > 0 && value[end - 1] === '\r') end--;
+  }
+  return value.slice(0, end);
+}
 
 function segmentsEqual(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((s, idx) => s === b[idx]);
@@ -468,7 +480,7 @@ export function upsertTomlTable(
       if (!(k in merged)) merged[k] = v;
     }
     const body = Object.entries(merged).map(([k, v]) => `${k} = ${v}`);
-    const cleanedExisting = lines.join(nl).replace(/(\r?\n)*$/, '');
+    const cleanedExisting = withoutTrailingLineBreaks(lines.join(nl));
     const prefix = cleanedExisting === '' ? '' : cleanedExisting + nl + nl;
     return `${prefix}${[header, ...body].join(nl)}${nl}`;
   }
@@ -673,15 +685,21 @@ export function applyProjection(root: string, files: readonly ProjectionFile[]):
     transforms.get(rel)!.push(fn);
   };
 
+  const owned: Array<Extract<ProjectionFile, { kind: 'managed' | 'obsolete' }>> = [];
   for (const f of files) {
-    if (f.kind === 'managed') add(f.path, () => f.content);
+    if (f.kind === 'obsolete' || (f.kind === 'managed' && f.ownedMarker !== undefined)) owned.push(f);
+    else if (f.kind === 'managed') add(f.path, () => f.content);
     else if (f.kind === 'block') add(f.path, (t) => upsertBlock(t ?? '', f.content, f.id));
     else if (f.kind === 'lines') add(f.path, (t) => upsertLines(t ?? '', f.lines, f.id));
     else if (f.kind === 'text') add(f.path, (t) => f.update(t ?? ''));
     else {
       add(f.path, (t, abs) => {
         assertMergeableJson(abs, t);
-        return stringifyJson(f.update(parseJsonObject(abs, t)), t);
+        const current = parseJsonObject(abs, t);
+        const next = f.update(current);
+        // Nothing to change: keep the user's bytes (an existing `{}` is not deleted, nor reformatted).
+        if (t !== undefined && JSON.stringify(next) === JSON.stringify(current)) return t;
+        return Object.keys(next).length === 0 ? '' : stringifyJson(next, t);
       });
     }
   }
@@ -693,19 +711,49 @@ export function applyProjection(root: string, files: readonly ProjectionFile[]):
       const eol = detectEol(original);
       let text = original === undefined ? undefined : toLf(original);
       for (const fn of transforms.get(rel)!) text = fn(text, abs);
+      // Nothing left to write (e.g. a JSON config with only Squad's keys removed): never create an
+      // empty file, and remove one that would be left empty.
+      if ((text ?? '').trim() === '') {
+        if (original === undefined) continue;
+        fs.rmSync(abs);
+        pruneEmptyDirs(root, rel);
+        results.push({ path: rel, action: 'removed' });
+        continue;
+      }
       results.push({ path: rel, action: writeIfChanged(abs, withEol(toLf(text ?? ''), eol)) });
     } catch (err) {
       results.push({ path: rel, action: 'error', error: err instanceof Error ? err.message : String(err) });
     }
   }
+  for (const f of owned) {
+    try {
+      const abs = resolveInsideRoot(root, f.path);
+      const original = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : undefined;
+      if (original !== undefined && !original.includes(f.ownedMarker!)) {
+        results.push({ path: f.path, action: 'skipped', error: USER_AUTHORED });
+      } else if (f.kind === 'obsolete') {
+        if (original === undefined) continue;
+        fs.rmSync(abs);
+        pruneEmptyDirs(root, f.path);
+        results.push({ path: f.path, action: 'removed' });
+      } else {
+        results.push({ path: f.path, action: writeIfChanged(abs, withEol(toLf(f.content), detectEol(original))) });
+      }
+    } catch (err) {
+      results.push({ path: f.path, action: 'error', error: err instanceof Error ? err.message : String(err) });
+    }
+  }
   return results;
 }
+
+const USER_AUTHORED = 'not generated by Squad (user-authored); left unchanged';
+
 /** Project and apply the given clients in one step. */
 export function installClients(clients: readonly ClientId[], ctx: ClientContext): ApplyResult[] {
   return applyProjection(ctx.root, projectClients(clients, ctx));
 }
 
-/** Remove the Squad-managed block; collapses the separator that `upsertBlock` added. */
+/** Remove the Squad-managed block and exactly the separator `upsertBlock` added. */
 export function removeBlock(existing: string, id?: string): string {
   const { begin, end: endMarker } = markers(id);
   const start = existing.indexOf(begin);
@@ -714,9 +762,12 @@ export function removeBlock(existing: string, id?: string): string {
     throw new Error('Unclosed Squad managed block marker in file; refusing to overwrite user content after marker');
   }
   if (start === -1) return existing;
-  const before = existing.slice(0, start).replace(/\n{2,}$/, '\n');
-  const after = existing.slice(end + endMarker.length).replace(/^\n/, '');
-  return before + after;
+  const before = existing.slice(0, start);
+  const after = existing.slice(end + endMarker.length);
+  if (before === '') return after.replace(/^\n/, '');
+  // Block appended to a file without a final newline: drop the blank-line separator only.
+  if (after === '') return before.replace(/\n\n$/, '');
+  return before.replace(/\n$/, '') + after.replace(/^\n/, '');
 }
 
 /** Remove a whole `[table]`, its `[table.*]` sub-tables, and any inline/dotted definitions; other tables are untouched. */
@@ -756,7 +807,7 @@ export function removeTomlTable(existing: string, table: string): string {
   }
   if (!changed) return existing;
   const joined = lines.join(nl);
-  return joined.trim() === '' ? '' : joined.replace(/(\r?\n)*$/, nl);
+  return joined.trim() === '' ? '' : withoutTrailingLineBreaks(joined) + nl;
 }
 
 const MCP_CONTAINERS = ['mcpServers', 'mcp', 'servers'];
@@ -814,14 +865,19 @@ export function removeProjection(root: string, files: readonly ProjectionFile[])
         results.push({ path: f.path, action: 'unchanged' });
         continue;
       }
-      if (f.kind === 'managed') {
+      if (f.kind === 'managed' || f.kind === 'obsolete') {
+        const marker = f.ownedMarker;
+        if (marker !== undefined && !fs.readFileSync(abs, 'utf8').includes(marker)) {
+          results.push({ path: f.path, action: 'skipped', error: USER_AUTHORED });
+          continue;
+        }
         fs.rmSync(abs);
         results.push({ path: f.path, action: 'removed' });
       } else if (f.kind === 'json') {
         const raw = fs.readFileSync(abs, 'utf8');
         assertMergeableJson(abs, raw);
         const current = parseJsonObject(abs, raw);
-        const next = removeServerEntry(current);
+        const next = (f.remove ?? removeServerEntry)(current);
         if (JSON.stringify(next) === JSON.stringify(current)) {
           results.push({ path: f.path, action: 'unchanged' });
           continue;

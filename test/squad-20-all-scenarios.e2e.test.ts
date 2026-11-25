@@ -32,6 +32,7 @@ import {
   assertPortableClients,
   getClientAdapter,
   buildCoordinatorInstructions,
+  claudeCoordinatorSkills,
   createClientAdapter,
   installClients,
   uninstallClients,
@@ -1253,9 +1254,17 @@ describe('coordinator prompt (found with real models)', () => {
     expect(text).toMatch(/state tools? reject|reject writes/i);
   });
 });
+/**
+ * What the coordinator follows once it loads the guidance it needs. Claude Code keeps Init Mode and
+ * the other on-demand sections in skills (#2442 Phase 4), so its text includes those skill bodies.
+ */
+function loadedCoordinatorText(id: ClientId): string {
+  const text = buildCoordinatorInstructions(id);
+  return id === 'claude' ? [text, ...claudeCoordinatorSkills().map((k) => k.body)].join('\n\n') : text;
+}
 describe('field findings from the live demo: Init Mode, scratch files, casting registry', () => {
   it.each(CLIENT_IDS)('%s: non-interactive Init Mode casts immediately and registers the roster with squad cast --name', (id) => {
-    const text = buildCoordinatorInstructions(id);
+    const text = loadedCoordinatorText(id);
     // live finding: `claude -p "... proceed ..."` still paused to ask for confirmation
     expect(text).toMatch(/Auto-confirm \(default\)/);
     expect(text).toMatch(/Do NOT stop to ask questions in Init Mode/);
@@ -1263,11 +1272,11 @@ describe('field findings from the live demo: Init Mode, scratch files, casting r
     expect(text).toMatch(/headless/);
     // members are cast into the shared .squad/agents path and registered with the CLI, not projected per client
     expect(text).toMatch(/tell the user to upgrade the squad CLI instead of hand-writing the team/);
-    expect(text).toMatch(/`npx squad cast --name <Name> --role/);
+    expect(text).toMatch(/`squad cast --name <Name> --role/);
   });
 
   it.each(CLIENT_IDS)('%s: keeps scratch files inside the workspace', (id) => {
-    const text = buildCoordinatorInstructions(id);
+    const text = loadedCoordinatorText(id);
     // live finding: OpenCode rejected a subagent call that touched OS %TEMP%
     expect(text).toMatch(/Scratch space/);
     expect(text).toMatch(/never write outside the workspace directory/);
@@ -1275,9 +1284,9 @@ describe('field findings from the live demo: Init Mode, scratch files, casting r
   });
 
   it.each(CLIENT_IDS)('%s: casts through the CLI and forbids hand-written casting files', (id) => {
-    const text = buildCoordinatorInstructions(id);
+    const text = loadedCoordinatorText(id);
     // live finding: LLM-handwritten casting/registry.json broke `squad upgrade`
-    expect(text).toMatch(/npx squad cast --name <Name> --role/);
+    expect(text).toMatch(/squad cast --name <Name> --role/);
     expect(text).toMatch(/NEVER hand-write or edit anything under .{0,20}casting\//);
     expect(text).toContain('registry-history.commit.json');
   });
@@ -2022,6 +2031,82 @@ describe('Brady re-review 13 defect repros', () => {
 });
 
 describe('Open review threads on #2239', () => {
+  it('upgrades the reported 0.9.x entries/assignments shape, rewrites a quoted npx bridge, and preserves originals', async () => {
+    const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'squad20-upgrade-legacy-casting-'));
+    const output: string[] = [];
+    const quiet = vi.spyOn(console, 'log').mockImplementation((...args) => output.push(args.join(' ')));
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const savedStdin = process.stdin.isTTY;
+    try {
+      (process.stdin as { isTTY?: boolean }).isTTY = undefined;
+      await runInit(dest, { includeWorkflows: false } as never);
+      const squadDir = path.join(dest, '.squad');
+      const castingDir = path.join(squadDir, 'casting');
+      const entries = Array.from({ length: 11 }, (_, index) => ({
+        persistent_name: `Example Member ${String(index + 1).padStart(2, '0')}`,
+        universe: 'descriptive',
+        created_at: '2024-02-03T12:00:00.000Z',
+        legacy_named: true,
+        status: 'active',
+      }));
+      for (const [index, entry] of entries.entries()) {
+        const id = `example-member-${String(index + 1).padStart(2, '0')}`;
+        const folder = path.join(squadDir, 'agents', id);
+        fs.mkdirSync(folder, { recursive: true });
+        fs.writeFileSync(
+          path.join(folder, 'charter.md'),
+          `# ${entry.persistent_name}\n\n## Identity\n- **Name:** ${entry.persistent_name}\n- **Role:** Example Role ${String(index + 1).padStart(2, '0')}\n`,
+        );
+      }
+      const registryRaw = JSON.stringify({ entries }, null, 2) + '\r\n';
+      const historyRaw = JSON.stringify({
+        assignments: [{
+          assignment_id: 'example-onboarding-001',
+          universe: 'descriptive',
+          timestamp: '2024-02-03T12:30:00.000Z',
+          members: entries.slice(0, 10).map((entry, index) => ({
+            name: entry.persistent_name,
+            role: `Example Role ${String(index + 1).padStart(2, '0')}`,
+          })),
+        }],
+      }, null, 2) + '\r\n';
+      fs.writeFileSync(path.join(castingDir, 'registry.json'), registryRaw);
+      fs.writeFileSync(path.join(castingDir, 'history.json'), historyRaw);
+      fs.rmSync(path.join(castingDir, 'registry-history.commit.json'), { force: true });
+      fs.writeFileSync(path.join(dest, '.mcp.json'), JSON.stringify({
+        mcpServers: {
+          squad_state: {
+            command: '"npx"',
+            args: ['-y', '@bradygaster/squad-cli@0.9.1', 'state-mcp'],
+          },
+        },
+      }, null, 2));
+
+      await runUpgrade(dest, { force: true } as never);
+
+      const pair = readCastingRegistryPair(castingDir);
+      expect(Object.keys(pair.registry.agents)).toHaveLength(11);
+      expect(pair.history.assignment_cast_snapshots['example-onboarding-001']).toMatchObject({
+        agents: Object.keys(pair.registry.agents).slice(0, 10),
+        universe: 'descriptive',
+        created_at: '2024-02-03T12:30:00.000Z',
+      });
+      const archive = fs.readdirSync(castingDir).find(name => name.startsWith('legacy-archive-'))!;
+      expect(fs.readFileSync(path.join(castingDir, archive, 'registry.json'), 'utf8')).toBe(registryRaw);
+      expect(fs.readFileSync(path.join(castingDir, archive, 'history.json'), 'utf8')).toBe(historyRaw);
+      const mcp = JSON.parse(fs.readFileSync(path.join(dest, '.mcp.json'), 'utf8'));
+      expect(mcp.mcpServers.squad_state.command).not.toContain('"');
+      expect(mcp.mcpServers.squad_state.args.at(-1)).toBe('state-mcp');
+      expect(output.join('\n')).toMatch(/⚠️.*Migrated legacy casting state.*byte-exact originals/);
+      expect(output.join('\n')).not.toMatch(/entries: value is not an agent record/);
+    } finally {
+      (process.stdin as { isTTY?: boolean }).isTTY = savedStdin;
+      quiet.mockRestore();
+      write.mockRestore();
+      fs.rmSync(dest, { recursive: true, force: true });
+    }
+  }, 120_000);
+
   it('runUpgrade repairs a handwritten casting registry instead of failing the strict preflight', async () => {
     const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'squad20-upgrade-hw-'));
     const quiet = vi.spyOn(console, 'log').mockImplementation(() => {});

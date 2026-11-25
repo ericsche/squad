@@ -49,6 +49,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { title: '@copilot Coding Agent', slug: 'features/copilot-coding-agent' },
       { title: 'Standalone Install (no npm)', slug: 'features/standalone-install' },
       { title: 'VS Code', slug: 'features/vscode' },
+      { title: 'Claude Code Plugin', slug: 'features/claude-code-plugin' },
     ],
   },
   {
@@ -136,6 +137,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { title: 'Team Portability', slug: 'scenarios/team-portability' },
       { title: 'Team State Storage', slug: 'scenarios/team-state-storage' },
       { title: 'Multi-Codespace', slug: 'scenarios/multi-codespace' },
+      { title: 'Multi-Machine Watch', slug: 'scenarios/multi-machine-watch' },
       { title: 'Switching Models', slug: 'scenarios/switching-models' },
       { title: 'Remote Q&A', slug: 'scenarios/remote-qa' },
       { title: 'Disaster Recovery', slug: 'scenarios/disaster-recovery' },

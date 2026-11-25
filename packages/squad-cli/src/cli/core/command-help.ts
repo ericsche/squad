@@ -73,14 +73,16 @@ const COMMAND_HELP: Record<string, HelpPrinter> = {
   client: (version) => {
     header('client', version, 'Manage client host projections');
     console.log(`Usage: squad client list [--json]`);
-    console.log(`       squad client add <list> [--dry-run]\n`);
+    console.log(`       squad client add <list> [--dry-run]`);
+    console.log(`       squad client sync [--dry-run]\n`);
     console.log(`Lists the hosts configured in .squad/config.json (clients[]) and whether their`);
     console.log(`projected files exist. An empty clients[] means only the default GitHub Copilot`);
-    console.log(`host (.github/agents/squad.agent.md + .mcp.json) is projected.\n`);
+    console.log(`host (.github/agents/squad.agent.md + .mcp.json) is projected. sync refreshes the`);
+    console.log(`configured hosts' files, e.g. Claude member subagents after routing.md changes.\n`);
     console.log(`Hosts: copilot, claude, kiro, opencode, cursor, codex, antigravity, or "all".\n`);
     console.log(`Options:`);
     console.log(`  ${BOLD}--json${RESET}                      Emit structured JSON instead of text`);
-    console.log(`  ${BOLD}--dry-run${RESET}                   With add: show what would be projected, write nothing\n`);
+    console.log(`  ${BOLD}--dry-run${RESET}                   With add or sync: show what would be projected, write nothing\n`);
   },
 
   roster: (version) => {
@@ -266,8 +268,25 @@ const COMMAND_HELP: Record<string, HelpPrinter> = {
     console.log(`state read/write tools to MCP-compatible hosts.\n`);
     console.log(`Options:`);
     console.log(`  ${BOLD}--experimental-backend${RESET}      Also expose the experimental squad_backend_* conversation`);
-    console.log(`                              tools (or set SQUAD_EXPERIMENTAL_BACKEND=1). Transcript/event-log`);
-    console.log(`                              only: no execution harness is bundled.\n`);
+    console.log(`                              tools (or set SQUAD_EXPERIMENTAL_BACKEND=1). Runs turns on the`);
+    console.log(`                              claude-agent-sdk harness when @anthropic-ai/claude-agent-sdk is`);
+    console.log(`                              installed; otherwise transcript/event-log only.\n`);
+  },
+
+  dashboard: (version) => {
+    header('dashboard', version, "Live web view of the team's Claude Code session");
+    console.log(`Usage: squad dashboard [start|stop|status] [options]\n`);
+    console.log(`Serves a page on 127.0.0.1 showing the coordinator and each member run as a`);
+    console.log(`board, a roadmap and a timeline, read from Claude Code's session transcripts`);
+    console.log(`for this directory. One dashboard runs per directory: starting it again`);
+    console.log(`prints the running one. In Claude Code, /squad:dashboard does the same.\n`);
+    console.log(`Options:`);
+    console.log(`  ${BOLD}--port <n>${RESET}                  Port (default: first free from 4280)`);
+    console.log(`  ${BOLD}--session <id>${RESET}              Follow one session (default: the newest)`);
+    console.log(`  ${BOLD}--stream <file>${RESET}             Read claude -p stream-json logs (repeatable)`);
+    console.log(`  ${BOLD}--detach${RESET}                    Run in the background and return`);
+    console.log(`  ${BOLD}--open${RESET}                      Open the page in the browser`);
+    console.log(`  ${BOLD}--json${RESET}                      Print the result as JSON\n`);
   },
 
   doctor: (version) => {
@@ -394,9 +413,14 @@ function printWatchHelp(name: 'triage' | 'watch', version: string): void {
   console.log(`Core flags:`);
   console.log(`  ${BOLD}--execute${RESET}                   Spawn agents to work on issues`);
   console.log(`  ${BOLD}--copilot-flags "..."${RESET}       Extra flags for Copilot CLI`);
+  console.log(`  ${BOLD}--agent-preset <name>${RESET}       Agent runner: copilot (default) or claude`);
+  console.log(`  ${BOLD}--claude-flags "..."${RESET}        Extra flags for the claude preset`);
   console.log(`  ${BOLD}--max-concurrent N${RESET}          Parallel issue limit (default 1)`);
   console.log(`  ${BOLD}--timeout N${RESET}                 Max minutes per issue (default 30)`);
+  console.log(`  ${BOLD}--claims <none|git-ref>${RESET}     Claim issues across watchers (default none)`);
   console.log(`  ${BOLD}--interval <minutes>${RESET}        Polling interval (default 10)`);
+  console.log(`  ${BOLD}--max-rounds N${RESET}              Stop after N completed rounds`);
+  console.log(`  ${BOLD}--max-duration 8h${RESET}           Stop after elapsed time (ms, s, m, h, d)`);
   console.log(`  ${BOLD}--health${RESET}                    (watch only) print watch instance status\n`);
   console.log(`Capabilities (opt-in via --<name> or .squad/config.json):`);
   console.log(`  ${BOLD}--self-pull${RESET}                 git fetch/pull at round start`);

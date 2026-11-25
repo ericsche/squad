@@ -9,9 +9,13 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { FSStorageProvider, stripTeamCapabilitiesBlock, syncTeamCapabilities } from '@bradygaster/squad-sdk';
 import { clearResolveSquadCache, isRetiredProfileTeamRoot } from '@bradygaster/squad-sdk/resolution';
+import { squadRepoLauncherScript } from '@bradygaster/squad-sdk/client';
+import { detectPlatformFromUrl } from '@bradygaster/squad-sdk/platform';
 import {
   backfillCastingRegistryFromTeam,
+  detectHistoricalCastingSchema,
   ensureCastingRegistryPair,
+  normalizeCastingJsonLineEndings as normalizeCastingJsonFiles,
   preflightCastingRegistryPair,
   repairHandwrittenCastingRegistry,
   type RepairResult,
@@ -23,7 +27,7 @@ import { TEMPLATE_MANIFEST, getTemplatesDir } from './templates.js';
 import { runMigrations } from './migrations.js';
 import { scrubEmails } from './email-scrub.js';
 import { getPackageVersion, stampVersion, readInstalledVersion } from './version.js';
-import { projectSquadStateMcpSpec, resolveSquadStateMcpSpec, type SquadStateMcpSpec } from './mcp-spec.js';
+import { projectSquadStateMcpSpec, resolveCommittedSquadStateMcpSpec, type SquadStateMcpSpec } from './mcp-spec.js';
 import { copyManagedFile, syncCopilotInstructionsFile, writeManagedText } from './managed-file.js';
 export { resolveSquadStateMcpSpec } from './mcp-spec.js';
 import {
@@ -31,7 +35,7 @@ import {
   reconcileSquadStateUserConfig,
   tombstoneStaleSquadStateInProjectMcp,
 } from './mcp-root.js';
-import { applyClientProjectionsForUpgrade, reportClientResults, type ClientId } from './clients.js';
+import { applyClientProjectionsForUpgrade, linkedTeamSquadDir, reportClientResults, type ClientId } from './clients.js';
 import {
   applyRetiredFiles,
   applySquadOwnedFiles,
@@ -183,6 +187,8 @@ export interface UpgradeOptions {
   dryRun?: boolean;
   /** Add these client hosts to the configured set; configured clients are always refreshed. */
   clients?: ClientId[];
+  /** `--claude-plugin` (true) / `--no-claude-plugin` (false): Claude projection plugin mode. */
+  claudePlugin?: boolean;
 }
 
 export interface UpdateInfo {
@@ -266,8 +272,7 @@ function detectIsGitHubForMcp(dest: string, config: Record<string, unknown>): bo
 
   try {
     const remoteUrl = execFileSync('git', ['remote', 'get-url', 'origin'], { cwd: dest, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
-    const remoteUrlLower = remoteUrl.toLowerCase();
-    if (remoteUrlLower.includes('dev.azure.com') || remoteUrlLower.includes('visualstudio.com') || remoteUrlLower.includes('ssh.dev.azure.com')) {
+    if (detectPlatformFromUrl(remoteUrl) === 'azure-devops') {
       return false;
     }
   } catch {
@@ -297,6 +302,18 @@ function stripRetiredProfileTeamRoot(squadDir: string, dest: string, dryRun: boo
   const teamRoot = record['teamRoot'];
   if (typeof teamRoot !== 'string' || teamRoot.length === 0 || teamRoot === '.') return;
   const target = path.resolve(dest, teamRoot);
+  const comparable = (value: string) => process.platform === 'win32' ? value.toLowerCase() : value;
+  if (comparable(target) === comparable(path.resolve(dest))) {
+    if (dryRun) {
+      info('Would normalize the absolute "teamRoot" setting to "." in .squad/config.json.');
+      return;
+    }
+    record['teamRoot'] = '.';
+    storage.writeSync(configPath, JSON.stringify(record, null, 2) + '\n');
+    clearResolveSquadCache();
+    info('Normalized the absolute "teamRoot" setting to "." in .squad/config.json.');
+    return;
+  }
   if (!isRetiredProfileTeamRoot(target)) return;
   if (dryRun) {
     info('Would remove obsolete "teamRoot" setting from .squad/config.json.');
@@ -315,7 +332,7 @@ function stripRetiredProfileTeamRoot(squadDir: string, dest: string, dryRun: boo
  */
 export function stripAgentStamps(s: string): string {
   return s
-    .replace(/<!-- squad-cli v[\d.]+[-\w.]* -->\n?/g, '')
+    .replace(/<!-- squad-cli v[\d.][-\w.]* -->\n?/g, '')
     .replace(/<!-- version: [^>]+ -->/g, '<!-- version: X -->')
     .replace(/- \*\*Version:\*\* \S+/g, '- **Version:** X')
     .replace(/`Squad v[^`]+`/g, '`Squad vX`')
@@ -370,7 +387,9 @@ function writeAgentTemplate(agentSrc: string, agentDest: string, cliVersion: str
   // still succeeds if rendering fails, but the stale-data risk is surfaced.
   if (options?.squadDir) {
     try {
-      syncTeamCapabilities({ squadDir: options.squadDir, agentFile: agentDest, storage });
+      // A linked project advertises the linked team's cast.
+      const capabilitiesDir = linkedTeamSquadDir(path.resolve(options.squadDir, '..')) ?? options.squadDir;
+      syncTeamCapabilities({ squadDir: capabilitiesDir, agentFile: agentDest, storage });
     } catch (error) {
       warn(
         `Could not refresh squad.agent.md team capabilities: ${
@@ -650,10 +669,15 @@ function applyUpgradeFiles(dest: string, plan: SquadOwnedPlan, cliVersion: strin
   // Retirement is planned from the PREVIOUS manifest, so it must run before the new one is written.
   const retired = planRetiredFiles(dest, plan);
   const result = applySquadOwnedFiles(plan, { warn });
+  for (const file of plan.preserved) {
+    warn(`${file.relPath} has local customizations — treated as user-owned and left unchanged`);
+  }
   for (const rel of result.backedUp) info(`  To restore: copy ${path.basename(rel)}.local-backup → ${path.basename(rel)}`);
   if (result.written.length > 0) {
     success(`upgraded ${result.written.length} squad-owned file(s)${result.backedUp.length > 0 ? ` (${result.backedUp.length} file(s) backed up to .local-backup)` : ''}`);
     filesUpdated.push(...result.written);
+  } else if (plan.preserved.length > 0) {
+    info(`No squad-owned files written; preserved ${plan.preserved.length} customized workflow(s).`);
   } else {
     info(`squad-owned files already up to date (${plan.files.length} checked)`);
   }
@@ -678,6 +702,7 @@ const GITATTRIBUTES_RULES = [
   '.squad/agents/*/history.md merge=union',
   '.squad/log/** merge=union',
   '.squad/orchestration-log/** merge=union',
+  '.squad/casting/*.json text eol=lf',
 ];
 
 const GITIGNORE_ENTRIES = [
@@ -740,13 +765,19 @@ export function ensureGitattributes(dest: string, options: { dryRun?: boolean } 
       appendLinesPreservingEol(filePath, added);
     } catch (err: unknown) {
       if (err instanceof Error && 'code' in err && ['EPERM', 'EACCES'].includes((err as NodeJS.ErrnoException).code ?? '')) {
-        warn('Could not update .gitattributes (read-only). Add merge=union entries manually.');
+        warn('Could not update .gitattributes (read-only). Add the required Squad entries manually.');
         return [];
       }
       throw err;
     }
   }
   return added;
+}
+
+export function normalizeCastingJsonLineEndings(dest: string): string[] {
+  const castingDir = path.join(dest, '.squad', 'casting');
+  return normalizeCastingJsonFiles(castingDir)
+    .map(name => `.squad/casting/${name}`);
 }
 
 /**
@@ -793,9 +824,14 @@ export function ensureGitignore(dest: string, options: { dryRun?: boolean } = {}
 /**
  * Create missing infrastructure directories
  */
+/** Team directories a linked project (remote mode) leaves to its team repository. */
+const LINKED_TEAM_DIRECTORIES = new Set(['.squad/agents', '.squad/casting', '.squad/identity']);
+
 export function ensureDirectories(dest: string): string[] {
   const created: string[] = [];
+  const linked = linkedTeamSquadDir(dest) !== null;
   for (const dir of ENSURE_DIRECTORIES) {
+    if (linked && LINKED_TEAM_DIRECTORIES.has(dir.replace(/\\/g, '/').replace(/\/$/, ''))) continue;
     const fullPath = path.join(dest, dir);
     if (!storage.existsSync(fullPath)) {
       storage.mkdirSync(fullPath, { recursive: true });
@@ -1102,6 +1138,7 @@ export async function ensureEsmImportsPatched(dest: string): Promise<boolean> {
  * Idempotent; the later ensure pass finds nothing left to create.
  */
 function preflightCastingPair(dest: string, templatesDir: string, filesUpdated: string[]): void {
+  if (linkedTeamSquadDir(dest) !== null) return; // The linked team repository holds the casting pair.
   const created = ensureCastingDefaults(dest, templatesDir);
   if (created.length > 0) {
     success(`scaffolded ${created.length} default casting files`);
@@ -1115,6 +1152,7 @@ function preflightCastingPair(dest: string, templatesDir: string, filesUpdated: 
  * user-owned and is changed only by the explicit `squad roster` command.
  */
 function prepareBuiltinAgents(dest: string, templatesDir: string, filesUpdated: string[]): void {
+  if (linkedTeamSquadDir(dest) !== null) return; // The built-ins' charters live in the linked team repository.
   const raiMigration = migrateLegacyRaiAgent(dest);
   if (raiMigration.migrated.length > 0) {
     success(`migrated .squad/agents/Rai/ → .squad/agents/rai/${raiMigration.recordedInGit ? ' (recorded with git mv)' : ''}`);
@@ -1149,7 +1187,12 @@ function runLegacySkillMigration(dest: string, filesUpdated: string[]): void {
   }
 }
 
-async function runEnsureChecks(dest: string, templatesDir: string, filesUpdated: string[]): Promise<void> {
+async function runEnsureChecks(
+  dest: string,
+  templatesDir: string,
+  filesUpdated: string[],
+  options: { skipCasting?: boolean } = {},
+): Promise<void> {
   const attrAdded = ensureGitattributes(dest);
   if (attrAdded.length > 0) {
     success(`ensured .gitattributes (${attrAdded.length} rules added)`);
@@ -1168,10 +1211,19 @@ async function runEnsureChecks(dest: string, templatesDir: string, filesUpdated:
     filesUpdated.push(...dirsCreated);
   }
 
-  const castingFiles = ensureCastingDefaults(dest, templatesDir);
-  if (castingFiles.length > 0) {
-    success(`scaffolded ${castingFiles.length} default casting files`);
-    filesUpdated.push(...castingFiles);
+  // A project linked to a team repository keeps casting and team templates there.
+  const linkedTeam = linkedTeamSquadDir(dest) !== null;
+  if (!options.skipCasting && !linkedTeam) {
+    const castingFiles = ensureCastingDefaults(dest, templatesDir);
+    if (castingFiles.length > 0) {
+      success(`scaffolded ${castingFiles.length} default casting files`);
+      filesUpdated.push(...castingFiles);
+    }
+    const normalizedCasting = normalizeCastingJsonLineEndings(dest);
+    if (normalizedCasting.length > 0) {
+      success(`normalized ${normalizedCasting.length} casting JSON file(s) to LF`);
+      filesUpdated.push(...normalizedCasting);
+    }
   }
 
   const memoryFiles = ensureMemoryGovernanceUpgradeDefaults(dest);
@@ -1180,7 +1232,7 @@ async function runEnsureChecks(dest: string, templatesDir: string, filesUpdated:
     filesUpdated.push(...memoryFiles);
   }
 
-  const userOwned = ensureUserOwnedTemplates(dest, templatesDir);
+  const userOwned = ensureUserOwnedTemplates(dest, templatesDir, linkedTeam);
   if (userOwned.length > 0) {
     success(`installed ${userOwned.length} missing user-owned template(s): ${userOwned.join(', ')}`);
     filesUpdated.push(...userOwned);
@@ -1191,7 +1243,9 @@ async function runEnsureChecks(dest: string, templatesDir: string, filesUpdated:
   // git root looking for .mcp.json) and tombstone any stale project-level
   // entry left by older Squad versions in `.copilot/mcp-config.json`.
   // No HOME modifications.
-  const pinnedSpec = projectSquadStateMcpSpec(await resolveSquadStateMcpSpec(getPackageVersion()));
+  const pinnedSpec = projectSquadStateMcpSpec(
+    await resolveCommittedSquadStateMcpSpec(getPackageVersion(), dest, detectSquadDir(dest).path),
+  );
   try {
     const rootResult = ensureSquadStateMcpInRoot(dest, getPackageVersion(), pinnedSpec);
     if (rootResult.written) {
@@ -1232,6 +1286,12 @@ export function describeMcpSpec(spec: SquadStateMcpSpec): string {
   }
   if (spec.source === 'local-entry') {
     return `${spec.command} ${spec.args[0]} (machine-specific installed CLI; exact-version fallback recorded)`;
+  }
+  if (spec.source === 'repo-launcher') {
+    return `node ${squadRepoLauncherScript(spec.command, spec.args) ?? spec.args[0]} (repository launcher: finds the Squad CLI on each machine)`;
+  }
+  if (spec.source === 'path') {
+    return 'squad from PATH';
   }
   const pkg = spec.args[1] ?? '<unknown>';
   return pkg;
@@ -1476,10 +1536,13 @@ export function ensureBuiltinAgents(dest: string, templatesDir: string): string[
  * (via runEnsureChecks) so that newly-added user-owned templates are installed
  * for existing squads on upgrade without overwriting any prior customization.
  */
-export function ensureUserOwnedTemplates(dest: string, templatesDir: string): string[] {
+export function ensureUserOwnedTemplates(dest: string, templatesDir: string, linkedTeam = false): string[] {
   const created: string[] = [];
   const squadDir = path.join(dest, '.squad');
-  const userOwned = TEMPLATE_MANIFEST.filter(f => !f.overwriteOnUpgrade && !f.source.startsWith('skills/'));
+  // A project linked to a team repository keeps the team's own files (routing, ceremonies,
+  // identity) there: only files outside `.squad/` are seeded locally.
+  const userOwned = TEMPLATE_MANIFEST.filter(f => !f.overwriteOnUpgrade && !f.source.startsWith('skills/') &&
+    (!linkedTeam || f.destination.startsWith('../')));
 
   for (const entry of userOwned) {
     const srcPath = path.join(templatesDir, entry.source);
@@ -1513,6 +1576,7 @@ async function refreshClients(dest: string, squadDir: string, options: UpgradeOp
   try {
     const synced = await applyClientProjectionsForUpgrade(dest, squadDir, {
       clients: options.clients,
+      claudePlugin: options.claudePlugin,
       warn: (m) => warn(m.replace(/^⚠\s*/, '')),
     });
     if (synced.clients.length === 0) return;
@@ -1530,6 +1594,22 @@ function warnCastingRepairSkipped(headline: string, result: RepairResult): void 
   for (const { name, reason } of result.dropped ?? []) {
     dim(`    - ${name}: ${reason}`);
   }
+}
+
+function detectLegacyCastingFiles(castingDir: string): ReturnType<typeof detectHistoricalCastingSchema> {
+  try {
+    const registry = JSON.parse(storage.readSync(path.join(castingDir, 'registry.json')) ?? '{}') as unknown;
+    const history = JSON.parse(storage.readSync(path.join(castingDir, 'history.json')) ?? '{}') as unknown;
+    return detectHistoricalCastingSchema(registry, history);
+  } catch {
+    return undefined;
+  }
+}
+
+function reportCastingMigrationFailure(message: string | undefined): void {
+  if (!message) return;
+  warn(`Upgrade completed, but legacy casting still needs repair: ${message}`);
+  info('  The original registry.json and history.json were left unchanged. See "Incomplete legacy provenance" in the upgrading guide, then run `squad upgrade --force` again.');
 }
 
 /**
@@ -1570,7 +1650,10 @@ export async function runUpgrade(dest: string, options: UpgradeOptions = {}): Pr
   // The repair reconciles a single Init Mode history snapshot; registries with real history keep failing closed.
   const castingDir = path.join(squadDirInfo.path, 'casting');
   const dryRun = options.dryRun ?? false;
-  const repair = repairHandwrittenCastingRegistry(castingDir, { dryRun });
+  const historicalSchema = detectLegacyCastingFiles(castingDir);
+  const repair: RepairResult = historicalSchema
+    ? { repaired: false, files: [] }
+    : repairHandwrittenCastingRegistry(castingDir, { dryRun });
   const handwrittenRepaired = repair.repaired;
   if (handwrittenRepaired) {
     if (dryRun) {
@@ -1583,13 +1666,22 @@ export async function runUpgrade(dest: string, options: UpgradeOptions = {}): Pr
   }
   // Legacy registries still go through the strict preflight (and its specific errors); only the
   // preflight's generic failure is enriched with the handwritten-repair reason and fix.
-  const castingMigrated = handwrittenRepaired && dryRun
-    ? false
-    : withCastingRepairContext(repair, () => preflightCastingRegistryPair(castingDir, dryRun));
+  let castingMigrationFailure: string | undefined;
+  let castingMigrated = false;
+  try {
+    castingMigrated = handwrittenRepaired && dryRun
+      ? false
+      : withCastingRepairContext(repair, () => preflightCastingRegistryPair(castingDir, dryRun));
+  } catch (error) {
+    castingMigrationFailure = error instanceof Error ? error.message : String(error);
+    warn(`Could not migrate legacy casting; continuing with the rest of the upgrade: ${castingMigrationFailure}`);
+  }
   if (castingMigrated) {
-    info(dryRun
-      ? 'Would migrate legacy casting state to a managed registry/history pair.'
-      : 'Migrated legacy casting state to a managed registry/history pair.');
+    if (dryRun) {
+      info('Would migrate legacy casting state to a managed registry/history pair.');
+    } else {
+      warn('Migrated legacy casting state to a managed registry/history pair; byte-exact originals were preserved in its legacy archive.');
+    }
   }
 
   // --dry-run: preview what upgrade would do without writing (#1052, #2297)
@@ -1628,6 +1720,7 @@ export async function runUpgrade(dest: string, options: UpgradeOptions = {}): Pr
       }
       const planned = await applyClientProjectionsForUpgrade(dest, squadDirInfo.path, {
         clients: options.clients,
+        claudePlugin: options.claudePlugin,
         dryRun: true,
         warn: (m) => warn(m.replace(/^⚠\s*/, '')),
       });
@@ -1636,6 +1729,7 @@ export async function runUpgrade(dest: string, options: UpgradeOptions = {}): Pr
       warn(`Could not plan client files: ${err instanceof Error ? err.message : String(err)}`);
     }
     console.log(`\nRun without --dry-run to apply.\n`);
+    reportCastingMigrationFailure(castingMigrationFailure);
     return { fromVersion: oldVersion, toVersion: cliVersion, filesUpdated: [], migrationsRun: [] };
   }
 
@@ -1658,7 +1752,7 @@ export async function runUpgrade(dest: string, options: UpgradeOptions = {}): Pr
     // to render the <!-- squad:capabilities --> block, so a 0.9.x project (empty casting/) would
     // otherwise get the block only on the SECOND upgrade (F4, upgrade matrix).
     prepareBuiltinAgents(dest, templatesDir, filesUpdated);
-    preflightCastingPair(dest, templatesDir, filesUpdated);
+    if (!castingMigrationFailure) preflightCastingPair(dest, templatesDir, filesUpdated);
 
     // Refresh squad.agent.md
     const agentSrc = path.join(templatesDir, 'squad.agent.md.template');
@@ -1672,8 +1766,9 @@ export async function runUpgrade(dest: string, options: UpgradeOptions = {}): Pr
     }
 
     // Run infrastructure ensure checks even when already current
-    await runEnsureChecks(dest, templatesDir, filesUpdated);
+    await runEnsureChecks(dest, templatesDir, filesUpdated, { skipCasting: !!castingMigrationFailure });
     await refreshClients(dest, squadDirInfo.path, options, filesUpdated);
+    reportCastingMigrationFailure(castingMigrationFailure);
 
     return {
       fromVersion: oldVersion,
@@ -1693,7 +1788,7 @@ export async function runUpgrade(dest: string, options: UpgradeOptions = {}): Pr
 
   // See preflightCastingPair: the capabilities block needs the casting pair first (F4).
   prepareBuiltinAgents(dest, templatesDir, filesUpdated);
-  preflightCastingPair(dest, templatesDir, filesUpdated);
+  if (!castingMigrationFailure) preflightCastingPair(dest, templatesDir, filesUpdated);
 
   storage.mkdirSync(path.dirname(agentDest), { recursive: true });
   writeAgentTemplate(agentSrc, agentDest, cliVersion, mcpConfigMode, isGitHubForMcp, { squadDir: squadDirInfo.path });
@@ -1731,7 +1826,7 @@ export async function runUpgrade(dest: string, options: UpgradeOptions = {}): Pr
   }
 
   // Run infrastructure ensure checks
-  await runEnsureChecks(dest, templatesDir, filesUpdated);
+  await runEnsureChecks(dest, templatesDir, filesUpdated, { skipCasting: !!castingMigrationFailure });
   await refreshClients(dest, squadDirInfo.path, options, filesUpdated);
 
   console.log();
@@ -1742,6 +1837,7 @@ export async function runUpgrade(dest: string, options: UpgradeOptions = {}): Pr
     dim('Preserves user state: team.md, decisions/, agents/*/history.md');
   }
   console.log();
+  reportCastingMigrationFailure(castingMigrationFailure);
 
   return {
     fromVersion: fromLabel,
@@ -1807,11 +1903,12 @@ export function detectSelfUpgradeTag(currentVersion: string): SelfUpgradeTag {
 /** The exact command `selfUpgradeCli` runs for a package manager and dist-tag. */
 export function selfUpgradeCommand(packageManager: SelfUpgradePackageManager, insiderOrTag: boolean | SelfUpgradeTag): string {
   const tag: SelfUpgradeTag = typeof insiderOrTag === 'boolean' ? (insiderOrTag ? 'insider' : 'latest') : insiderOrTag;
-  const pkg = `@bradygaster/squad-cli@${tag}`;
+  if (tag !== 'latest' && tag !== 'insider') throw new Error('Invalid self-upgrade tag');
   switch (packageManager) {
-    case 'pnpm': return `pnpm add -g ${pkg}`;
-    case 'yarn': return `yarn global add ${pkg}`;
-    default: return `npm install -g ${pkg}`;
+    case 'pnpm': return tag === 'insider' ? 'pnpm add -g @bradygaster/squad-cli@insider' : 'pnpm add -g @bradygaster/squad-cli@latest';
+    case 'yarn': return tag === 'insider' ? 'yarn global add @bradygaster/squad-cli@insider' : 'yarn global add @bradygaster/squad-cli@latest';
+    case 'npm': return tag === 'insider' ? 'npm install -g @bradygaster/squad-cli@insider' : 'npm install -g @bradygaster/squad-cli@latest';
+    default: throw new Error('Invalid self-upgrade package manager');
   }
 }
 

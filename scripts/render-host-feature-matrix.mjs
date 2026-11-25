@@ -24,6 +24,7 @@ export const CAPABILITIES = ['supported', 'degraded', 'unsupported', 'n/a'];
 export const VALIDATION_LEVELS = ['validated-live', 'validated-test', 'static-only', 'untested', 'blocked'];
 const CAPABILITY_ICON = { supported: '✅', degraded: '⚠️', unsupported: '❌', 'n/a': '—' };
 const VALIDATION_ICON = { 'validated-live': '🖥️', 'validated-test': '🧪', 'static-only': '📄', untested: '❔', blocked: '⛔' };
+const escapeTableCell = (value) => value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 
 export function evidenceKind(entry) {
   return entry.split(':')[0];
@@ -117,12 +118,12 @@ export function render(matrix) {
   if (Array.isArray(matrix.expectedFailures) && matrix.expectedFailures.length > 0) {
     lines.push('## Expected failures (`it.fails`)');
     lines.push('');
-    lines.push('These digest gaps are pinned as expected failures, one test per host and gap: the `[<host>]` test turns red the moment a stack adds the section for that host. Until then the cell is **unsupported** for that host (validated by the failing test), never degraded or supported.');
+    lines.push('These digest gaps are pinned as expected failures, one test per host and gap: the `[<host>]` test turns red the moment a stack adds the section for that host. Until then the cell is **unsupported** for that host (validated by the failing test), never degraded or supported. A gap listed for every host lives in the shared coordinator digest, so it is not a host-specific gap: host-specific work (for example making Claude Code a first-class host, #2438) does not close it.');
     lines.push('');
     lines.push('| Feature | Test (title; each generated test appends the host as `[<host>]`) | Hosts | Meaning |');
     lines.push('|---------|-----------------------------|-------|---------|');
     for (const e of matrix.expectedFailures) {
-      lines.push(`| [${e.featureId}](#${e.featureId}) | \`${e.test.replace(/\|/g, '\\|')}\` (${e.kind}${e.perHost ? ', per host' : ''}) | ${(e.hosts ?? []).map((h) => `\`${h}\``).join(' ')} | ${e.meaning} |`);
+      lines.push(`| [${e.featureId}](#${e.featureId}) | \`${escapeTableCell(e.test)}\` (${e.kind}${e.perHost ? ', per host' : ''}) | ${(e.hosts ?? []).map((h) => `\`${h}\``).join(' ')} | ${e.meaning} |`);
     }
     lines.push('');
   }
@@ -145,7 +146,7 @@ export function render(matrix) {
         const c = f.cells[h];
         return `${CAPABILITY_ICON[c.capability]} ${VALIDATION_ICON[c.validation]}`;
       });
-      lines.push(`| [${f.name.replace(/\|/g, '\\|')}](#${f.id}) | ${f.dependsOn.join(', ')}${f.hostIndependent ? ' (host-independent)' : ''} | ${cells.join(' | ')} |`);
+      lines.push(`| [${escapeTableCell(f.name)}](#${f.id}) | ${f.dependsOn.join(', ')}${f.hostIndependent ? ' (host-independent)' : ''} | ${cells.join(' | ')} |`);
     }
     lines.push('');
   }
@@ -167,7 +168,7 @@ export function render(matrix) {
       const notes = c.notes ? ` _${c.notes}_` : '';
       const flags = [c.expectedFailure ? ' (expected failure)' : '', c.blockedReason ? ` — ${c.blockedReason}` : ''].join('');
       const evidence = c.evidence.map((v) => `\`${v}\``).join('<br>') || '—';
-      lines.push(`| \`${h}\` | ${CAPABILITY_ICON[c.capability]} ${c.capability} | ${VALIDATION_ICON[c.validation]} ${c.validation}${flags.replace(/\|/g, '\\|')} | ${c.mechanism.replace(/\|/g, '\\|')}${notes.replace(/\|/g, '\\|')} | ${evidence.replace(/\|/g, '\\|')} |`);
+      lines.push(`| \`${h}\` | ${CAPABILITY_ICON[c.capability]} ${c.capability} | ${VALIDATION_ICON[c.validation]} ${c.validation}${escapeTableCell(flags)} | ${escapeTableCell(c.mechanism)}${escapeTableCell(notes)} | ${escapeTableCell(evidence)} |`);
     }
     lines.push('');
   }
@@ -179,7 +180,7 @@ export function render(matrix) {
     lines.push('| Date | Host | Scenario | Outcome | Observed tools | Notes |');
     lines.push('|------|------|----------|---------|----------------|-------|');
     const OUTCOME = { pass: '✅ pass', partial: '⚠️ partial', fail: '🔴 fail', blocked: '⛔ blocked' };
-    for (const r of matrix.liveRuns) lines.push(`| ${r.date} | \`${r.host}\` | ${r.scenario} | ${OUTCOME[r.outcome] ?? r.outcome} | ${(r.observedTools ?? []).map((t) => `\`${t}\``).join(', ') || '—'} | ${(r.notes ?? '').replace(/\|/g, '\\|')} |`);
+    for (const r of matrix.liveRuns) lines.push(`| ${r.date} | \`${r.host}\` | ${r.scenario} | ${OUTCOME[r.outcome] ?? r.outcome} | ${(r.observedTools ?? []).map((t) => `\`${t}\``).join(', ') || '—'} | ${escapeTableCell(r.notes ?? '')} |`);
     lines.push('');
   }
   return lines.join('\n') + '\n';

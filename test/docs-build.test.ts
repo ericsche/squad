@@ -65,6 +65,7 @@ const EXPECTED_SCENARIOS = [
 const EXPECTED_FEATURES = [
   'ceremonies',
   'capability-routing',
+  'claude-code-plugin',
   'copilot-coding-agent',
   'directives',
   'enterprise-platforms',
@@ -283,7 +284,7 @@ describe.skipIf(DOCS_BUILD_SKIP_REASON !== null)(
     it('tables render as proper <table> HTML', () => {
       if (!requireBuild()) return;
       const html = readDocHtml('cli', 'reference');
-      expect(html).toMatch(/<table>/);
+      expect(html).toMatch(/<table[\s>]/);
       expect(html).toMatch(/<thead>/);
       expect(html).toMatch(/<th>/);
       expect(html).toMatch(/<td>/);

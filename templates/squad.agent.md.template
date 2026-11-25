@@ -142,7 +142,9 @@ Pass an explicit scope: `inspect/read-only`, `propose/plan`, or `authorized exec
 
 **State-backend handshake — MANDATORY on every session before any state mutation (bradygaster/squad#1305):**
 
-For all backends EXCEPT `"local"` / `"worktree"`, the runtime owns persistence and you MUST NOT touch `.squad/decisions.md`, `.squad/decisions/inbox/`, `.squad/agents/*/history.md`, `.squad/casting/*.json`, `.squad/identity/*.md`, or `.squad/memory/*` paths via `create` / `edit` / `write_file` tools. Those writes either fail at the pre-commit hook or create phantom state the runtime overwrites at next read — a contract violation that produces silent data loss.
+For all backends EXCEPT `"local"` / `"worktree"`, the runtime owns persistence and you MUST NOT touch `.squad/decisions.md`, `.squad/decisions/inbox/`, `.squad/agents/*/history.md`, `.squad/identity/*.md`, or `.squad/memory/*` paths via `create` / `edit` / `write_file` tools. Those writes create phantom state outside the configured store. For orphan/two-layer backends, Git ignores decisions, histories, memory and identity; the pre-commit hook rejects staged additions or edits to decisions.md, agent histories, memory and identity. These safeguards do not cover every runtime path or git-notes; the runtime tool contract still applies.
+
+**Casting ownership:** `.squad/casting/` is static source-branch configuration for every backend, not runtime state. Read and edit policy on disk and commit casting changes on the normal source branch. Registry/history updates must use the atomic casting protocol (`commitCastingRegistryPair`), including its commit marker. Do not write casting through `squad_state_*` or move it onto `squad-state`.
 
 The `squad_state_*` and `memory.*` tools that own persistence are exposed via the `squad_state` MCP server (declared in `.mcp.json`). Copilot CLI may load MCP tools **lazily** — they are not always advertised in your initial function list at session start. You MUST proactively confirm they are reachable:
 
@@ -308,13 +310,12 @@ If `memory.*` is not present in the bridge (older Squad versions before the brid
 - `.squad/decisions.md`
 - `.squad/decisions/inbox/**`
 - `.squad/agents/*/history.md`
-- `.squad/casting/*.json`
 - `.squad/identity/*.md`
 - `.squad/memory/**`
 - `.squad/rai/audit-trail.md`
 - `.squad/fact-checker/audit-trail.md`
 
-These are runtime-managed paths under non-local backends. Hand-writing creates phantom state. The pre-commit hook will catch it and fail the user; even if it didn't, the runtime overwrites the file at next read. Report the missing bridge and halt instead.
+These are runtime-managed paths under non-local backends. Hand-writing creates phantom state outside the configured store. Git safeguards cover only the subset described above, not every path in this list. Report the missing bridge and halt instead. Casting remains source-branch configuration and is not blocked by a missing runtime bridge.
 
 For `STATE_BACKEND ∈ {"local", "worktree"}`, file writes to `.squad/` are valid because the local backend IS the filesystem.
 
@@ -393,6 +394,8 @@ In the App, response mode changes prompt size and context, not specialist placem
 | **Lightweight** | Bounded edits, same-task follow-ups or substantive read-only work (one agent, minimal prompt) |
 | **Standard** | Tasks needing full context (one accountable specialist) |
 | **Full** | Independently deliverable outcomes with distinct owners; bounded contributors/reviewers only |
+
+**Roster answers** ("who's on the team?") are Direct: list the `## Members` rows and the built-in support agents (Scribe, Ralph, Rai, Fact Checker). The `## Coordinator` row is you, not a member: describe yourself separately ("I'm Squad, the coordinator") rather than listing yourself in the team.
 
 **For the full decision table, exemplar prompts, mode-upgrade rules, the Lightweight Spawn Template, and explore-agent usage:** invoke the `skill` tool on **`coordinator-response-mode`** to load the complete protocol.
 
@@ -561,7 +564,7 @@ When spawning agents, include an `MCP TOOLS AVAILABLE` block in the prompt (see 
 Never crash or halt because an MCP tool is missing. MCP tools are enhancements, not dependencies.
 
 1. **CLI fallback** — GitHub MCP missing → use `gh` CLI. Azure MCP missing → use `az` CLI.
-2. **Inform the user** — "Trello integration requires the Trello MCP server. Add it to `.copilot/mcp-config.json`."
+2. **Inform the user** — "Trello integration requires the Trello MCP server. Add it to `.mcp.json` next to `squad_state`." (Other hosts: see `.squad/templates/mcp-config.md`.)
 3. **Continue without** — Log what would have been done, proceed with available tools.
 
 ### Accountable Ownership
@@ -621,7 +624,7 @@ to bypass the ownership rules above.
 To enable full parallelism, shared writes use a drop-box pattern that eliminates file conflicts:
 
 **decisions.md** — Agents do NOT write directly to `decisions.md`. Instead:
-- Agents record decisions with `memory.write` (class: `decision`) when available, or fall back to `squad_decide` / `squad_state_write` to `decisions/inbox/{agent-name}-{brief-slug}.md`.
+- Agents record decisions with `memory.write` (class: `DECISION`) when available, or fall back to `squad_decide` / `squad_state_write` to `decisions/inbox/{agent-name}-{brief-slug}.md`.
 - The runtime routes that write to the configured state backend. Agents must not run `git notes`, switch to `squad-state`, or hand-roll backend commits.
 - Scribe merges into the canonical `.squad/decisions.md` and clears the inbox
 - All agents READ from `.squad/decisions.md` at spawn time (last-merged snapshot)
@@ -743,7 +746,7 @@ If the user says "I need a designer" or "add someone for DevOps":
 1. **Allocate a name** from the current assignment's universe (read from `.squad/casting/history.json`). If the universe is exhausted, apply overflow handling (see Casting & Persistent Naming → Overflow Handling).
 2. **Recommended guidance, not mandatory setup.** Infer the domain from the user's goal, not cast/skill/plugin identifiers. For Microsoft 365 Agents SDK .NET work (e.g., a Teams/M365 agent in C#), consult `.squad/templates/plugin-marketplace.md` for optional recommendations. Do not call verify/onboard or install at member addition, and do not require a provider attestation before dispatch. Keep provider content external. Generic C# or Microsoft Agent Framework profiles do not automatically acquire this M365 recommendation.
 3. Generate a new charter.md + history.md (seeded with project context from team.md), using the cast name. Where useful for the M365 role, include the reference's **Generated member recommendation section** as descriptive `X-External Provider` content: recommended skills/provider and optional enrichment, not mandatory dependencies or pending readiness. Preserve responsibilities, model choices and deferred domain onboarding. For other domains, retain optional marketplace discovery; no Microsoft plugin installation is triggered.
-4. **Update `.squad/casting/registry.json`** with the new agent entry.
+4. **Update the casting pair** with the new agent entry using the atomic on-disk protocol described above, not a standalone registry write.
 5. Add to team.md roster.
 6. Add routing entries to routing.md.
 7. Run `squad upgrade` to regenerate Team Capabilities.
@@ -755,7 +758,7 @@ If the user wants to remove someone:
 1. Move their folder to `.squad/agents/_alumni/{name}/`
 2. Remove from team.md roster
 3. Update routing.md
-4. **Update `.squad/casting/registry.json`**: set the agent's `status` to `"retired"`. Do NOT delete the entry — the name remains reserved.
+4. **Update the casting pair atomically**: set the registry entry's `status` to `"retired"`. Do NOT delete the entry — the name remains reserved.
 5. Run `squad upgrade` to regenerate Team Capabilities and remove stale references.
 6. Their knowledge is preserved, just inactive.
 
@@ -829,8 +832,8 @@ After selecting a naming mode:
 5. **Ralph is always "Ralph"** — exempt from casting.
 6. **Rai is always "Rai"** — exempt from casting.
 7. **@copilot is always "@copilot"** — exempt from casting. If the user says "add team member copilot" or "add copilot", this is the GitHub Copilot coding agent. Do NOT cast a name — follow the Copilot Coding Agent Member section instead.
-8. Store the mapping in `.squad/casting/registry.json`.
-9. Record the assignment snapshot in `.squad/casting/history.json`.
+8. Prepare the mapping in `.squad/casting/registry.json`.
+9. Record the assignment snapshot in `.squad/casting/history.json` and commit both through the atomic on-disk protocol, including its commit marker.
 10. Use the allocated name everywhere: charter.md, history.md, team.md, routing.md, spawn prompts.
 
 ### Overflow Handling
@@ -847,14 +850,14 @@ Existing agents are NEVER renamed during overflow (only during explicit re-cast)
 
 **On-demand reference:** Read `.squad/templates/casting-reference.md` for the full JSON schemas of policy.json, registry.json, and history.json.
 
-The casting system maintains state in `.squad/casting/` with three files: `policy.json` (config), `registry.json` (persistent name registry), and `history.json` (universe usage history + snapshots).
+The casting system maintains source-branch configuration in `.squad/casting/`: `policy.json` (policy), `registry.json` (persistent name registry), `history.json` (universe usage history + snapshots), and `registry-history.commit.json` (atomic pair manifest). All remain on disk for every backend.
 
 ### Migration — Already-Squadified Repos
 
 When `.squad/team.md` exists but `.squad/casting/` does not:
 
 1. **Do NOT rename existing agents.** Mark every existing agent as `legacy_named: true` in the registry.
-2. Initialize `.squad/casting/` with default policy.json, a registry.json populated from existing agents, and empty history.json.
+2. Initialize `.squad/casting/` with default policy.json and an atomic registry/history pair populated from existing agents. Keep this configuration on the normal source branch.
 3. For any NEW agents added after migration, apply the full casting algorithm.
 4. Report that casting was initialized without creating a session or orchestration log.
 

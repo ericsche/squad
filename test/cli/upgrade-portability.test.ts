@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -6,6 +6,7 @@ import { runInit } from '../../packages/squad-cli/src/cli/core/init.js';
 import { runUpgrade } from '../../packages/squad-cli/src/cli/core/upgrade.js';
 import { getPackageVersion } from '../../packages/squad-cli/src/cli/core/version.js';
 import { STANDALONE_HOME_ENV } from '../../packages/squad-cli/src/cli/core/mcp-spec.js';
+import { squadRepoLauncherArgs } from '@bradygaster/squad-sdk/client';
 import { getTemplatesDir } from '../../packages/squad-cli/src/cli/core/templates.js';
 import { copyManagedFile, writeManagedText } from '../../packages/squad-cli/src/cli/core/managed-file.js';
 import { TEAM_CAPABILITIES_BEGIN } from '@bradygaster/squad-sdk/config';
@@ -61,17 +62,21 @@ describe('upgrade portability and destination newlines', () => {
       };
       expect(config.mcpServers.custom).toEqual(custom);
       expect(config.mcpServers.squad_state.env).toEqual({ EXTRA: 'keep' });
-      expect(config.mcpServers.squad_state.command).toBe(mode === 'packaged'
-        ? path.join(root, 'example-bundle', portableCommand) : process.execPath);
+      // Committed files carry no path into this machine's install (#2462): a standalone bundle
+      // becomes `squad` from PATH, an installed CLI becomes the repository launcher.
+      expect(config.mcpServers.squad_state.command).toBe(mode === 'packaged' ? 'squad' : 'node');
       expect(config.mcpServers.squad_state.args).toEqual(mode === 'packaged'
-        ? ['state-mcp'] : [path.resolve('packages/squad-cli/dist/cli-entry.js'), 'state-mcp']);
+        ? ['state-mcp'] : squadRepoLauncherArgs('.squad', 'state-mcp'));
       expect(config.mcpServers.squad_state['x-squad']).toEqual({
         managed: true,
         version,
-        machineSpecific: true,
-        source: mode === 'packaged' ? 'standalone' : 'local-entry',
+        machineSpecific: false,
+        source: mode === 'packaged' ? 'path' : 'repo-launcher',
         fallback,
       });
+      expect(raw).not.toContain(root);
+      expect(raw).not.toContain(process.execPath);
+      expect(existsSync(path.join(root, '.squad', 'squad.mjs'))).toBe(mode === 'npm');
       expect(raw).not.toMatch(/(?<!\r)\n/);
     }
   });
@@ -105,7 +110,10 @@ describe('upgrade portability and destination newlines', () => {
       const body = readFileSync(path.join(root, file), 'utf8');
       expect(body, file).toContain('\r\n');
       expect(body, file).not.toMatch(/(?<!\r)\n/);
-      if (version === 'current' && file === path.join('.github', 'copilot-instructions.md')) {
+      if (file === path.join('.github', 'workflows', 'squad-ci.yml')) {
+        expect(body, file).toBe('OLD-MANAGED-BODY\r\nreplace this\r\n');
+        expect(existsSync(path.join(root, `${file}.local-backup`)), file).toBe(false);
+      } else if (version === 'current' && file === path.join('.github', 'copilot-instructions.md')) {
         expect(body).toBe('OLD-MANAGED-BODY\r\nreplace this\r\n');
       } else if (file === path.join('.github', 'copilot-instructions.md')) {
         // #2186: user-authored content in copilot-instructions.md is preserved, and the Squad section is appended

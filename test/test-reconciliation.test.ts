@@ -1,15 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { reconcile, resolvePlatform, shouldFail } from '../scripts/release/test-reconciliation.mjs';
 
-function reportFor(
-  file: string,
-  title: string,
-  status: 'passed' | 'skipped',
-) {
+function reportForMany(tests: Array<{ file: string; title: string; status: 'passed' | 'skipped' | 'failed' }>) {
   return {
-    numTotalTests: 1,
-    numFailedTests: 0,
-    testResults: [{
+    numTotalTests: tests.length,
+    numFailedTests: tests.filter(({ status }) => status === 'failed').length,
+    testResults: tests.map(({ file, title, status }) => ({
       name: file,
       status: 'passed',
       assertionResults: [{
@@ -18,11 +14,63 @@ function reportFor(
         status,
         failureMessages: [],
       }],
-    }],
+    })),
   };
 }
 
+function reportFor(file: string, title: string, status: 'passed' | 'skipped' | 'failed') {
+  return reportForMany([{ file, title, status }]);
+}
+
 describe('release test reconciliation', () => {
+  it.each([
+    'keeps this repository on the complete producer contract',
+    'skips the live-team producer audit when the sanitized checkout has no .squad directory',
+  ])('accounts for the mutually exclusive live-registry assertion: %s', (title) => {
+    const result = reconcile(reportFor('test/agent-provenance.test.ts', title, 'skipped'));
+
+    expect(result.summary).toMatchObject({
+      byCategory: { 'env-gated': 1 },
+      countsSum: true,
+      ok: true,
+    });
+    expect(shouldFail(result, { failOnUnexplained: true })).toBe(false);
+  });
+
+  it('does not exempt unrelated provenance skips or failed producer assertions', () => {
+    const unrelated = reconcile(reportFor('test/agent-provenance.test.ts', 'another producer assertion', 'skipped'));
+    const failed = reconcile(reportFor(
+      'test/agent-provenance.test.ts',
+      'keeps this repository on the complete producer contract',
+      'failed',
+    ));
+
+    expect(unrelated.nonPassing[0].category).toBe('unexplained');
+    expect(failed.nonPassing[0].category).toBe('failed');
+    expect(shouldFail(unrelated, { failOnUnexplained: true })).toBe(true);
+    expect(shouldFail(failed, { failOnUnexplained: true })).toBe(true);
+  });
+
+  it('classifies NoopClaimProvider contract sections as structurally inapplicable', () => {
+    const report = reportFor(
+      '/home/runner/work/squad/squad/test/ralph-claims.test.ts',
+      '8 concurrent acquires on one key yield exactly one acquired',
+      'skipped',
+    );
+    report.testResults[0]!.assertionResults[0]!.fullName =
+      'WorkClaimProvider contract: NoopClaimProvider exclusion 8 concurrent acquires on one key yield exactly one acquired';
+    const result = reconcile(report, { platform: 'linux' });
+
+    expect(result.summary).toMatchObject({
+      byCategory: { structural: 1 },
+      ok: true,
+    });
+    expect(result.nonPassing[0]).toMatchObject({
+      category: 'structural',
+      reason: 'NoopClaimProvider declares no exclusion, leases, or fencing, so those provider contract sections are structurally inapplicable',
+    });
+  });
+
   it('classifies the self-described Windows-only skip in a Linux-shaped report', () => {
     const title = '[platform: win32] removes the legacy raw uppercase Windows drive hash while preserving unrelated entries';
     const result = reconcile(reportFor('/home/runner/work/squad/squad/test/mcp-root-write.test.ts', title, 'skipped'), { platform: 'linux' });
@@ -65,20 +113,48 @@ describe('release test reconciliation', () => {
     expect(shouldFail(result, { failOnUnexplained: true })).toBe(true);
   });
 
+  it('classifies the Windows-only memory rename retry skip on Linux', () => {
+    const title = '[platform: win32] retries transient Windows index rename sharing violations';
+    const result = reconcile(reportFor('test/memory-providers.test.ts', title, 'skipped'), { platform: 'linux' });
+
+    expect(result.summary).toMatchObject({
+      byCategory: { 'env-gated': 1 },
+      ok: true,
+    });
+    expect(result.nonPassing[0]).toMatchObject({
+      file: 'test/memory-providers.test.ts',
+      title,
+      reason: "it.skipIf(process.platform !== 'win32'): Windows-only index rename sharing violations",
+    });
+  });
+
   it('requires the Windows-only test to be present and passed in Windows evidence', () => {
     const title = '[platform: win32] removes the legacy raw uppercase Windows drive hash while preserving unrelated entries';
-    const result = reconcile(reportFor('D:\\a\\squad\\squad\\test\\mcp-root-write.test.ts', title, 'passed'), {
+    const memoryTitle = '[platform: win32] retries transient Windows index rename sharing violations';
+    const result = reconcile(reportForMany([
+      { file: 'D:\\a\\squad\\squad\\test\\mcp-root-write.test.ts', title, status: 'passed' },
+      { file: 'D:\\a\\squad\\squad\\test\\memory-providers.test.ts', title: memoryTitle, status: 'passed' },
+    ]), {
       platform: 'win32',
       requirePlatformExecutions: true,
     });
 
-    expect(result.summary.requiredExecutions).toEqual([{
-      file: 'test/mcp-root-write.test.ts',
-      title,
-      platform: 'win32',
-      status: 'passed',
-      ok: true,
-    }]);
+    expect(result.summary.requiredExecutions).toEqual([
+      {
+        file: 'test/mcp-root-write.test.ts',
+        title,
+        platform: 'win32',
+        status: 'passed',
+        ok: true,
+      },
+      {
+        file: 'test/memory-providers.test.ts',
+        title: memoryTitle,
+        platform: 'win32',
+        status: 'passed',
+        ok: true,
+      },
+    ]);
     expect(result.summary.ok).toBe(true);
     expect(shouldFail(result, { failOnUnexplained: true })).toBe(false);
   });
@@ -90,7 +166,8 @@ describe('release test reconciliation', () => {
     });
 
     expect(result.summary.requiredExecutions).toEqual([
-      expect.objectContaining({ platform: 'win32', status: 'missing', ok: false }),
+      expect.objectContaining({ file: 'test/mcp-root-write.test.ts', platform: 'win32', status: 'missing', ok: false }),
+      expect.objectContaining({ file: 'test/memory-providers.test.ts', platform: 'win32', status: 'missing', ok: false }),
     ]);
     expect(result.summary.ok).toBe(false);
     expect(shouldFail(result, { failOnUnexplained: true })).toBe(true);

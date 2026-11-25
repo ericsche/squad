@@ -1,10 +1,36 @@
 # What's New
 
-Full release history for Squad — from beta through the v1 TypeScript replatform. Jump to the version you're looking for, or read top-down to see how the project evolved.
+Full release history for Squad — from beta through Squad 2.0. Jump to the version you're looking for, or read top-down to see how the project evolved.
 
 ---
 
-## v2.0.0 — Multi-Host Clients & Experimental Backend Contract
+## v2.0.0 — Current Stable Release
+
+Squad 2.0 brings the same team to seven AI hosts, with stable npm packages on
+`latest`. It includes all four previews, safe idempotent upgrades, transactional
+governed-memory migration, opt-in multi-machine work claims, and the repository
+move to `github/squad`. npm package names remain under `@bradygaster`.
+
+Claude Code now has a native plugin, named member subagents, on-demand skills,
+advisory hooks and a local-only dashboard. Shared governance carries decisions,
+rosters and human sign-off requirements across hosts. The SDK includes Copilot
+and optional Claude execution harnesses; the backend contract and remote durable
+integration remain experimental.
+
+Before upgrading, read [Upgrading to Squad 2.0](./scenarios/upgrading.md):
+user-profile commands are removed, and upstream precedence now favors earlier
+entries. The historical preview notes and tested upgrade
+attestations below retain the versions they actually describe.
+
+### v2.0.0-preview.4 — `github/squad` repository identity, transactional memory migration, and source-branch casting
+
+`v2.0.0-preview.4` keeps `insider` as the canonical npm channel and `preview` as its compatibility alias while `latest` remains on v1.1.0. Published npm and NuGet metadata, runtime URLs, `squad init` templates, documentation links (`github.github.com/squad`), and the `gh-aw-enlistment` skill and install verifier now point at `github/squad` (`github/squad/workflows` with explicit `SQUAD_SHA` manifest verification and Windows/XDG `gh` extension environment preservation). Migrating `local` or `worktree` state to `orphan` or `two-layer` now transfers governed memory transactionally—including decision inbox files, the array index, configuration, audit archives, and tombstones—while keeping `.squad/casting/` on the source branch across all backends and coordinating memory index locks across processes and worktrees. This preview also holds `@github/copilot-sdk` below `1.0.29` to avoid `vscode-jsonrpc` 10 export errors, exposes machine-readable health metadata, reads legacy `Role`/`Owns` charter sections for capability advertisement, preserves customized `squad-ci` workflows during upgrade, returns a non-zero exit code from `squad doctor` on failure, and fixes `history-shadow` terminal section parsing.
+
+### v2.0.0-preview.3 — safe legacy recovery, opt-in work claims, and a patched standalone runtime
+
+`v2.0.0-preview.3` keeps `insider` as the canonical npm channel and `preview` as its compatibility alias; `latest`, Homebrew, WinGet, and stable promotion remain held. Legacy Squad 0.9.x casting arrays now migrate natively when charter and assignment evidence is unambiguous, preserving identities, assignments, timestamps, and byte-exact originals. Ambiguous casting remains unchanged and is reported accurately, but no longer blocks managed bridge repair or the rest of `squad upgrade`. Optional built-ins remain opt-in with `squad roster add`, and multi-machine `squad watch` claims remain off by default (`--claims git-ref` enables them). Whatever claim provider is configured, `squad watch` now stops on a malformed, empty, or unreadable `.squad/config.json` (only a missing file selects defaults) or an invalid `watch.claims` value, applies `needs:*` capability routing, and never dispatches the same issue twice in one round.
+
+Standalone archives now vendor Node.js 22.23.4. The official [Node.js October 21, 2026 security advisory](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) and [Node.js v22.23.4 release notes](https://github.com/nodejs/node/releases/tag/v22.23.4) cover the fixed 22.x vulnerabilities, including CVE-2026-111497 (Brotli decoder out-of-bounds write with possible remote code execution) and CVE-2026-106074 (snapshot/SEA entropy-cache reuse). Runtime downloads verify Node's signed `SHASUMS256` data and never fall back to an older runtime. Preview.1 and preview.2 standalone archives embedded Node.js 22.20.0, so standalone users should download preview.3 again. npm installs rely on the host runtime and should use Node.js 22.23.4 or a newer patched release; the package `engines` value remains a compatibility floor.
 
 ### v2.0.0-preview.2 — upgrade safety and bridge reliability
 

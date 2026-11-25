@@ -49,7 +49,7 @@ The client plane lives in `@bradygaster/squad-sdk/client` (with `@bradygaster/sq
 | Host (`ClientId`) | Generated workspace projection | Coordinator dispatch primitive |
 |---|---|---|
 | GitHub Copilot (`copilot`) | `.github/agents/squad.agent.md`, `.mcp.json` | Copilot `task` / `create_session` / `runSubagent` |
-| Claude Code (`claude`) | `.claude/agents/squad.md`, `CLAUDE.md` (managed marker block), `.mcp.json`, `.gitignore` block for `.claude/worktrees/` | Claude `Task` subagent tool |
+| Claude Code (`claude`) | `.claude/agents/squad.md`, `CLAUDE.md` (managed marker block), `.mcp.json`, `.gitignore` block for `.claude/worktrees/` | Claude `Agent` subagent tool |
 | Kiro (`kiro`) | `.kiro/steering/squad.md` (`inclusion: manual`), `.kiro/agents/squad.json`, `.kiro/settings/mcp.json` | Kiro `squad` agent referencing `../steering/squad.md` |
 | OpenCode (`opencode`) | `.opencode/agent/squad.md`, `opencode.json` | OpenCode `@agent` / `task` primitive |
 | Cursor (`cursor`) | `.cursor/agents/squad.md`, `.cursor/rules/squad.mdc` (`alwaysApply: false`), `.cursor/mcp.json` | Cursor subagents or inline charter turn |
@@ -85,7 +85,7 @@ The control plane lives in `@bradygaster/squad-sdk/backend` and owns conversatio
 - **Versioned hash-bound approvals** (`v1` requested → `v2` decided) where `respondApproval` verifies the immutable payload `hash`;
 - **Canonical health and error envelopes** (`BackendError`, `/health/live`, `/health/ready`).
 
-In `squad state-mcp`, the 11 `squad_backend_*` MCP conversation tools are **opt-in**: pass `--experimental-backend` or set `SQUAD_EXPERIMENTAL_BACKEND=1`. `SQUAD_BACKEND_URL` alone does not enable them. The bridge ships no execution harness: `squad_backend_health` / `squad_backend_negotiate` report `executionAvailable: false`, and `squad_backend_send_message` refuses instead of queueing (`unavailable` when no harness is registered; auto-selects a single registered in-process harness when `harness` is omitted, or refuses with `invalid-request` when multiple harnesses are registered), so over MCP the bundled backend is a transcript and event-log surface.
+In `squad state-mcp`, the 11 `squad_backend_*` MCP conversation tools are **opt-in**: pass `--experimental-backend` or set `SQUAD_EXPERIMENTAL_BACKEND=1`. `SQUAD_BACKEND_URL` alone does not enable them. The bridge registers the `claude-agent-sdk` harness when the optional `@anthropic-ai/claude-agent-sdk` peer is installed, and the `copilot-sdk` harness only when `SQUAD_BACKEND_HARNESSES` lists it (`SQUAD_BACKEND_HARNESSES=none` turns both off); without a harness `squad_backend_health` / `squad_backend_negotiate` report `executionAvailable: false`, and `squad_backend_send_message` refuses instead of queueing (`unavailable` when no harness is registered; auto-selects a single registered in-process harness when `harness` is omitted, or refuses with `invalid-request` when multiple harnesses are registered), so over MCP the bundled backend is a transcript and event-log surface.
 
 ### Plane 3: Execution Plane (`HarnessAdapter` SPI)
 

@@ -5,7 +5,7 @@ Squad has three automated release channels:
 | Channel | Source | Version | npm tag | Package managers |
 |---------|--------|---------|---------|------------------|
 | Insider | Manual insider dispatch from `dev` | `X.Y.Z-insider.N` | `insider` | Homebrew and WinGet |
-| Preview | Manual release dispatch from `dev` (exact SHA) | `X.Y.Z-preview.N` | `insider` (+ `preview` alias) | Opt-in |
+| Preview | Manual release dispatch from `dev` (exact SHA) | `X.Y.Z-preview.N` | `insider` (+ `preview` alias) | Held |
 | Stable | Sanitized promotion to `main` | `X.Y.Z` | `latest` | Homebrew and WinGet |
 
 There is no staging `preview` branch. The word preview refers to a GitHub
@@ -17,7 +17,7 @@ Create a normal release-preparation PR targeting `dev`. Keep the root, SDK, and
 CLI versions in lockstep:
 
 ```bash
-VERSION=2.0.0-preview.2
+VERSION=2.0.0-preview.4
 npm version "$VERSION" --workspaces --include-workspace-root --no-git-tag-version
 npm pkg set "dependencies.@bradygaster/squad-sdk=>=$VERSION" \
   --workspace @bradygaster/squad-cli
@@ -27,7 +27,7 @@ npm install --package-lock-only
 Add an exact changelog heading:
 
 ```markdown
-## [2.0.0-preview.2] - YYYY-MM-DD
+## [2.0.0-preview.4] - YYYY-MM-DD
 ```
 
 Before merging, verify:
@@ -37,7 +37,7 @@ node -p "require('semver').valid('$VERSION')"
 grep '"version"' package.json packages/squad-sdk/package.json packages/squad-cli/package.json
 grep -F "## [$VERSION]" CHANGELOG.md
 grep -F "## v$VERSION" docs/src/content/docs/whatsnew.md
-npm run build
+SKIP_BUILD_BUMP=1 npm run build
 npx vitest run
 ```
 
@@ -45,11 +45,11 @@ Wait for `dev` CI to pass after the PR merges.
 
 ## Publish a preview
 
-Use a unique prerelease version such as `2.0.0-preview.2`. The release trigger
+Use a unique prerelease version such as `2.0.0-preview.4`. The release trigger
 is human-only and pins the exact reviewed commit:
 
 ```bash
-VERSION=2.0.0-preview.2
+VERSION=2.0.0-preview.4
 SHA=$(git rev-parse origin/dev)   # the reviewed dev tip, full 40-hex SHA
 gh workflow run squad-release.yml \
   --ref dev \
@@ -62,11 +62,11 @@ gh workflow run squad-release.yml \
 gh run watch
 ```
 
-For `2.0.0-preview.2`, reviewers and release owners explicitly hold Homebrew,
-WinGet, and stable promotion. This dispatch publishes the npm pair (`insider`
-canonical plus the `preview` alias) and standalone artifacts only. Keep
-`publish_package_managers=false` until those channels receive separate
-authorization after attestation and receipt review.
+For `2.0.0-preview.4`, reviewers and release owners explicitly hold Homebrew,
+WinGet, `latest`, and stable promotion. This dispatch publishes the npm pair
+(`insider` canonical plus the `preview` alias) and standalone artifacts only.
+`publish_package_managers=false` is required for this release; there is no
+preview.4 package-manager installation path.
 
 Optional inputs: `npm_dist_tag` (`insider`, the default, or `preview`),
 `add_preview_alias` (default `true`), `build_standalone` (default `true`),
@@ -105,17 +105,18 @@ ID plus exact `release-evidence-<sha>` artifact from a successful Squad Release
 Verify run at that SHA. It publishes only a genuinely missing package and
 otherwise reconciles idempotently.
 
-Install the preview with:
+Release evidence must show that the published CLI tarball pins the SDK to the
+exact same version, even though the workspace manifest keeps a prerelease
+dependency floor while developing on `dev`.
+
+Install the preview from npm with:
 
 ```bash
 npm install -g @bradygaster/squad-cli@insider   # canonical self-upgrade channel
 npm install -g @bradygaster/squad-cli@preview   # compatibility alias
-brew install --cask squad-preview               # only after publish_package_managers
 ```
 
-```powershell
-winget install --id bradygaster.Squad.Preview --exact
-```
+Homebrew and WinGet are intentionally unavailable for preview.4.
 
 Do not dispatch `squad-insider-publish.yml` for a prepared preview version: it
 computes and publishes its own `X.Y.Z-insider.N` snapshot version.
@@ -136,10 +137,12 @@ updates `squad-insider` in Homebrew, and opens or reuses the
 
 ## Publish stable
 
-Prepare another PR that changes all package versions and the changelog heading
-from the prerelease version to stable `2.0.0`. A preview version cannot be
-converted in place after publication; `2.0.0-preview.2` and `2.0.0` are
-different releases.
+Prepare a PR targeting `dev` that sets the root, CLI and SDK versions to
+`2.0.0`, sets the CLI SDK floor to `>=2.0.0`, regenerates the Claude plugin,
+and adds `## [2.0.0] - 2026-11-18` to the changelog. Preserve historical preview
+entries: `2.0.0-preview.4` and `2.0.0` are different immutable releases.
+Reconcile current `main` into the preparation branch and audit its recent docs,
+release authentication and repository-identity changes before promotion.
 
 After the stable preparation lands on `dev`, a human must run the promotion
 validation. This is not agent-safe: `squad-promote.yml` grants
@@ -151,7 +154,10 @@ gh workflow run squad-promote.yml --ref dev -f dry_run=true
 gh run watch
 ```
 
-Only a human may then run the live promotion:
+Only a human may then run the live promotion. **Without `promotion_branch`,
+this command pushes `main` and immediately dispatches the full stable release,
+including standalone and package-manager publication.** It is not a
+PR-only operation and must not be used to bypass branch protection:
 
 ```bash
 gh workflow run squad-promote.yml --ref dev -f dry_run=false
@@ -162,11 +168,42 @@ The promotion workflow merges `dev` directly into `main`, removes internal team
 state from the release tree, validates versions and the changelog, builds, runs
 tests, and pushes `main`.
 
-Promotion explicitly dispatches `squad-release.yml` after pushing `main`,
-because GitHub does not start another workflow from a `GITHUB_TOKEN` push. The
-release workflow creates the stable tag and GitHub Release, publishes npm
-`latest`, uploads standalone archives, updates the Homebrew cask, and opens or
-reuses the WinGet manifest PR.
+For a protected-main PR path, first prepare and validate a sanitized
+`chore/promote-2.0.0` branch in the upstream repository. A human can then have
+the workflow validate and open that existing branch as a PR:
+
+```bash
+gh workflow run squad-promote.yml --ref dev \
+  -f dry_run=true -f promotion_branch=chore/promote-2.0.0
+gh run watch
+gh workflow run squad-promote.yml --ref dev \
+  -f dry_run=false -f promotion_branch=chore/promote-2.0.0
+gh run watch
+```
+
+Wait for required checks and reviews before merging the promotion PR.
+`squad-release.yml` is manual-only; a normal PR merge does not publish.
+After the reviewed promotion reaches `main`, a human reads its exact tip and
+dispatches the release:
+
+```bash
+SHA=$(gh api repos/github/squad/git/ref/heads/main --jq '.object.sha')
+gh workflow run squad-release.yml --ref main \
+  -f confirm_tag=v2.0.0 -f expected_sha="$SHA" \
+  -f build_standalone=true -f publish_standalone=true \
+  -f publish_package_managers=true
+gh run watch
+```
+
+The explicit publication flags match the stable release checklist: defaults
+only build standalone artifacts and do not publish them or promote the GitHub
+Release to latest. The legacy direct-push path already dispatches this release;
+do not dispatch a second run while it is active.
+
+The release workflow verifies the exact SHA, creates the stable tag and a draft
+GitHub Release, publishes npm `latest`, uploads standalone archives, updates the
+Homebrew cask and opens or reuses the WinGet manifest PR. It publishes the
+GitHub Release and marks it latest only after the selected channels complete.
 
 ## What gets removed from `main`
 

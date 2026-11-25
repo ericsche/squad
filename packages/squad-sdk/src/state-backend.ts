@@ -14,6 +14,7 @@ import path from 'node:path';
 import { FSStorageProvider } from './storage/fs-storage-provider.js';
 import type { StorageProvider, StorageStats } from './storage/storage-provider.js';
 import { StateKeyConflictError, StateBackendUncertaintyError } from './storage/storage-error.js';
+import type { BackendStateStore } from './backend/types.js';
 
 const storage = new FSStorageProvider();
 
@@ -501,8 +502,14 @@ export function validateStateKey(key: string): void {
 }
 
 
+function withoutTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '/') end--;
+  return value.slice(0, end);
+}
+
 function normalizeKey(relativePath: string): string {
-  const normalized = relativePath.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
+  const normalized = withoutTrailingSlashes(relativePath.replace(/\\/g, '/').replace(/^\/+/, ''));
   // Empty string after normalization means "root" — valid for list() operations
   if (normalized.length > 0) {
     validateStateKey(normalized);
@@ -1099,6 +1106,11 @@ export class OrphanBranchBackend implements StateBackend {
 export class StateBackendStorageAdapter implements StorageProvider {
   constructor(private backend: StateBackend, private squadDir: string) {}
 
+  async createLockStore(lockAnchor: string): Promise<BackendStateStore> {
+    const { createStateBackendStore } = await import('./backend/state-backend-store.js');
+    return createStateBackendStore(this.backend, { lockAnchor });
+  }
+
   // ── Async operations ─────────────────────────────────────────────────────
   async createIfAbsent(filePath: string, data: string): Promise<void> {
     this.backend.createIfAbsent(this.toRelative(filePath, { operation: 'createIfAbsent' }), data);
@@ -1219,9 +1231,7 @@ export class StateBackendStorageAdapter implements StorageProvider {
     }
 
     if (!path.isAbsolute(filePath)) {
-      const relative = slashPath
-        .replace(/^(?:\.\/)+/, '')
-        .replace(/\/+$/, '');
+      const relative = withoutTrailingSlashes(slashPath.replace(/^(?:\.\/)+/, ''));
       return relative.length === 0 ? this.resolveRoot(options) : relative;
     }
 
@@ -1569,7 +1579,7 @@ function normalizeBackendType(type: string): StateBackendType {
         "'squad-state' orphan branch in your repository. " +
         "To suppress this warning, update .squad/config.json: " +
         "set \"stateBackend\": \"two-layer\". " +
-        "See https://github.com/bradygaster/squad/blob/dev/docs/state-backends.md for upgrade instructions."
+        "See https://github.com/github/squad/blob/dev/docs/src/content/docs/features/state-backends.md for upgrade instructions."
       );
     }
     return 'two-layer';

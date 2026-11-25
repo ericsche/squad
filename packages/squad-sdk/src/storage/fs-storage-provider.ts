@@ -17,9 +17,28 @@ import { StorageError, StateKeyConflictError, StateBackendUncertaintyError } fro
 export class FSStorageProvider implements StorageProvider {
   private static readonly CASE_INSENSITIVE = process.platform === 'win32' || process.platform === 'darwin';
   private readonly rootDir?: string;
+  /** The root as the caller spelled it, before symlinks were resolved (e.g. macOS `/tmp/x`). */
+  private readonly lexicalRoot?: string;
 
   constructor(rootDir?: string) {
-    this.rootDir = rootDir ? realpathSync(resolve(rootDir)) : undefined;
+    this.lexicalRoot = rootDir ? resolve(rootDir) : undefined;
+    this.rootDir = this.lexicalRoot ? realpathSync(this.lexicalRoot) : undefined;
+  }
+
+  /**
+   * Re-express a path under the root's original spelling under its resolved spelling. The root is
+   * stored resolved (`/private/tmp/x`), but callers build absolute paths from the spelling they were
+   * given (`/tmp/x/team.md`); without this, the lexical containment check rejects them as traversal.
+   * Both spellings name the same directory, so this changes nothing about what is reachable: the
+   * symlink checks that follow still run on the result.
+   */
+  private rebase(resolved: string): string {
+    const lex = this.lexicalRoot;
+    const root = this.rootDir;
+    if (!lex || !root || this.pathEquals(lex, root)) return resolved;
+    if (this.pathEquals(resolved, lex)) return root;
+    if (this.pathStartsWith(resolved, lex + sep)) return root + resolved.slice(lex.length);
+    return resolved;
   }
 
   private pathStartsWith(fullPath: string, prefix: string): boolean {
@@ -50,7 +69,7 @@ export class FSStorageProvider implements StorageProvider {
   private async assertSafePath(filePath: string): Promise<string> {
     if (!this.rootDir) return filePath;
     
-    const resolved = resolve(this.rootDir, filePath);
+    const resolved = this.rebase(resolve(this.rootDir, filePath));
     
     // Check if resolved path is within rootDir
     if (!this.pathStartsWith(resolved, this.rootDir + sep) && !this.pathEquals(resolved, this.rootDir)) {
@@ -90,7 +109,7 @@ export class FSStorageProvider implements StorageProvider {
   private assertSafePathSync(filePath: string): string {
     if (!this.rootDir) return filePath;
     
-    const resolved = resolve(this.rootDir, filePath);
+    const resolved = this.rebase(resolve(this.rootDir, filePath));
     
     // Check if resolved path is within rootDir
     if (!this.pathStartsWith(resolved, this.rootDir + sep) && !this.pathEquals(resolved, this.rootDir)) {
@@ -146,7 +165,15 @@ export class FSStorageProvider implements StorageProvider {
       fh = await open(safePath, 'wx');
     } catch (openErr: unknown) {
       const code = (openErr as NodeJS.ErrnoException).code;
-      if (code === 'EEXIST') {
+      // Windows can report a sharing violation instead of EEXIST for a racing creator.
+      let existingFile = false;
+      if (code === 'EACCES' || code === 'EPERM') {
+        try {
+          await access(safePath);
+          existingFile = true;
+        } catch { /* It may have disappeared after the exclusive open failed. */ }
+      }
+      if (code === 'EEXIST' || existingFile) {
         throw new StateKeyConflictError(filePath);
       }
       throw new StateBackendUncertaintyError(

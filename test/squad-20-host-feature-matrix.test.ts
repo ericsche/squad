@@ -56,7 +56,7 @@ const CAPABILITIES: Capability[] = ['supported', 'degraded', 'unsupported', 'n/a
 const VALIDATION_LEVELS: Validation[] = ['validated-live', 'validated-test', 'static-only', 'untested', 'blocked'];
 const EVIDENCE_RE = /^(validated-test:[^:]+::.+|validated-manual:lab:[a-z0-9-]+@\d{4}-\d{2}-\d{2}|static-only)$/;
 /** Hosts with a passing live run on the reference machine; only these may carry `validated-live`. */
-const LIVE_HOSTS = new Set(['claude', 'opencode']);
+const LIVE_HOSTS = new Set(['claude', 'opencode', 'copilot']);
 
 const ROSTER = '| Name | Role | Charter | Status |\n|---|---|---|---|\n| Noether | Lead Architect | `.squad/agents/noether/charter.md` | ✅ Active |\n| Galois | Backend Engineer | `.squad/agents/galois/charter.md` | ✅ Active |\n';
 const THIS_FILE = 'test/squad-20-host-feature-matrix.test.ts';
@@ -84,7 +84,7 @@ describe('host-feature-matrix.json integrity', () => {
         // The validation level must be backed by evidence of that kind — the two axes stay honest.
         const kinds = new Set(c!.evidence.map((v) => v.split(':')[0]));
         if (c!.validation === 'validated-live') {
-          expect(LIVE_HOSTS.has(h), `${f.id}/${h}: validated-live is only possible for hosts with a passing live run (Claude Code, OpenCode)`).toBe(true);
+          expect(LIVE_HOSTS.has(h), `${f.id}/${h}: validated-live is only possible for hosts with a passing live run (Claude Code, OpenCode, Copilot)`).toBe(true);
           expect(kinds.has('validated-manual'), `${f.id}/${h}: validated-live needs a validated-manual:lab entry`).toBe(true);
         }
         if (c!.validation === 'validated-test') expect(kinds.has('validated-test'), `${f.id}/${h}: validated-test needs a validated-test entry`).toBe(true);
@@ -170,7 +170,7 @@ describe('host-feature-matrix.json integrity', () => {
         const gapName = title!.slice(PREFIX.length);
         expect(src.includes(`['${gapName}', `), `${e.featureId}: gap "${gapName}" is not registered in ${file}`).toBe(true);
         expect(src.includes(`it.fails(\`${PREFIX}\${name} [\${id}]\``), `${file}: per-host it.fails template changed; update the matrix`).toBe(true);
-        expect(src.includes('for (const id of CLIENT_IDS) {\n      it.fails('), `${file}: per-host it.fails must iterate CLIENT_IDS`).toBe(true);
+        expect(src.includes('for (const id of CLIENT_IDS.filter((h) => !closed.includes(h))) {\n      it.fails('), `${file}: per-host it.fails must iterate CLIENT_IDS minus the gap's closed hosts`).toBe(true);
         for (const h of hosts) expect(CLIENT_IDS, `${e.featureId}: host ${h} is not a client id`).toContain(h);
       } else {
         expect(src.includes(title!), `${e.featureId}: it.fails title "${title}" not found in ${file}`).toBe(true);

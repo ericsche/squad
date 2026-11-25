@@ -9,8 +9,8 @@
  * `queued`/`pending` mode and the console summary silently drops it) is reported as
  * `unexplained` instead of disappearing into "total minus the buckets".
  *
- * Categories (release policy: keep the 7 structural upgrade-matrix skips and the F3 xfails;
- * no supported downgrade; everything else must be env-gated with the gate named, or fixed):
+ * Categories (release policy: keep reviewed structural skips and the F3 xfails; no supported
+ * downgrade; everything else must be env-gated with the gate named, or fixed):
  *   structural   the upgrade matrix declares the cell structurally inapplicable
  *   env-gated    skipped because an opt-in environment variable, binary, platform, build artifact
  *                or privilege is absent on this runner (gate named in `reason`)
@@ -31,18 +31,33 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 /** Reviewed skip/xfail/todo sources. Order matters: first match wins. */
 export const CATEGORY_RULES = Object.freeze([
   { category: 'structural', file: /squad-20-upgrade-matrix\.test\.ts$/, title: /structurally inapplicable|not applicable|×.*: (no |cannot|does not)/i, reason: 'upgrade matrix: structurally inapplicable cell (7 declared in test-fixtures/spec/suite-v0.2/upgrade-matrix.json)' },
+  {
+    category: 'structural',
+    file: /ralph-claims\.test\.ts$/,
+    title: /WorkClaimProvider contract: NoopClaimProvider (?:exclusion|fencing|leases|plausibility)/,
+    reason: 'NoopClaimProvider declares no exclusion, leases, or fencing, so those provider contract sections are structurally inapplicable',
+  },
   { category: 'env-gated', file: /squad-20-upgrade-matrix\.test\.ts$/, reason: 'SQUAD_UPGRADE_MATRIX=1 not set (matrix runs only in squad-upgrade-matrix.yml)' },
   { category: 'env-gated', file: /squad-20-preview-tarball-matrix\.test\.ts$/, reason: 'SQUAD_PREVIEW_TARBALL_MATRIX=1 not set (exact-tarball matrix runs only in the attested preview workflow mode)' },
   { category: 'env-gated', file: /clients-real-cli\.test\.ts$/, reason: 'SQUAD_REAL_CLI_TESTS=1 not set / host CLI binaries absent' },
   { category: 'env-gated', file: /squad-20-real-clients-stdio\.e2e\.test\.ts$/, reason: 'SQUAD_REAL_CLI_TESTS=1 not set / host CLI binaries absent' },
+  { category: 'env-gated', file: /(claude-agent-sdk|copilot-sdk)-harness\.test\.ts$/, title: /live \(real (Agent|Copilot) SDK\)/, reason: 'SQUAD_REAL_CLI_TESTS=1 not set / execution-harness credentials absent (Anthropic API key or Bedrock/Vertex for Claude; a signed-in Copilot user for Copilot)' },
   { category: 'env-gated', file: /squad-20-host-feature-matrix\.test\.ts$/, reason: 'live host evidence requires the real CLI binaries' },
   { category: 'env-gated', file: /mcp-spec-init\.test\.ts$/, title: /squad\.exe/, reason: 'it.runIf(win32): Windows-only PATH/.exe resolution' },
+  { category: 'env-gated', file: /launcher-argv\.test\.ts$/, title: /\.cmd shim has no JavaScript entry/, reason: 'it.runIf(win32): Windows-only npm .cmd shim handling' },
   {
     category: 'env-gated',
     file: 'test/mcp-root-write.test.ts',
     title: '[platform: win32] removes the legacy raw uppercase Windows drive hash while preserving unrelated entries',
     runsOn: 'win32',
     reason: "it.runIf(process.platform === 'win32'): Windows-only legacy drive-hash reconciliation",
+  },
+  {
+    category: 'env-gated',
+    file: 'test/memory-providers.test.ts',
+    title: '[platform: win32] retries transient Windows index rename sharing violations',
+    runsOn: 'win32',
+    reason: "it.skipIf(process.platform !== 'win32'): Windows-only index rename sharing violations",
   },
   {
     category: 'env-gated',
@@ -59,6 +74,13 @@ export const CATEGORY_RULES = Object.freeze([
   { category: 'env-gated', file: /(package-exports-targets|bench-runner|cli-outside-project|cli\/command-help|upstream-runtime|cli\/upgrade)\.test\.ts$/, reason: 'requires a built dist/ (CI builds before testing)' },
   { category: 'env-gated', file: /release-pack-install\.test\.ts$/, reason: 'SQUAD_RELEASE_PACK_INSTALL=1 not set for the plain suite run; the release-verify workflow runs it as a dedicated step against the packed tarballs' },
   { category: 'env-gated', file: /(squad-agent-roster|state-backend-handshake)\.test\.ts$/, title: /file does not exist in this checkout/, reason: 'contributor-only .squad file absent from this checkout' },
+  {
+    category: 'env-gated',
+    file: 'test/agent-provenance.test.ts',
+    title: /^(keeps this repository on the complete producer contract|skips the live-team producer audit when the sanitized checkout has no \.squad directory)$/,
+    status: 'skipped',
+    reason: 'Mutually exclusive live-registry assertions: the producer contract runs when .squad/casting/registry.json exists; the sanitized-checkout assertion runs otherwise',
+  },
   { category: 'f3-xfail', file: /squad-20-upgrade-matrix\.test\.ts$/, status: 'xfail', reason: 'finding F3: Squad 0.9.1 upgrade --dry-run is not dry (pinned xfail; xpass fails the suite)' },
   { category: 'digest-gap', file: /clients\.test\.ts$/, status: 'xfail', title: /^digest gap/, reason: 'test/clients.test.ts: per-host coordinator digest gap declared with it.fails' },
 ]);

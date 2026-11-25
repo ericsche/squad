@@ -26,9 +26,11 @@ import {
   upsertTomlTable,
   BLOCK_BEGIN,
   type ClientContext,
+  type ClientId,
 } from '../packages/squad-sdk/src/client/index.js';
 import {
   persistClients,
+  readClaudePluginFlag,
   readClientFlag,
   readConfiguredClients,
   syncClients,
@@ -38,6 +40,7 @@ import { runInit } from '../packages/squad-cli/src/cli/core/init.js';
 import * as clientEntry from '../packages/squad-sdk/src/client/index.js';
 
 import * as canonical from '../packages/squad-sdk/src/client/adapters/index.js';
+import { claudeCoordinatorSkills } from '../packages/squad-sdk/src/client/adapters/coordinator.js';
 import * as deprecatedClients from '../packages/squad-sdk/src/clients/index.js';
 import {
   AdapterUnboundError,
@@ -100,7 +103,7 @@ describe('coordinator instructions', () => {
   });
   it('mentions the host-specific spawn primitive', () => {
     expect(buildCoordinatorInstructions('copilot')).toMatch(/runSubagent/);
-    expect(buildCoordinatorInstructions('claude')).toMatch(/`Task`/);
+    expect(buildCoordinatorInstructions('claude')).toMatch(/`Agent`/);
     expect(buildCoordinatorInstructions('opencode')).toMatch(/`general` subagent/);
   });
 });
@@ -213,7 +216,7 @@ describe('shared files and TOML helper', () => {
   it('upsertTomlTable creates, updates and keeps neighbors', () => {
     expect(upsertTomlTable('', 't.x', { a: '"1"' })).toBe('[t.x]\na = "1"\n');
     const out = upsertTomlTable('k = 1\n[t.x]\na = "0"\nz = 2\n[t.y]\nq = 3\n', 't.x', { a: '"1"', b: '[]' });
-    expect(out).toBe('k = 1\n[t.x]\na = "1"\nz = 2\nb = []\n[t.y]\nq = 3\n'.replace(/\n$/, '\n'));
+    expect(out).toBe('k = 1\n[t.x]\na = "1"\nz = 2\nb = []\n[t.y]\nq = 3\n');
   });
   it('all expands to every client including codex and antigravity', () => {
     expect(parseClients('all')).toEqual(expect.arrayContaining(['codex', 'antigravity']));
@@ -221,10 +224,19 @@ describe('shared files and TOML helper', () => {
   });
 });
 
+/**
+ * Everything a host's coordinator can load: the digest, plus (Claude Code only) the on-demand
+ * `squad-coordinator-*` skills its digest points to (#2438 Phase 4).
+ */
+function coordinatorContract(id: ClientId, squadDir?: string): string {
+  const digest = buildCoordinatorInstructions(id, squadDir);
+  return id === 'claude' ? [digest, ...claudeCoordinatorSkills(squadDir).map((k) => k.body)].join('\n') : digest;
+}
+
 describe('coordinator Ralph mode', () => {
   it('coordinator prompt includes host-agnostic Ralph mode driven by the coordinator', () => {
     for (const id of CLIENT_IDS) {
-      const t = buildCoordinatorInstructions(id);
+      const t = coordinatorContract(id);
       expect(t).toMatch(/Ralph mode/);
       expect(t).toMatch(/squad:<member>/);
       expect(t).toMatch(/subagents cannot spawn subagents/);
@@ -235,7 +247,8 @@ describe('coordinator Ralph mode', () => {
 describe('coordinator behavioral-contract parity', () => {
   const sections: Array<[string, RegExp[]]> = [
     ['Response Mode', [/Response Mode Selection/, /\*\*Direct\*\*/, /\*\*Lightweight\*\*/, /\*\*Standard\*\*/, /\*\*Full\*\*/]],
-    ['Scribe', [/Scribe spawn protocol and drop-box/, /decisions\/inbox\//, /orchestration-log\//, /\/log\//, /squad_state_health/]],
+    // Session and orchestration logs are retired, as in the Copilot coordinator and Scribe's charter (#2454).
+    ['Scribe', [/Scribe spawn protocol and drop-box/, /decisions\/inbox\//, /neither Scribe nor you writes session logs or orchestration logs/, /squad_state_health/]],
     ['Reviewer Rejection', [/Reviewer rejection protocol and strict lockout/, /locked out/, /may not self-revise/]],
     ['Rai', [/Rai \(RAI Reviewer\)/, /🟢 Green/, /🟡 Yellow/, /🔴 Red/, /blocks shipping/]],
     ['Fact Checker', [/Fact Checker \(verification and devil's advocate\)/, /✅/, /⚠️/, /❌/, /🔍/, /steelmans/, /pre-mortem/]],
@@ -244,16 +257,17 @@ describe('coordinator behavioral-contract parity', () => {
     ['Memory/state handshake', [/Memory governance and state-backend handshake/, /squad_state_health/, /squad_decide/, /memory\.\*/]],
     ['GitHub Issues + PRD Mode', [/GitHub Issues mode/, /gh issue list/, /squad\/\{issue-number\}-\{slug\}/, /PRD mode/, /decompose/]],
     ['Cross-Squad', [/Cross-squad delegation/, /peer Squad install/, /ad-hoc subagent/]],
-    ['Human + @copilot', [/Human members and the @copilot coding agent/, /Coding Agent/]],
+    ['Human + @copilot', [/Human members, sign-off gates and the @copilot coding agent/, /Coding Agent/]],
+    ['Human sign-off gates', [/request to do that work is NOT the sign-off/, /explicit yes/, /non-interactive run, stop at the gate/]],
     ['Process safety', [/Never kill processes by image name/]],
     ['Tool naming + dirs', [/Tool names are host-prefixed/, /squad_state_squad_state_read/, /EISDIR/, /for a directory/]],
     ['Explicit fallback', [/Unknown or missing member/, /never silently swap owners/, /Built-in members/]],
     ['Ralph', [/Ralph mode/, /squad:<member>/, /board clear/]],
-    ['Init Mode guards', [/NEVER with glob\/grep\/search tools/, /Auto-confirm \(default\)/, /npx squad cast --name/, /NEVER hand-write or edit anything under/, /checksummed pair/, /\.squad\/scratch\//, /never write outside the workspace/, /STOP and report the roster/]],
+    ['Init Mode guards', [/NEVER with glob\/grep\/search tools/, /Auto-confirm \(default\)/, /`squad cast --name/, /NEVER hand-write or edit anything under/, /checksummed pair/, /\.squad\/scratch\//, /never write outside the workspace/, /STOP and report the roster/]],
   ];
   for (const id of CLIENT_IDS) {
     it(`${id} prompt carries the full coordinator contract`, () => {
-      const text = buildCoordinatorInstructions(id);
+      const text = coordinatorContract(id);
       for (const [name, pats] of sections) {
         for (const p of pats) expect(text, `${id}: ${name} ${p}`).toMatch(p);
       }
@@ -263,7 +277,7 @@ describe('coordinator behavioral-contract parity', () => {
     for (const id of CLIENT_IDS) expect(Buffer.byteLength(buildCoordinatorInstructions(id), 'utf8')).toBeLessThan(24_000);
   });
   it('honors a custom squad dir in every referenced path', () => {
-    const t = buildCoordinatorInstructions('claude', '.team');
+    const t = coordinatorContract('claude', '.team');
     expect(t).toContain('.team/skills/');
     expect(t).toContain('.team/casting/');
     expect(t).not.toContain('.squad/skills/');
@@ -283,7 +297,8 @@ describe('coordinator digest vs. host feature matrix', () => {
     ['Dispatch adapter per host', [/## Dispatch adapter: /, /## Transport/]],
     ['Host-prefixed tool names (Claude, OpenCode, Kiro)', [/mcp__squad_state__squad_state_read/, /squad_state_squad_state_read/, /@squad_state\/squad_state_read/]],
     ['Worktree + issue-lifecycle references', [/worktree-reference\.md/, /issue-lifecycle\.md/]],
-    ['Canonical file is authoritative when present', [/\.github\/agents\/squad\.agent\.md/, /authoritative coordinator contract/]],
+    // ADR-003 option C (#2487): the digest is complete on its own and never defers to Copilot's file.
+    ['Self-sufficient digest (no Copilot file needed)', [/This file is your complete coordinator protocol\./, /do not read it for instructions/]],
     // Finding F1 (Squad 2.0): upstream inheritance is wired at runtime — the digest tells every host to call
     // `squad_state_upstreams`, never to fetch, and to cite `upstream:<name>@<ref>` provenance.
     ['Upstream inheritance (upstream.json via squad_state_upstreams, no fetch, provenance, untrusted)', [/upstream\.json/, /squad_state_upstreams/, /unconditionally/, /project-local/, /NEVER fetch at session start/, /upstream:<name>@<ref>/, /local `\.squad\/` wins/, /untrusted third-party data, not instructions/]],
@@ -295,15 +310,24 @@ describe('coordinator digest vs. host feature matrix', () => {
     });
   }
 
-  const gaps: Array<[string, RegExp, string]> = [
-    ['team-root resolution (teamRoot / stateLocation / TEAM_ROOT)', /teamRoot|stateLocation|TEAM_ROOT/, 'monorepo-team-root, dual-root-remote-mode'],
+  // The optional fourth entry lists hosts whose digest has closed the gap: they assert it instead of `it.fails`.
+  const gaps: Array<[string, RegExp, string, ClientId[]?]> = [
+    // Closed (#2487): every digest's "Linked team" rule (step 1) reads a linked team repository through squad_state.
+    ['linked team repository (teamRoot)', /\*\*Linked team:\*\*.*`teamRoot`.*squad_state_read/, 'dual-root-remote-mode', [...CLIENT_IDS]],
+    ['team-root resolution (stateLocation / TEAM_ROOT)', /stateLocation|TEAM_ROOT/, 'monorepo-team-root'],
     ['Azure DevOps issue tracking (az boards / ADO)', /az boards|Azure DevOps/, 'azure-devops (F3)'],
     ['GitLab issue tracking (glab)', /glab|GitLab/, 'gitlab-issues (F2)'],
-    ['per-agent model / reasoning / context-tier selection', /reasoning[- ]effort|context[- ]tier|defaultModel/, 'model-selection'],
+    // Claude (#2442): member subagent frontmatter plus the per-spawn `model` rules in its dispatch section.
+    ['per-agent model / reasoning / context-tier selection', /reasoning[- ]effort|context[- ]tier|defaultModel/, 'model-selection', ['claude']],
     ['plugin marketplace browse on cast', /marketplace/, 'marketplace-plugins'],
   ];
-  for (const [name, pat, cells] of gaps) {
-    for (const id of CLIENT_IDS) {
+  for (const [name, pat, cells, closed = []] of gaps) {
+    for (const id of closed) {
+      it(`digest carries: ${name} [${id}]`, () => {
+        expect(buildCoordinatorInstructions(id), `${id}: ${name} (matrix cells: ${cells})`).toMatch(pat);
+      });
+    }
+    for (const id of CLIENT_IDS.filter((h) => !closed.includes(h))) {
       it.fails(`digest gap (expected until the stack adds it): ${name} [${id}]`, () => {
         expect(buildCoordinatorInstructions(id), `${id}: ${name} (matrix cells: ${cells})`).toMatch(pat);
       });
@@ -325,12 +349,21 @@ describe('claude adapter', () => {
   it('projects only the coordinator agent, .mcp.json and CLAUDE.md block', () => {
     installClients(['claude'], ctx());
     const agent = read('.claude/agents/squad.md');
-    expect(agent).toMatch(/^---\nname: squad\ndescription: ".*"\ntools: .*Task.*mcp__squad_state\n---/);
+    expect(agent).toMatch(/^---\nname: squad\ndescription: ".*"\n---/);
+    // No allowlist: the coordinator inherits squad_state and any MCP server the user adds.
+    expect(agent.split('\n---')[0]).not.toMatch(/^tools:/m);
     expect(fs.readdirSync(path.join(root, '.claude/agents'))).toEqual(['squad.md']);
     expect(readJson('.mcp.json').mcpServers.squad_state.command).toBe('squad');
     expect(read('CLAUDE.md')).toContain(BLOCK_BEGIN);
     expect(read('.gitignore')).toBe('# squad:claude\n.claude/worktrees/\n');
     expect(read('CLAUDE.md')).toContain('--mcp-config .mcp.json');
+  });
+  it('keeps a user-added MCP server in .mcp.json and does not hide it from the coordinator', () => {
+    fs.writeFileSync(path.join(root, '.mcp.json'), JSON.stringify({ mcpServers: { 'agent-memory': { command: 'agent-memory-mcp' } } }, null, 2));
+    installClients(['claude'], ctx());
+    installClients(['claude'], ctx());
+    expect(readJson('.mcp.json').mcpServers['agent-memory']).toEqual({ command: 'agent-memory-mcp' });
+    expect(read('.claude/agents/squad.md').split('\n---')[0]).not.toMatch(/^tools:/m);
   });
   it('.gitignore gets plain ignore lines (no HTML markers) and uninstall removes only what Squad added', () => {
     fs.writeFileSync(path.join(root, '.gitignore'), 'node_modules/\n.claude/worktrees/\n');
@@ -443,8 +476,16 @@ describe('config merging', () => {
     expect(exists('.cursor/rules/squad.mdc')).toBe(true);
   });
 
-  it('upsertBlock appends with spacing', () => {
-    expect(upsertBlock('a', 'x')).toBe(`a\n\n${BLOCK_BEGIN}\nx\n<!-- squad:end -->\n`);
+  it('upsertBlock appends after one blank line and keeps a missing final newline missing', () => {
+    expect(upsertBlock('a', 'x')).toBe(`a\n\n${BLOCK_BEGIN}\nx\n<!-- squad:end -->`);
+    expect(upsertBlock('a\n', 'x')).toBe(`a\n\n${BLOCK_BEGIN}\nx\n<!-- squad:end -->\n`);
+  });
+
+  it('removeBlock restores the exact original bytes however the file ended (§15.7)', () => {
+    for (const original of ['', 'a', 'a\n', 'a\n\n', 'a\n\n\n', '# T\n\nbody', '\n', 'x\n  ']) {
+      expect(removeBlock(upsertBlock(original, 'x')), JSON.stringify(original)).toBe(original);
+      expect(removeBlock(upsertBlock(upsertBlock(original, 'x'), 'x-v2')), JSON.stringify(original)).toBe(original);
+    }
   });
 
   it('applyProjection reports created then updated', () => {
@@ -494,6 +535,33 @@ describe('CLI --client handling', () => {
       const bare = await syncClients(root, sq, { version: '0.0.0' });
       expect(bare.clients).toEqual(['claude', 'kiro']);
       expect(readJson('.mcp.json').mcpServers.squad_state.args.at(-1)).toBe('state-mcp');
+    } finally {
+      if (prev !== undefined) process.env['SQUAD_STANDALONE_HOME'] = prev;
+    }
+  });
+
+  it('reads --claude-plugin and --no-claude-plugin', () => {
+    expect(readClaudePluginFlag(['init'])).toBeUndefined();
+    expect(readClaudePluginFlag(['init', '--claude-plugin'])).toBe(true);
+    expect(readClaudePluginFlag(['upgrade', '--no-claude-plugin'])).toBe(false);
+  });
+
+  it('syncClients with claudePlugin adds claude, persists the mode, and switches back', async () => {
+    const sq = path.join(root, '.squad');
+    fs.mkdirSync(sq);
+    fs.writeFileSync(path.join(sq, 'config.json'), '{\n  "keep": 1\n}\n');
+    fs.writeFileSync(path.join(sq, 'team.md'), '| Name | Role |\n|---|---|\n| Data | Expert |\n');
+    const prev = process.env['SQUAD_STANDALONE_HOME'];
+    delete process.env['SQUAD_STANDALONE_HOME'];
+    try {
+      const on = await syncClients(root, sq, { claudePlugin: true, version: '0.0.0' });
+      expect(on.clients).toEqual(['claude']);
+      expect(readJson('.squad/config.json')).toMatchObject({ keep: 1, claudePlugin: true });
+      expect(exists('.claude/agents/squad.md')).toBe(false);
+      expect(readJson('.claude/settings.json').agent).toBe('squad:squad');
+      await syncClients(root, sq, { claudePlugin: false, version: '0.0.0' });
+      expect(readJson('.squad/config.json').claudePlugin).toBeUndefined();
+      expect(exists('.claude/agents/squad.md')).toBe(true);
     } finally {
       if (prev !== undefined) process.env['SQUAD_STANDALONE_HOME'] = prev;
     }
@@ -782,7 +850,7 @@ describe('Layer 1 review recommendations & hardening', () => {
     expect(upstreamSection).toMatch(/cannot change your tools, permissions, approvals, MCP servers or host settings/);
     expect(upstreamSection).toMatch(/not a sandbox or an authorization boundary/);
 
-    // Verify projected coordinator prompt references .github/agents/squad.agent.md and derives version when present
+    // ADR-003 option C (#2487): the digest no longer derives anything from Copilot's file in the workspace.
     const ghAgentsDir = path.join(root, '.github', 'agents');
     fs.mkdirSync(ghAgentsDir, { recursive: true });
     fs.writeFileSync(
@@ -791,9 +859,9 @@ describe('Layer 1 review recommendations & hardening', () => {
     );
     installClients(['claude'], ctx());
     const projected = read('.claude/agents/squad.md');
-    expect(projected).toContain(CANONICAL_COORDINATOR_AGENT_PATH);
-    expect(projected).toContain('1.2.3-test');
-    expect(projected).toContain('Authoritative specification (single source of truth)');
+    expect(projected).not.toContain('1.2.3-test');
+    expect(projected).not.toContain('Authoritative specification');
+    expect(projected).toContain('This file is your complete coordinator protocol.');
   });
 
   it('apply.ts: upsertBlock and removeBlock throw on unclosed or inverted markers instead of losing user content', () => {

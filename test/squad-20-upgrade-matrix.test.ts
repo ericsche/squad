@@ -96,6 +96,7 @@ interface Matrix {
   inapplicable: Inapplicable[];
   expectedFailures: ExpectedFailure[];
   findings: Finding[];
+  historicalRuns?: Run[];
   runs: Run[];
 }
 
@@ -206,7 +207,8 @@ describe('upgrade-matrix.json integrity', () => {
       } else if (p.source === 'github-release') {
         expect('release' in p.artifacts, `${p.version}: release producer needs artifacts.release`).toBe(true);
         const rel = (p.artifacts as { release: { repository: string; tag: string; assets: Record<string, ReleaseAsset> } }).release;
-        expect(rel.repository).toBe('bradygaster/squad');
+        // The repository moved from bradygaster/squad to github/squad; release asset ids are unchanged.
+        expect(rel.repository).toBe('github/squad');
         expect(rel.tag).toBe(`v${p.version}`);
         for (const name of ['squad-linux-x64.tar.gz', 'squad-linux-arm64.tar.gz', 'squad-darwin-x64.tar.gz', 'squad-darwin-arm64.tar.gz', 'squad-win32-x64.zip', 'squad-win32-arm64.zip']) {
           const a = rel.assets[name];
@@ -273,6 +275,15 @@ describe('upgrade-matrix.json integrity', () => {
     }
   });
 
+  it('retains previous runs with their original attribution', () => {
+    for (const run of matrix.historicalRuns ?? []) {
+      expect(run.targetSha).toMatch(/^[0-9a-f]{40}$/);
+      expect(run.harnessHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(run.runUrl).toMatch(/^https:\/\/github\.com\/github\/squad\/actions\/runs\/\d+$/);
+      expect(run.results.length).toBeGreaterThan(0);
+    }
+  });
+
   it('the "Tested upgrade paths" section of upgrading.md is up to date with the JSON', async () => {
     const { renderSection, extractSection } = (await import(RENDERER)) as {
       renderSection: (m: unknown) => string;
@@ -287,6 +298,12 @@ describe('upgrade-matrix.json integrity', () => {
 // ─── harness guards (always on) ─────────────────────────────────────────────
 
 describe('upgrade-matrix harness guards', () => {
+  it('passes metacharacters in npm arguments literally', async () => {
+    const prefix = path.join(ROOT, 'matrix test & literal');
+    const result = await npmCmd(['config', 'get', 'prefix', '--prefix', prefix], ROOT, process.env);
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout.trim()).toBe(prefix);
+  });
   const fakeSpec = (over: Partial<ProducerSpec> = {}): ProducerSpec => ({
     version: '0.0.0-guard', source: 'github-release', why: 'guard test', supports: { stateBackend: true, dryRun: true },
     artifacts: { release: { repository: 'bradygaster/squad', tag: 'v0.0.0-guard', assets: {} } },
@@ -592,12 +609,10 @@ async function fetchBuffer(url: string, headers: Record<string, string> = {}): P
 }
 
 async function npmCmd(args: string[], cwd: string, env: NodeJS.ProcessEnv): Promise<Cmd> {
-  const npm = PLATFORM === 'win32' ? 'npm.cmd' : 'npm';
-  // Absolute tarball paths: a bare `dir/file.tgz` would be read by npm as a GitHub `owner/repo` shorthand.
-  const quoted = args.map((a) => (/\s/.test(a) ? `"${a}"` : a));
-  return PLATFORM === 'win32'
-    ? run(process.env['ComSpec'] ?? 'cmd.exe', ['/d', '/s', '/c', `${npm} ${quoted.join(' ')}`], { cwd, env, timeout: 600_000 })
-    : run(npm, args, { cwd, env, timeout: 600_000 });
+  if (PLATFORM !== 'win32') return run('npm', args, { cwd, env, timeout: 600_000 });
+  const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  if (!fs.existsSync(npmCli)) throw new Error(`npm CLI not found beside Node: ${npmCli}`);
+  return run(process.execPath, [npmCli, ...args], { cwd, env, timeout: 600_000 });
 }
 
 /**

@@ -40,6 +40,7 @@ prerequisites, all supported methods, and update commands.
 | `squad start [--tunnel] [--port N] [--command cmd]` | Start Copilot with remote phone access via PTY and WebSocket | No |
 | `squad status` | Show which squad is active and why | Yes |
 | `squad doctor` | Validate squad setup integrity and diagnose issues (alias: `heartbeat`) | Yes |
+| `squad health [--json]` | Check team readiness; JSON includes the versioned runtime, state backend, and resolved team metadata | Yes |
 | `squad upgrade` | Upgrade Squad-owned files to latest version; locally customized files are saved as `<file>.local-backup` | Yes |
 | `squad upgrade --client <list>` | Add hosts to the configured set and refresh every configured host projection; user settings in `.mcp.json`, `.kiro/settings/mcp.json`, `opencode.json`, `.cursor/mcp.json` and `.codex/config.toml` are preserved | Yes |
 | `squad upgrade --state-backend <type>` | Migrate state backend (`orphan`, `two-layer`); installs git hooks automatically | Yes |
@@ -58,6 +59,9 @@ prerequisites, all supported methods, and update commands.
 | `squad watch --decision-hygiene` | Auto-merge decision inbox | Yes |
 | `squad watch --max-concurrent N` | Max parallel issues per round (default: 1) | Yes |
 | `squad watch --timeout N` | Per-issue timeout in minutes (default: 30) | Yes |
+| `squad watch --max-rounds N` | Stop after N completed rounds | Yes |
+| `squad watch --max-duration D` | Stop after a duration such as `8h` (ms, s, m, h, d) | Yes |
+| `squad watch --claims <none\|git-ref>` | Claim issues before dispatch so several watchers never pick the same one (default: `none`; config: `watch.claims`) | Yes |
 | `squad watch --copilot-flags "..."` | Extra flags for Copilot CLI | Yes |
 | `squad shell` | **Deprecated** — Launch interactive shell explicitly. Use `copilot --agent squad` instead. | No |
 | `squad copilot` | Add the @copilot coding agent to the team | Yes |
@@ -70,14 +74,19 @@ prerequisites, all supported methods, and update commands.
 | `squad import <file> --force` | Replace existing squad (archives the old one) | No |
 | `squad aspire` | Launch Aspire dashboard for observability | No |
 | `squad aspire --docker` | Force Docker mode for Aspire | No |
+| `squad dashboard` | Live local page of the team's Claude Code sessions on 127.0.0.1 (`stop`, `status`, `--detach`, `--open`, `--session <id>`, `--stream <file>`); see [Claude Code plugin](../features/claude-code-plugin.md#team-dashboard) | No |
 | `squad upstream add\|remove\|list\|sync` | Manage upstream Squad sources | Yes |
 | `copilot --agent squad` | Launch interactive shell explicitly | No |
 | `squad nap` | Context hygiene (compress, prune, archive .squad/ state) | Yes |
-| `squad nap --deep` | Thorough cleanup with recursive descent | Yes |
+| `squad nap --deep` | Same as `squad nap`, but keeps only the last 3 `##` history sections (default 5) | Yes |
 | `squad nap --dry-run` | Preview cleanup actions without changes | Yes |
 | `squad scrub-emails [directory]` | Remove email addresses from Squad state files (default: `.squad/`) | No |
 | `squad state-mcp [--experimental-backend]` | Run the `squad_state` stdio MCP server; pass `--experimental-backend` (or `SQUAD_EXPERIMENTAL_BACKEND=1`) to also expose the 11 experimental `squad_backend_*` conversation tools (transcript/event-log only until a harness is registered) | Yes |
 | `squad --version` | Print installed version | No |
+
+`squad health --json` preserves the `squad-health/v1` schema and includes `metadata` fields for `cliVersion`, `sdkVersion`, `stateBackend`, `resolvedTeamRoot` (the directory that contains `.squad`), `resolvedSquadDir` (the squad directory itself), `bridgeVersion`, and `launchMode`. `resolvedTeamDir` is kept for existing consumers and holds the same value as `resolvedTeamRoot`; despite its name, it is not the squad directory. Human-readable output is unchanged.
+
+The `squad_state_health` MCP tool includes the same fields in a JSON `Health metadata` line while retaining its existing state and storage lines.
 
 ### Remote Init Mode
 
@@ -274,12 +283,12 @@ Agent name matching is **case-insensitive** — `@keaton`, `@Keaton`, and `@KEAT
 ├── skills/              # Reusable knowledge (markdown files)
 │   ├── auth-rate-limiting.md
 │   └── ...
-├── agents/
-│   ├── neo/
-│   │   ├── charter.md   # Role definition, expertise, tools
-│   │   └── history.md   # Accumulated knowledge
-│   └── ...
-└── history-archive/     # Archived old session logs
+└── agents/
+    ├── neo/
+    │   ├── charter.md          # Role definition, expertise, tools
+    │   ├── history.md          # Accumulated knowledge
+    │   └── history-archive.md  # Old history sections moved out by squad nap
+    └── ...
 ```
 
 ### `team.md`

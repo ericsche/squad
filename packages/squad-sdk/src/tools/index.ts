@@ -21,12 +21,21 @@ import { StateKeyConflictError, StateBackendUncertaintyError } from '../storage/
 import type { SquadState } from '../state/squad-state.js';
 import { validateStateKey } from '../state-backend.js';
 import { spawnParallel, type FanOutDependencies } from '../coordinator/fan-out.js';
-import { LocalMemoryStore, type CopilotMemoryProviderClient, type MemoryClass } from '../memory/index.js';
+import { LocalMemoryStore, parseMemoryClass, UnknownMemoryClassError, type CopilotMemoryProviderClient, type MemoryClass } from '../memory/index.js';
 import { resolveUpstreams, buildEffectiveUpstreamContext, formatUpstreamReport } from '../upstream/resolver.js';
 
 const tracer = trace.getTracer('squad-sdk');
 const require = createRequire(import.meta.url);
 const SQUAD_STATE_VERSION = (require('../../package.json') as { version?: string }).version ?? 'unknown';
+export const STATE_HEALTH_SCHEMA = 'squad-state-health/v1' as const;
+
+function resolvedTeamDirectory(squadRoot: string): string {
+  const resolved = path.resolve(squadRoot);
+  const basename = path.basename(resolved);
+  return basename === '.squad' || basename === '.ai-team'
+    ? path.dirname(resolved)
+    : resolved;
+}
 
 // --- Argument Sanitization ---
 
@@ -170,6 +179,28 @@ export interface GovernedMemoryPromoteRequest {
   actor?: string;
 }
 
+/**
+ * Parse a memory class sent by an agent. The MCP bridge passes arguments
+ * through without checking the schema enum, so `decision` can arrive here.
+ * Case is ignored. An unknown value becomes a failure result the agent can
+ * act on, instead of a memory filed under a made-up class.
+ */
+function parseMemoryClassArg(value: unknown): { memoryClass?: MemoryClass; failure?: SquadToolResult } {
+  try {
+    return { memoryClass: parseMemoryClass(value) };
+  } catch (error) {
+    const failure = unknownMemoryClassFailure(error);
+    if (failure) return { failure };
+    throw error;
+  }
+}
+
+/** Turn an unknown-class error from the store into a failure result; rethrow anything else. */
+function unknownMemoryClassFailure(error: unknown): SquadToolResult | undefined {
+  if (!(error instanceof UnknownMemoryClassError)) return undefined;
+  return { textResultForLlm: error.message, resultType: 'failure', error: error.message };
+}
+
 // --- Tool Definition Helper ---
 
 /**
@@ -282,7 +313,6 @@ export const MUTABLE_STATE_PATHS: ReadonlyArray<{ readonly root: string; readonl
   // Per-workstream decision inboxes (`.squad/workstreams/active/<slug>/decisions/inbox/`), the
   // convention squad_decide targets when a workstream is active (#2299).
   { root: 'workstreams', kind: 'dir', pattern: /^workstreams\/active\/[A-Za-z0-9._-]+\/decisions\/inbox\/[^/]+$/ },
-  { root: 'casting/policy.json', kind: 'file' },
   { root: 'agents', kind: 'dir', pattern: /^agents\/[a-zA-Z0-9_-]+\/history\.md$/ },
   { root: 'log', kind: 'dir' },
   { root: 'orchestration-log', kind: 'dir' },
@@ -346,7 +376,7 @@ function validateMutableStateToolKey(key: string, operation: 'write' | 'append' 
   }
   if (!isMutableStateKey(key)) {
     throw new Error(
-      'State mutations are limited to mutable runtime state (decisions, inbox, casting policy, logs, sessions, scratch files, agent history, and identity). The casting registry/history pair must only be changed through the atomic casting protocol. Static config such as config.json, team.md, routing.md, charters, templates, and skills must not be changed with state tools.',
+      'State mutations are limited to mutable runtime state (decisions, inbox, logs, sessions, scratch files, agent history, and identity). Casting is source-branch configuration; the casting registry/history pair must only be changed through the atomic casting protocol on disk. Static config such as casting policy, config.json, team.md, routing.md, charters, templates, and skills must not be changed with state tools.',
     );
   }
 }
@@ -362,7 +392,19 @@ export class ToolRegistry {
   private fanOutDepsGetter?: () => FanOutDependencies | undefined;
   private memoryStore: LocalMemoryStore;
   private backendName: string;
+  /**
+   * Where a write landed, for tool results: with a git-branch backend the path is a key on the
+   * `squad-state` branch, not a file in the working tree, and a coordinator reporting the path to
+   * the user said otherwise (live scenario, 2026-11-13).
+   */
+  private storedWhere(): string {
+    return this.backendName === 'orphan' || this.backendName === 'two-layer'
+      ? ` That path is a key on the \`squad-state\` git branch (${this.backendName} backend): it is stored only there, and there is no file in the working tree.`
+      : '';
+  }
   private runtimeVersion: string;
+  private cliVersion: string;
+  private launchMode: string;
   /**
    * Where `upstream.json` and `_upstream_repos/` live. Upstream declarations are project-local:
    * `squad upstream add|sync` writes them beside the project's `.squad/config.json` and
@@ -378,7 +420,13 @@ export class ToolRegistry {
     state?: SquadState,
     fanOutDepsGetter?: () => FanOutDependencies | undefined,
     hostInjectedCopilotAdapterClient?: CopilotMemoryProviderClient,
-    options: { backendName?: string; upstreamDir?: string; runtimeVersion?: string } = {},
+    options: {
+      backendName?: string;
+      upstreamDir?: string;
+      runtimeVersion?: string;
+      cliVersion?: string;
+      launchMode?: string;
+    } = {},
   ) {
     this.squadRoot = squadRoot;
     this.sessionPoolGetter = sessionPoolGetter;
@@ -388,6 +436,8 @@ export class ToolRegistry {
     // Plain FS storage is the `local` backend; adapters wrap a named git backend.
     this.backendName = options.backendName ?? (storage instanceof FSStorageProvider ? 'local' : 'unknown');
     this.runtimeVersion = options.runtimeVersion ?? SQUAD_STATE_VERSION;
+    this.cliVersion = options.cliVersion ?? 'unknown';
+    this.launchMode = options.launchMode ?? 'embedded';
     this.upstreamDir = options.upstreamDir ?? squadRoot;
     this.memoryStore = new LocalMemoryStore(storage, squadRoot, {
       rootKind: 'squad',
@@ -614,7 +664,7 @@ export class ToolRegistry {
           this.storage.writeSync(filename, content);
 
           return {
-            textResultForLlm: `Decision written: ${inboxRel}/${authorSlug}-${slug}.md (ID: ${decisionId})`,
+            textResultForLlm: `Decision written: ${inboxRel}/${authorSlug}-${slug}.md (ID: ${decisionId})${this.storedWhere()}`,
             resultType: 'success',
             toolTelemetry: { decisionId, filename, slug, inbox: inboxRel },
           };
@@ -909,13 +959,41 @@ export class ToolRegistry {
 
     const stateHealth = defineTool<Record<string, never>>({
       name: 'squad_state_health',
-      description: 'Report the active Squad state backend (local, orphan, two-layer, ...) and storage layer so agents can verify they are using runtime-owned state instead of manual git/file choreography.',
+      description: 'Report active Squad state backend and storage metadata, including a versioned JSON health payload for external coordinators.',
       parameters: { type: 'object', properties: {} },
-      handler: async () => ({
-        textResultForLlm: `squad-state ${this.runtimeVersion}\nState backend: ${this.backendName}\nState backend storage: ${this.storage.constructor.name}\nTeam squad dir: ${this.squadRoot}`,
-        resultType: 'success',
-        toolTelemetry: { version: this.runtimeVersion, backend: this.backendName, storage: this.storage.constructor.name },
-      }),
+      handler: async () => {
+        const metadata = {
+          schema: STATE_HEALTH_SCHEMA,
+          cliVersion: this.cliVersion,
+          sdkVersion: SQUAD_STATE_VERSION,
+          stateBackend: this.backendName,
+          /**
+           * The team root (the directory that contains `.squad`), despite its name. Kept as is for
+           * `squad-state-health/v1` consumers; prefer `resolvedTeamRoot` / `resolvedSquadDir` (#2455).
+           */
+          resolvedTeamDir: resolvedTeamDirectory(this.squadRoot),
+          resolvedTeamRoot: resolvedTeamDirectory(this.squadRoot),
+          resolvedSquadDir: path.resolve(this.squadRoot),
+          bridgeVersion: this.runtimeVersion,
+          launchMode: this.launchMode,
+        };
+        return {
+          textResultForLlm: [
+            `squad-state ${this.runtimeVersion}`,
+            `Health metadata: ${JSON.stringify(metadata)}`,
+            `State backend: ${this.backendName}`,
+            `State backend storage: ${this.storage.constructor.name}`,
+            `Team squad dir: ${this.squadRoot}`,
+          ].join('\n'),
+          resultType: 'success',
+          toolTelemetry: {
+            version: this.runtimeVersion,
+            backend: this.backendName,
+            ...metadata,
+            storage: this.storage.constructor.name,
+          },
+        };
+      },
     });
 
     const stateUpstreams = defineTool<StateUpstreamsRequest>({
@@ -970,14 +1048,22 @@ export class ToolRegistry {
         required: ['content'],
       },
       handler: async (args) => {
-        const classification = await this.memoryStore.classify({
-          content: args.content,
-          requestedClass: args.class,
-        }, {
-          audit: true,
-          actor: args.author,
-          title: args.title,
-        });
+        // The store scans the content before it reads the class, and normalizes the class.
+        let classification;
+        try {
+          classification = await this.memoryStore.classify({
+            content: args.content,
+            requestedClass: args.class,
+          }, {
+            audit: true,
+            actor: args.author,
+            title: args.title,
+          });
+        } catch (error) {
+          const failure = unknownMemoryClassFailure(error);
+          if (failure) return failure;
+          throw error;
+        }
         return {
           textResultForLlm: `${classification.class}: ${classification.reason}`,
           resultType: classification.allowed ? 'success' : 'failure',
@@ -1005,13 +1091,22 @@ export class ToolRegistry {
         required: ['content'],
       },
       handler: async (args) => {
-        const result = await this.memoryStore.write({
-          content: args.content,
-          title: args.title,
-          author: args.author,
-          requestedClass: args.class,
-          approved: args.approved,
-        });
+        // The store scans the content before it reads the class, so secrets are still
+        // rejected and audited when the class name is unknown.
+        let result;
+        try {
+          result = await this.memoryStore.write({
+            content: args.content,
+            title: args.title,
+            author: args.author,
+            requestedClass: args.class,
+            approved: args.approved,
+          });
+        } catch (error) {
+          const failure = unknownMemoryClassFailure(error);
+          if (failure) return failure;
+          throw error;
+        }
         return {
           textResultForLlm: result.stored
             ? `Stored ${result.classification.class} memory ${result.id} at ${result.path}`
@@ -1072,10 +1167,19 @@ export class ToolRegistry {
         required: ['id', 'targetClass'],
       },
       handler: async (args) => {
-        const result = await this.memoryStore.promote(args.id, args.targetClass, args.actor);
+        const target = parseMemoryClassArg(args.targetClass);
+        if (target.failure) return target.failure;
+        if (!target.memoryClass) {
+          return { textResultForLlm: 'memory.promote needs targetClass: LOCAL, DECISION, POLICY or COPILOT_MEMORY.', resultType: 'failure' };
+        }
+        const targetClass = target.memoryClass;
+        if (targetClass === 'FORBIDDEN' || targetClass === 'TRANSIENT') {
+          return { textResultForLlm: 'memory.promote targetClass must be LOCAL, DECISION, POLICY or COPILOT_MEMORY.', resultType: 'failure' };
+        }
+        const result = await this.memoryStore.promote(args.id, targetClass, args.actor);
         return {
           textResultForLlm: result.stored
-            ? `Promoted memory ${args.id} to ${args.targetClass} as ${result.id}`
+            ? `Promoted memory ${args.id} to ${targetClass} as ${result.id}`
             : `Promotion rejected: ${result.classification.reason}`,
           resultType: result.stored ? 'success' : 'failure',
           toolTelemetry: { sourceId: args.id, targetId: result.id, stored: result.stored },

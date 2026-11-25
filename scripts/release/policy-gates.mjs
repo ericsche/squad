@@ -11,6 +11,7 @@
  *                         dependency floor is '>=<version>' for prereleases and has no
  *                         prerelease suffix for stable versions (package.json AND lockfile)
  *   prerelease-guard      every workspace version is X.Y.Z, X.Y.Z-preview.N or X.Y.Z-insider.N
+ *   node-security-floor   standalone defaults meet the published minimum for their Node major
  *   publish-policy        every `npm ... publish` is workspace-scoped or one of the two exact
  *                         verified tarball paths used by squad-npm-publish.yml
  *   publish-allowlist     the publishable workspaces are exactly @bradygaster/squad-sdk and
@@ -30,6 +31,10 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  assertNodeSecurityFloor,
+  loadNodeSecurityFloor,
+} from './node-security-floor.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -43,6 +48,21 @@ const WORKSPACE_FLAG = /(?:^|\s)(?:-w|--workspace)(?:=|\s|$)/;
 const VERIFIED_TARBALL = /npm\s+publish\s+"\$PACKS_DIR\/bradygaster-squad-(?:sdk|cli)-\$\{VERSION\}\.tgz"(?:\s|$)/;
 
 const readJson = (root, rel) => JSON.parse(readFileSync(path.join(root, rel), 'utf8'));
+
+function workflowInputDefault(text, trigger, input) {
+  const lines = text.split(/\r?\n/);
+  const triggerStart = lines.findIndex((line) => line === `  ${trigger}:`);
+  if (triggerStart < 0) return undefined;
+  const triggerEndOffset = lines.slice(triggerStart + 1).findIndex((line) => /^  \S/.test(line));
+  const triggerEnd = triggerEndOffset < 0 ? lines.length : triggerStart + 1 + triggerEndOffset;
+  const section = lines.slice(triggerStart, triggerEnd);
+  const inputStart = section.findIndex((line) => line === `      ${input}:`);
+  if (inputStart < 0) return undefined;
+  const inputEndOffset = section.slice(inputStart + 1).findIndex((line) => /^      \S/.test(line));
+  const inputEnd = inputEndOffset < 0 ? section.length : inputStart + 1 + inputEndOffset;
+  const defaultLine = section.slice(inputStart, inputEnd).find((line) => /^\s{8}default:/.test(line));
+  return defaultLine?.replace(/^\s{8}default:\s*/, '').replace(/^(['"])(.*)\1$/, '$2');
+}
 
 export function publishPolicyViolations(root = ROOT) {
   const dir = path.join(root, '.github', 'workflows');
@@ -105,6 +125,42 @@ export function runPolicyGates({ root = ROOT, mode = 'ci' } = {}) {
       if (pkg.version && !SANCTIONED_VERSION.test(pkg.version)) bad.push(`${pkg.name}@${pkg.version}`);
     }
     gate('prerelease-guard', bad.length === 0, bad.length ? `unsanctioned prerelease versions: ${bad.join(', ')}` : `all workspace versions match ${SANCTIONED_VERSION}`);
+  }
+
+  // node-security-floor
+  {
+    const problems = [];
+    try {
+      const policy = loadNodeSecurityFloor(path.join(root, 'scripts', 'release', 'node-security-floor.json'));
+      const workflowPath = path.join(root, '.github', 'workflows', 'squad-standalone-release.yml');
+      const workflow = readFileSync(workflowPath, 'utf8');
+      const callDefault = workflowInputDefault(workflow, 'workflow_call', 'node_version');
+      const dispatchDefault = workflowInputDefault(workflow, 'workflow_dispatch', 'node_version');
+      const envDefault = workflow.match(/^\s{2}NODE_VERSION:\s*(.+)$/m)?.[1];
+      const expectedEnv = `\${{ inputs.node_version || '${policy.standaloneDefault}' }}`;
+
+      for (const [where, value] of [
+        ['workflow_call node_version default', callDefault],
+        ['workflow_dispatch node_version default', dispatchDefault],
+      ]) {
+        if (value !== policy.standaloneDefault) {
+          problems.push(`${where} is '${value}', expected '${policy.standaloneDefault}'`);
+        }
+      }
+      if (envDefault !== expectedEnv) {
+        problems.push(`workflow NODE_VERSION is '${envDefault}', expected '${expectedEnv}'`);
+      }
+      assertNodeSecurityFloor(policy.standaloneDefault, policy);
+    } catch (error) {
+      problems.push(error instanceof Error ? error.message : String(error));
+    }
+    gate(
+      'node-security-floor',
+      problems.length === 0,
+      problems.length
+        ? problems.join('; ')
+        : 'standalone defaults and policy meet the published Node security floor',
+    );
   }
 
   // publish-policy

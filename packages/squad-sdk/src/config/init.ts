@@ -22,6 +22,7 @@ import { ensureMemoryGovernanceDefaults } from '../memory/index.js';
 import { addSquadStateGitignoreBlock, removeSquadStateGitignoreBlock } from './gitignore-state.js';
 import { syncTeamCapabilities } from './team-capabilities.js';
 import { ensureCastingRegistryPair } from '../casting/durable-registry.js';
+import { detectPlatformFromUrl } from '../platform/detect.js';
 
 // ============================================================================
 // Manifest-Curated Skills (must stay in sync with TEMPLATE_MANIFEST in CLI)
@@ -126,6 +127,14 @@ export interface InitAgentSpec {
 export interface InitOptions {
   /** Root directory for Squad team files */
   teamRoot: string;
+  /**
+   * The project is linked to a team repository (`teamRoot` in `.squad/config.json`, remote mode):
+   * skip the team files (roster, routing, charters, casting, decisions, identity, ceremonies, the
+   * built-ins' policies), which live in that repository. Project-local state directories stay.
+   */
+  linkedTeam?: boolean;
+  /** The linked team's squad directory (with `linkedTeam`): its cast is advertised in the agent file. */
+  linkedTeamDir?: string;
   /** Project name */
   projectName: string;
   /** Project description (optional) */
@@ -251,6 +260,16 @@ function formatModelArray(chain: readonly string[]): string {
   return `[${chain.map(m => `'${m}'`).join(', ')}]`;
 }
 
+function escapeSingleQuotedString(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r').replace(/\n/g, '\\n')
+    .replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+}
+
+function docCommentText(value: string): string {
+  return value.replace(/\*\//g, '* /').replace(/\r\n?|\n/g, '\n * ');
+}
+
 /**
  * Generate TypeScript config file content.
  */
@@ -260,8 +279,8 @@ function generateTypeScriptConfig(options: InitOptions): string {
   return `import type { SquadConfig } from '@bradygaster/squad';
 
 /**
- * Squad Configuration for ${projectName}
- * ${projectDescription ? `\n * ${projectDescription}` : ''}
+ * Squad Configuration for ${docCommentText(projectName)}
+ * ${projectDescription ? `\n * ${docCommentText(projectDescription)}` : ''}
  */
 const config: SquadConfig = {
   version: '1.0.0',
@@ -419,9 +438,9 @@ function generateSDKBuilderConfig(options: InitOptions): string {
   // Generate imports
   let code = `import {\n  defineSquad,\n  defineTeam,\n  defineAgent,\n} from '@bradygaster/squad-sdk';\n\n`;
 
-  code += `/**\n * Squad Configuration — ${projectName}\n`;
+  code += `/**\n * Squad Configuration — ${docCommentText(projectName)}\n`;
   if (projectDescription) {
-    code += ` *\n * ${projectDescription}\n`;
+    code += ` *\n * ${docCommentText(projectDescription)}\n`;
   }
   code += ` */\n`;
 
@@ -440,9 +459,9 @@ function generateSDKBuilderConfig(options: InitOptions): string {
   code += `export default defineSquad({\n`;
   code += `  version: '1.0.0',\n\n`;
   code += `  team: defineTeam({\n`;
-  code += `    name: '${projectName}',\n`;
+  code += `    name: '${escapeSingleQuotedString(projectName)}',\n`;
   if (projectDescription) {
-    code += `    description: '${projectDescription.replace(/'/g, "\\'")}',\n`;
+    code += `    description: '${escapeSingleQuotedString(projectDescription)}',\n`;
   }
   code += `    members: [${agents.map(a => `'${a.name}'`).join(', ')}],\n`;
   code += `  }),\n\n`;
@@ -488,9 +507,9 @@ function generateSDKBuilderConfigWithRoles(options: InitOptions): string {
 
   let code = `import {\n${imports.map(i => `  ${i},`).join('\n')}\n} from '@bradygaster/squad-sdk';\n\n`;
 
-  code += `/**\n * Squad Configuration — ${projectName}\n`;
+  code += `/**\n * Squad Configuration — ${docCommentText(projectName)}\n`;
   if (projectDescription) {
-    code += ` *\n * ${projectDescription}\n`;
+    code += ` *\n * ${docCommentText(projectDescription)}\n`;
   }
   code += ` *\n * Uses built-in base roles from the role catalog.\n`;
   code += ` * Customize names and overrides for your project.\n`;
@@ -528,9 +547,9 @@ function generateSDKBuilderConfigWithRoles(options: InitOptions): string {
   code += `export default defineSquad({\n`;
   code += `  version: '1.0.0',\n\n`;
   code += `  team: defineTeam({\n`;
-  code += `    name: '${projectName}',\n`;
+  code += `    name: '${escapeSingleQuotedString(projectName)}',\n`;
   if (projectDescription) {
-    code += `    description: '${projectDescription.replace(/'/g, "\\'")}',\n`;
+    code += `    description: '${escapeSingleQuotedString(projectDescription)}',\n`;
   }
   code += `    members: [${allNames.join(', ')}],\n`;
   code += `  }),\n\n`;
@@ -624,6 +643,23 @@ function titleCase(str: string): string {
  * Stamp version into squad.agent.md content.
  * Replaces three locations: HTML comment, Identity Version line, and {version} placeholder.
  */
+function isSemVer(value: string): boolean {
+  const [withoutBuild, build, ...extraBuild] = value.split('+');
+  if (extraBuild.length > 0) return false;
+  const validIdentifiers = (text: string, prerelease: boolean): boolean =>
+    text.split('.').every((part) =>
+      /^[0-9A-Za-z-]+$/.test(part) &&
+      !(prerelease && /^\d+$/.test(part) && part.length > 1 && part.startsWith('0'))
+    );
+  if (build !== undefined && !validIdentifiers(build, false)) return false;
+  const dash = withoutBuild!.indexOf('-');
+  const core = dash === -1 ? withoutBuild! : withoutBuild!.slice(0, dash);
+  const prerelease = dash === -1 ? undefined : withoutBuild!.slice(dash + 1);
+  if (prerelease !== undefined && !validIdentifiers(prerelease, true)) return false;
+  const numbers = core.split('.');
+  return numbers.length === 3 && numbers.every((part) => /^(?:0|[1-9]\d*)$/.test(part));
+}
+
 function stampVersionInContent(content: string, version: string): string {
   // HTML comment: <!-- version: X.Y.Z -->
   content = content.replace(
@@ -637,8 +673,10 @@ function stampVersionInContent(content: string, version: string): string {
   );
   // Greeting placeholder or an already-resolved valid SemVer literal.
   content = content.replace(
-    /`Squad v(?:\{version\}|(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)`/g,
-    `\`Squad v${version}\``,
+    /`Squad v(\{version\}|[0-9A-Za-z.+-]+)`/g,
+    (match, existing: string) => existing === '{version}' || isSemVer(existing)
+      ? `\`Squad v${version}\``
+      : match,
   );
   return content;
 }
@@ -842,17 +880,16 @@ export async function initSquad(options: InitOptions, storage: StorageProvider =
 
   const squadDir = join(teamRoot, '.squad');
   const directories = [
-    join(squadDir, 'agents'),
-    join(squadDir, 'casting'),
+    ...(options.linkedTeam ? [] : [join(squadDir, 'agents'), join(squadDir, 'casting')]),
     join(squadDir, 'decisions'),
     join(squadDir, 'decisions', 'inbox'),
     join(squadDir, 'memory'),
     join(teamRoot, '.github', 'skills'),
     join(squadDir, 'plugins'),
-    join(squadDir, 'identity'),
+    ...(options.linkedTeam ? [] : [join(squadDir, 'identity')]),
     join(squadDir, 'orchestration-log'),
     join(squadDir, 'log'),
-    join(squadDir, 'rai'),
+    ...(options.linkedTeam ? [] : [join(squadDir, 'rai')]),
     join(squadDir, '.scratch'),
   ];
 
@@ -866,65 +903,67 @@ export async function initSquad(options: InitOptions, storage: StorageProvider =
     createdFiles.push(created);
   }
 
-  // -------------------------------------------------------------------------
-  // Scaffold .squad/casting/ files (policy, registry, history)
-  // -------------------------------------------------------------------------
+  // A linked project (remote mode) keeps casting and the built-ins' policies in the team repository.
+  if (!options.linkedTeam) {
+    // -------------------------------------------------------------------------
+    // Scaffold .squad/casting/ files (policy, registry, history)
+    // -------------------------------------------------------------------------
 
-  const castingDir = join(squadDir, 'casting');
-  const castingDefault = (
-    templateName: string,
-    fallback: string,
-  ): string => {
-    const templateSrc = templatesDir ? join(templatesDir, templateName) : null;
-    return templateSrc && storage.existsSync(templateSrc)
-      ? (storage.readSync(templateSrc) ?? fallback)
-      : fallback;
-  };
-  const registryDefault = castingDefault(
-    'casting-registry.json',
-    JSON.stringify({ schema: 'squad-agent-provenance/v1', schema_version: 1, revision: 1, generated_at: '1970-01-01T00:00:00.000Z', agents: {} }, null, 2) + '\n',
-  );
-  const historyDefault = castingDefault(
-    'casting-history.json',
-    JSON.stringify({ universe_usage_history: [], assignment_cast_snapshots: {} }, null, 2) + '\n',
-  );
-  const pairResult = ensureCastingRegistryPair(
-    castingDir,
-    registryDefault,
-    historyDefault,
-    'SDK init',
-  );
-  for (const name of ['registry.json', 'history.json']) {
-    if (pairResult.created) createdFiles.push(toRelativePath(join(castingDir, name)));
-    else skippedFiles.push(toRelativePath(join(castingDir, name)));
-  }
-
-  const policyPath = join(castingDir, 'policy.json');
-  if (!storage.existsSync(policyPath)) {
-    await storage.write(
-      policyPath,
-      castingDefault(
-        'casting-policy.json',
-        JSON.stringify({ casting_policy_version: '1.1', allowlist_universes: [], universe_capacity: {} }, null, 2) + '\n',
-      ),
+    const castingDir = join(squadDir, 'casting');
+    const castingDefault = (
+      templateName: string,
+      fallback: string,
+    ): string => {
+      const templateSrc = templatesDir ? join(templatesDir, templateName) : null;
+      return templateSrc && storage.existsSync(templateSrc)
+        ? (storage.readSync(templateSrc) ?? fallback)
+        : fallback;
+    };
+    const registryDefault = castingDefault(
+      'casting-registry.json',
+      JSON.stringify({ schema: 'squad-agent-provenance/v1', schema_version: 1, revision: 1, generated_at: '1970-01-01T00:00:00.000Z', agents: {} }, null, 2) + '\n',
     );
-    createdFiles.push(toRelativePath(policyPath));
-  } else {
-    skippedFiles.push(toRelativePath(policyPath));
-  }
+    const historyDefault = castingDefault(
+      'casting-history.json',
+      JSON.stringify({ universe_usage_history: [], assignment_cast_snapshots: {} }, null, 2) + '\n',
+    );
+    const pairResult = ensureCastingRegistryPair(
+      castingDir,
+      registryDefault,
+      historyDefault,
+      'SDK init',
+    );
+    for (const name of ['registry.json', 'history.json']) {
+      if (pairResult.created) createdFiles.push(toRelativePath(join(castingDir, name)));
+      else skippedFiles.push(toRelativePath(join(castingDir, name)));
+    }
 
-  // -------------------------------------------------------------------------
-  // Seed .squad/rai/ files (policy and audit trail)
-  // -------------------------------------------------------------------------
-
-  const raiDir = join(squadDir, 'rai');
-  const raiPolicyPath = join(raiDir, 'policy.md');
-  if (!storage.existsSync(raiPolicyPath)) {
-    const templateSrc = templatesDir ? join(templatesDir, 'rai-policy.md') : null;
-    if (templateSrc && storage.existsSync(templateSrc)) {
-      storage.copySync(templateSrc, raiPolicyPath);
+    const policyPath = join(castingDir, 'policy.json');
+    if (!storage.existsSync(policyPath)) {
+      await storage.write(
+        policyPath,
+        castingDefault(
+          'casting-policy.json',
+          JSON.stringify({ casting_policy_version: '1.1', allowlist_universes: [], universe_capacity: {} }, null, 2) + '\n',
+        ),
+      );
+      createdFiles.push(toRelativePath(policyPath));
     } else {
-      const raiPolicyFallback = `# RAI Policy
+      skippedFiles.push(toRelativePath(policyPath));
+    }
+
+    // -------------------------------------------------------------------------
+    // Seed .squad/rai/ files (policy and audit trail)
+    // -------------------------------------------------------------------------
+
+    const raiDir = join(squadDir, 'rai');
+    const raiPolicyPath = join(raiDir, 'policy.md');
+    if (!storage.existsSync(raiPolicyPath)) {
+      const templateSrc = templatesDir ? join(templatesDir, 'rai-policy.md') : null;
+      if (templateSrc && storage.existsSync(templateSrc)) {
+        storage.copySync(templateSrc, raiPolicyPath);
+      } else {
+        const raiPolicyFallback = `# RAI Policy
 
 > Responsible AI policy for this project. Rai enforces these standards.
 
@@ -959,47 +998,47 @@ export async function initSquad(options: InitOptions, storage: StorageProvider =
 - Can disable advisory checks with justification logged to audit trail
 - Temporary opt-down supported (auto re-enables after 30 days)
 `;
-      await storage.write(raiPolicyPath, raiPolicyFallback);
-    }
-    createdFiles.push(toRelativePath(raiPolicyPath));
-  } else {
-    skippedFiles.push(toRelativePath(raiPolicyPath));
-  }
-
-  const raiAuditTrailPath = join(raiDir, 'audit-trail.md');
-  if (!storage.existsSync(raiAuditTrailPath)) {
-    await storage.write(
-      raiAuditTrailPath,
-      '# RAI Audit Trail\n\n> Append-only evidence log. Entries are redacted — never contains raw secrets or harmful content.\n\n<!-- Rai appends findings below -->\n',
-    );
-    createdFiles.push(toRelativePath(raiAuditTrailPath));
-  } else {
-    skippedFiles.push(toRelativePath(raiAuditTrailPath));
-  }
-
-  // -------------------------------------------------------------------------
-  // Seed .squad/fact-checker/ files (policy and audit trail)
-  //
-  // Mirrors the Rai pattern above. Fact Checker is an always-on built-in
-  // (per bradygaster/squad#789 + #1254 — single agent, dual operating mode:
-  // Verification + Devil's Advocate) and gets its own state dir so its
-  // policy + audit trail are first-class artifacts the coordinator can
-  // reference, not embedded inside the agent's charter file.
-  //
-  // See bradygaster/squad#1299 for the design rationale.
-  // -------------------------------------------------------------------------
-
-  const factCheckerDir = join(squadDir, 'fact-checker');
-  const factCheckerPolicyPath = join(factCheckerDir, 'policy.md');
-  if (!storage.existsSync(factCheckerPolicyPath)) {
-    const templateSrc = templatesDir ? join(templatesDir, 'fact-checker-policy.md') : null;
-    if (templateSrc && storage.existsSync(templateSrc)) {
-      storage.copySync(templateSrc, factCheckerPolicyPath);
+        await storage.write(raiPolicyPath, raiPolicyFallback);
+      }
+      createdFiles.push(toRelativePath(raiPolicyPath));
     } else {
-      // Minimal fallback if the template was stripped from the install (e.g.,
-      // pre-1299 squad-sdk). The full template at
-      // .squad-templates/fact-checker-policy.md is the canonical source.
-      const factCheckerPolicyFallback = `# Fact Checker Policy
+      skippedFiles.push(toRelativePath(raiPolicyPath));
+    }
+
+    const raiAuditTrailPath = join(raiDir, 'audit-trail.md');
+    if (!storage.existsSync(raiAuditTrailPath)) {
+      await storage.write(
+        raiAuditTrailPath,
+        '# RAI Audit Trail\n\n> Append-only evidence log. Entries are redacted — never contains raw secrets or harmful content.\n\n<!-- Rai appends findings below -->\n',
+      );
+      createdFiles.push(toRelativePath(raiAuditTrailPath));
+    } else {
+      skippedFiles.push(toRelativePath(raiAuditTrailPath));
+    }
+
+    // -------------------------------------------------------------------------
+    // Seed .squad/fact-checker/ files (policy and audit trail)
+    //
+    // Mirrors the Rai pattern above. Fact Checker is an always-on built-in
+    // (per bradygaster/squad#789 + #1254 — single agent, dual operating mode:
+    // Verification + Devil's Advocate) and gets its own state dir so its
+    // policy + audit trail are first-class artifacts the coordinator can
+    // reference, not embedded inside the agent's charter file.
+    //
+    // See bradygaster/squad#1299 for the design rationale.
+    // -------------------------------------------------------------------------
+
+    const factCheckerDir = join(squadDir, 'fact-checker');
+    const factCheckerPolicyPath = join(factCheckerDir, 'policy.md');
+    if (!storage.existsSync(factCheckerPolicyPath)) {
+      const templateSrc = templatesDir ? join(templatesDir, 'fact-checker-policy.md') : null;
+      if (templateSrc && storage.existsSync(templateSrc)) {
+        storage.copySync(templateSrc, factCheckerPolicyPath);
+      } else {
+        // Minimal fallback if the template was stripped from the install (e.g.,
+        // pre-1299 squad-sdk). The full template at
+        // .squad-templates/fact-checker-policy.md is the canonical source.
+        const factCheckerPolicyFallback = `# Fact Checker Policy
 
 > Verification & devil's-advocate methodology for this project.
 
@@ -1027,22 +1066,23 @@ Produce briefs that include: steelman of the opposition, load-bearing assumption
 
 All findings logged to \`.squad/fact-checker/audit-trail.md\` (append-only, succinct — verdict + citation, never raw source).
 `;
-      await storage.write(factCheckerPolicyPath, factCheckerPolicyFallback);
+        await storage.write(factCheckerPolicyPath, factCheckerPolicyFallback);
+      }
+      createdFiles.push(toRelativePath(factCheckerPolicyPath));
+    } else {
+      skippedFiles.push(toRelativePath(factCheckerPolicyPath));
     }
-    createdFiles.push(toRelativePath(factCheckerPolicyPath));
-  } else {
-    skippedFiles.push(toRelativePath(factCheckerPolicyPath));
-  }
 
-  const factCheckerAuditTrailPath = join(factCheckerDir, 'audit-trail.md');
-  if (!storage.existsSync(factCheckerAuditTrailPath)) {
-    await storage.write(
-      factCheckerAuditTrailPath,
-      '# Fact Checker Audit Trail\n\n> Append-only evidence log. Entries are succinct — verdict + citation, never raw source material.\n\n<!-- Fact Checker appends findings below -->\n',
-    );
-    createdFiles.push(toRelativePath(factCheckerAuditTrailPath));
-  } else {
-    skippedFiles.push(toRelativePath(factCheckerAuditTrailPath));
+    const factCheckerAuditTrailPath = join(factCheckerDir, 'audit-trail.md');
+    if (!storage.existsSync(factCheckerAuditTrailPath)) {
+      await storage.write(
+        factCheckerAuditTrailPath,
+        '# Fact Checker Audit Trail\n\n> Append-only evidence log. Entries are succinct — verdict + citation, never raw source material.\n\n<!-- Fact Checker appends findings below -->\n',
+      );
+      createdFiles.push(toRelativePath(factCheckerAuditTrailPath));
+    } else {
+      skippedFiles.push(toRelativePath(factCheckerAuditTrailPath));
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -1055,8 +1095,7 @@ All findings logged to \`.squad/fact-checker/audit-trail.md\` (append-only, succ
     let detectedPlatform: string | undefined;
     try {
       const remoteUrl = execFileSync('git', ['remote', 'get-url', 'origin'], { cwd: teamRoot, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
-      const remoteUrlLower = remoteUrl.toLowerCase();
-      if (remoteUrlLower.includes('dev.azure.com') || remoteUrlLower.includes('visualstudio.com') || remoteUrlLower.includes('ssh.dev.azure.com')) {
+      if (detectPlatformFromUrl(remoteUrl) === 'azure-devops') {
         detectedPlatform = 'azure-devops';
       }
     } catch {
@@ -1138,74 +1177,76 @@ All findings logged to \`.squad/fact-checker/audit-trail.md\` (append-only, succ
     configPath = '';
   }
 
-  // -------------------------------------------------------------------------
-  // Create agent directories and files
-  // -------------------------------------------------------------------------
+  // A project linked to a team repository (remote mode) uses that team: no local roster, routing or charters.
+  if (!options.linkedTeam) {
+    // -------------------------------------------------------------------------
+    // Create agent directories and files
+    // -------------------------------------------------------------------------
 
-  const agentsDir = join(squadDir, 'agents');
-  for (const agent of agents) {
-    const agentDir = join(agentsDir, agent.name);
-    agentDirs.push(agentDir);
+    const agentsDir = join(squadDir, 'agents');
+    for (const agent of agents) {
+      const agentDir = join(agentsDir, agent.name);
+      agentDirs.push(agentDir);
 
-    // Create charter.md
-    //
-    // Built-in always-on agents (Rai, fact-checker) ship with rich
-    // charter templates at `templates/{role}-charter.md`. If a template
-    // exists for this agent's role, use that instead of the generic
-    // role-based stub — this gives the agent its full operating manual
-    // (verdict protocol, audit-trail rules, dual-mode declarations) from
-    // day one of `squad init`, matching the behavior of `squad upgrade`'s
-    // `ensureBuiltinAgents` path. See bradygaster/squad#1299.
-    const charterPath = join(agentDir, 'charter.md');
-    let charterContent: string | null = null;
-    if (templatesDir) {
-      // Lookup priority: exact role / name first, then their lowercase
-      // variants. This is needed because rich-charter files in `templates/`
-      // are stored lowercase-hyphenated (`rai-charter.md`,
-      // `fact-checker-charter.md`) while agent specs may use mixed case
-      // (e.g. role/name = "Rai"). On case-sensitive filesystems (Linux CI)
-      // the mixed-case lookup misses without the toLowerCase() fallback,
-      // and the agent silently falls back to the 478-byte generic stub —
-      // exactly the regression #1299 was fixing. Each candidate is only
-      // added if non-empty to avoid `-charter.md` lookups from blank names.
-      const seen = new Set<string>();
-      const candidates: string[] = [];
-      for (const key of [agent.role, agent.name, agent.role?.toLowerCase(), agent.name?.toLowerCase()]) {
-        if (!key) continue;
-        const filename = `${key}-charter.md`;
-        if (seen.has(filename)) continue;
-        seen.add(filename);
-        candidates.push(join(templatesDir, filename));
-      }
-      for (const candidate of candidates) {
-        if (storage.existsSync(candidate)) {
-          charterContent = storage.readSync(candidate) ?? null;
-          if (charterContent) break;
+      // Create charter.md
+      //
+      // Built-in always-on agents (Rai, fact-checker) ship with rich
+      // charter templates at `templates/{role}-charter.md`. If a template
+      // exists for this agent's role, use that instead of the generic
+      // role-based stub — this gives the agent its full operating manual
+      // (verdict protocol, audit-trail rules, dual-mode declarations) from
+      // day one of `squad init`, matching the behavior of `squad upgrade`'s
+      // `ensureBuiltinAgents` path. See bradygaster/squad#1299.
+      const charterPath = join(agentDir, 'charter.md');
+      let charterContent: string | null = null;
+      if (templatesDir) {
+        // Lookup priority: exact role / name first, then their lowercase
+        // variants. This is needed because rich-charter files in `templates/`
+        // are stored lowercase-hyphenated (`rai-charter.md`,
+        // `fact-checker-charter.md`) while agent specs may use mixed case
+        // (e.g. role/name = "Rai"). On case-sensitive filesystems (Linux CI)
+        // the mixed-case lookup misses without the toLowerCase() fallback,
+        // and the agent silently falls back to the 478-byte generic stub —
+        // exactly the regression #1299 was fixing. Each candidate is only
+        // added if non-empty to avoid `-charter.md` lookups from blank names.
+        const seen = new Set<string>();
+        const candidates: string[] = [];
+        for (const key of [agent.role, agent.name, agent.role?.toLowerCase(), agent.name?.toLowerCase()]) {
+          if (!key) continue;
+          const filename = `${key}-charter.md`;
+          if (seen.has(filename)) continue;
+          seen.add(filename);
+          candidates.push(join(templatesDir, filename));
+        }
+        for (const candidate of candidates) {
+          if (storage.existsSync(candidate)) {
+            charterContent = storage.readSync(candidate) ?? null;
+            if (charterContent) break;
+          }
         }
       }
+      if (charterContent === null) {
+        // Fall back to the generic role-based charter for user-defined agents
+        // that don't have a rich template (everyone except Rai + fact-checker).
+        charterContent = generateCharter(agent, projectName, projectDescription);
+      }
+      await writeIfNotExists(charterPath, charterContent);
+
+      // Create history.md
+      const historyPath = join(agentDir, 'history.md');
+      const historyContent = generateInitialHistory(agent, projectName, projectDescription, userName);
+      await writeIfNotExists(historyPath, historyContent);
     }
-    if (charterContent === null) {
-      // Fall back to the generic role-based charter for user-defined agents
-      // that don't have a rich template (everyone except Rai + fact-checker).
-      charterContent = generateCharter(agent, projectName, projectDescription);
-    }
-    await writeIfNotExists(charterPath, charterContent);
 
-    // Create history.md
-    const historyPath = join(agentDir, 'history.md');
-    const historyContent = generateInitialHistory(agent, projectName, projectDescription, userName);
-    await writeIfNotExists(historyPath, historyContent);
-  }
+    // -------------------------------------------------------------------------
+    // Create identity files (now.md, wisdom.md)
+    // -------------------------------------------------------------------------
 
-  // -------------------------------------------------------------------------
-  // Create identity files (now.md, wisdom.md)
-  // -------------------------------------------------------------------------
+    const identityDir = join(squadDir, 'identity');
+    const nowMdPath = join(identityDir, 'now.md');
+    const wisdomMdPath = join(identityDir, 'wisdom.md');
 
-  const identityDir = join(squadDir, 'identity');
-  const nowMdPath = join(identityDir, 'now.md');
-  const wisdomMdPath = join(identityDir, 'wisdom.md');
-
-  const nowContent = `---
+    const nowContent = `---
 updated_at: ${new Date().toISOString()}
 focus_area: Initial setup
 active_issues: []
@@ -1216,7 +1257,7 @@ active_issues: []
 Getting started. Updated by coordinator at session start.
 `;
 
-  const wisdomContent = `---
+    const wisdomContent = `---
 last_updated: ${new Date().toISOString()}
 ---
 
@@ -1229,24 +1270,24 @@ Reusable patterns and heuristics learned through work. NOT transcripts — each 
 <!-- Append entries below. Format: **Pattern:** description. **Context:** when it applies. -->
 `;
 
-  await writeIfNotExists(nowMdPath, nowContent);
-  await writeIfNotExists(wisdomMdPath, wisdomContent);
+    await writeIfNotExists(nowMdPath, nowContent);
+    await writeIfNotExists(wisdomMdPath, wisdomContent);
 
-  // -------------------------------------------------------------------------
-  // Create ceremonies.md
-  // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Create ceremonies.md
+    // -------------------------------------------------------------------------
 
-  const ceremoniesDest = join(squadDir, 'ceremonies.md');
-  if (templatesDir && storage.existsSync(join(templatesDir, 'ceremonies.md'))) {
-    await copyIfNotExists(join(templatesDir, 'ceremonies.md'), ceremoniesDest);
-  }
+    const ceremoniesDest = join(squadDir, 'ceremonies.md');
+    if (templatesDir && storage.existsSync(join(templatesDir, 'ceremonies.md'))) {
+      await copyIfNotExists(join(templatesDir, 'ceremonies.md'), ceremoniesDest);
+    }
 
-  // -------------------------------------------------------------------------
-  // Create decisions.md (canonical location at squad root)
-  // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Create decisions.md (canonical location at squad root)
+    // -------------------------------------------------------------------------
 
-  const decisionsPath = join(squadDir, 'decisions.md');
-  const decisionsContent = `# Squad Decisions
+    const decisionsPath = join(squadDir, 'decisions.md');
+    const decisionsContent = `# Squad Decisions
 
 ## Active Decisions
 
@@ -1259,14 +1300,14 @@ No decisions recorded yet.
 - Keep history focused on work, decisions focused on direction
 `;
 
-  await writeIfNotExists(decisionsPath, decisionsContent);
+    await writeIfNotExists(decisionsPath, decisionsContent);
 
-  // -------------------------------------------------------------------------
-  // Create team.md (required by shell lifecycle)
-  // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Create team.md (required by shell lifecycle)
+    // -------------------------------------------------------------------------
 
-  const teamPath = join(squadDir, 'team.md');
-  const teamContent = `# Squad Team
+    const teamPath = join(squadDir, 'team.md');
+    const teamContent = `# Squad Team
 
 > ${projectDescription || projectName}
 
@@ -1287,17 +1328,17 @@ No decisions recorded yet.
 ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Created:** ${new Date().toISOString().split('T')[0]}
 `;
 
-  await writeIfNotExists(teamPath, teamContent);
+    await writeIfNotExists(teamPath, teamContent);
 
-  // -------------------------------------------------------------------------
-  // Create routing.md
-  // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Create routing.md
+    // -------------------------------------------------------------------------
 
-  const routingPath = join(squadDir, 'routing.md');
-  if (templatesDir && storage.existsSync(join(templatesDir, 'routing.md'))) {
-    await copyIfNotExists(join(templatesDir, 'routing.md'), routingPath);
-  } else {
-    const routingContent = `# Squad Routing
+    const routingPath = join(squadDir, 'routing.md');
+    if (templatesDir && storage.existsSync(join(templatesDir, 'routing.md'))) {
+      await copyIfNotExists(join(templatesDir, 'routing.md'), routingPath);
+    } else {
+      const routingContent = `# Squad Routing
 
 ## Work Type Rules
 
@@ -1309,7 +1350,8 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
 - Route based on work type and agent expertise
 - Update this file as team capabilities evolve
 `;
-    await writeIfNotExists(routingPath, routingContent);
+      await writeIfNotExists(routingPath, routingContent);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -1354,7 +1396,7 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
           `MANIFEST_SKILL_NAMES references ${missing.length} skill(s) ` +
           `missing from the SDK templates dir (${skillsSrc}): ${missing.join(', ')}. ` +
           `This is a packaging bug — try \`squad upgrade\` or reinstall the SDK; ` +
-          `if it persists, please report it at https://github.com/bradygaster/squad/issues. ` +
+          `if it persists, please report it at https://github.com/github/squad/issues. ` +
           `(Contributors: re-run \`node scripts/sync-templates.mjs --sync\` from the repo root before packaging.)`
         );
       }
@@ -1368,20 +1410,20 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
   }
 
   // -------------------------------------------------------------------------
-  // Create .gitattributes for merge drivers
+  // Create .gitattributes for merge drivers and stable casting hashes
   // Append-only mutable state files use union merge to handle concurrent appends.
-  // Note: .squad/casting/* files are identity (not mutable) so they don't need
-  // union merge and are NOT listed here.
+  // Casting JSON is authoritative identity whose commit manifest hashes LF bytes.
   // -------------------------------------------------------------------------
 
   const gitattributesPath = join(teamRoot, '.gitattributes');
-  const unionRules = [
+  const gitattributesRules = [
     '.squad/decisions.md merge=union',
     '.squad/agents/*/history.md merge=union',
     '.squad/log/** merge=union',
     '.squad/orchestration-log/** merge=union',
     '.squad/rai/audit-trail.md merge=union',
     '.squad/fact-checker/audit-trail.md merge=union',
+    '.squad/casting/*.json text eol=lf',
   ];
 
   let existingAttrs = '';
@@ -1389,10 +1431,10 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
     existingAttrs = storage.readSync(gitattributesPath) ?? '';
   }
 
-  const missingRules = unionRules.filter(rule => !existingAttrs.includes(rule));
+  const missingRules = gitattributesRules.filter(rule => !existingAttrs.includes(rule));
   if (missingRules.length > 0) {
     const block = (existingAttrs && !existingAttrs.endsWith('\n') ? '\n' : '')
-      + '# Squad: union merge for append-only team state files\n'
+      + '# Squad: merge and line-ending rules for team state files\n'
       + missingRules.join('\n') + '\n';
     await storage.append(gitattributesPath, block);
     createdFiles.push(toRelativePath(gitattributesPath));
@@ -1450,8 +1492,7 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
   let isGitHub = true;
   try {
     const remoteUrl = execFileSync('git', ['remote', 'get-url', 'origin'], { cwd: teamRoot, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
-    const remoteUrlLower = remoteUrl.toLowerCase();
-    if (remoteUrlLower.includes('dev.azure.com') || remoteUrlLower.includes('visualstudio.com') || remoteUrlLower.includes('ssh.dev.azure.com')) {
+    if (detectPlatformFromUrl(remoteUrl) === 'azure-devops') {
       isGitHub = false;
     }
   } catch {
@@ -1476,7 +1517,7 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
       createdFiles.push(toRelativePath(agentFile));
       // Advertise the (possibly still empty) cast to outer coordinators (#1608).
       try {
-        syncTeamCapabilities({ squadDir, agentFile, storage });
+        syncTeamCapabilities({ squadDir: (options.linkedTeam && options.linkedTeamDir) || squadDir, agentFile, storage });
       } catch (error) {
         warnings.push(
           `Could not refresh squad.agent.md team capabilities: ${

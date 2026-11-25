@@ -11,13 +11,15 @@
  */
 
 import path from 'node:path';
+import { lstatSync, readFileSync, readdirSync, realpathSync, type Dirent } from 'node:fs';
 import { exec, execFileSync } from 'node:child_process';
 import { FSStorageProvider, resolveStateBackend, type StateBackendType } from '@bradygaster/squad-sdk';
-import { readCastingRegistryPair } from '@bradygaster/squad-sdk/casting';
+import { detectHistoricalCastingSchema, readCastingRegistryPair } from '@bradygaster/squad-sdk/casting';
 import { resolveSquad, resolveSquadPaths, clearResolveSquadCache } from '@bradygaster/squad-sdk/resolution';
 import { fatalNoSquad } from '../core/errors.js';
 import { isMutableStateKey, MUTABLE_STATE_PATHS } from '@bradygaster/squad-sdk/tools';
 import { resolveUpstreams } from '@bradygaster/squad-sdk/upstream';
+import { squadRepoLauncherScript } from '@bradygaster/squad-sdk/client';
 import { effectiveSquadDir } from '../core/effective-squad-dir.js';
 import { getPackageVersion } from '../core/version.js';
 import {
@@ -99,7 +101,7 @@ function detectMode(cwd: string): ModeInfo {
 export function teamRootIsThisProject(cwd: string, teamRoot: string): boolean {
   const resolved = path.resolve(cwd, teamRoot);
   const normalize = (p: string) => {
-    const n = path.resolve(p).replace(/[\\/]+$/, '');
+    const n = path.resolve(p).replace(/[\\/]$/, '');
     return process.platform === 'win32' ? n.toLowerCase() : n;
   };
   const target = normalize(resolved);
@@ -184,6 +186,12 @@ function checkTeamRootResolves(squadDir: string, teamRoot: string): DoctorCheck 
 const STRAY_STATE_FILE = /\.(md|json)$/;
 const STRAY_STATE_MAX_DEPTH = 4;
 const STRAY_STATE_LIST_LIMIT = 10;
+const LEGACY_STRANDED_STATE_PATHS: ReadonlyArray<{ readonly root: string; readonly kind: 'file' | 'dir' }> = [
+  ...MUTABLE_STATE_PATHS,
+  // Pre-#2229 state tools could also write casting/policy.json before #2107 fixed linked team roots.
+  { root: 'casting/policy.json', kind: 'file' },
+];
+const LEGACY_STRANDED_STATE_KEYS = new Set(['casting/policy.json']);
 
 /** Push `/`-separated keys of files under `base/rel`. Skips dirs it cannot list. */
 function collectFileKeys(base: string, rel: string, depth: number, out: string[]): void {
@@ -224,7 +232,7 @@ function checkStrandedLinkedTeamState(squadDir: string): DoctorCheck | undefined
   if (paths.teamSquadDir === paths.teamDir) return undefined;
 
   const candidates: string[] = [];
-  for (const { root, kind } of MUTABLE_STATE_PATHS) {
+  for (const { root, kind } of LEGACY_STRANDED_STATE_PATHS) {
     const full = path.join(paths.teamDir, root);
     if (kind === 'file') {
       if (fileExists(full) && !isDirectory(full)) candidates.push(root);
@@ -234,7 +242,9 @@ function checkStrandedLinkedTeamState(squadDir: string): DoctorCheck | undefined
   }
   // Match only what the state tools could write, so an unrelated code dir
   // named agents/ or log/ does not trigger advice to move it.
-  const stray = candidates.filter(key => isMutableStateKey(key) && STRAY_STATE_FILE.test(key));
+  const stray = candidates.filter(
+    key => (isMutableStateKey(key) || LEGACY_STRANDED_STATE_KEYS.has(key)) && STRAY_STATE_FILE.test(key),
+  );
   if (stray.length === 0) return undefined;
 
   const toMerge = stray.filter(key => fileExists(path.join(paths.teamSquadDir, key)));
@@ -291,12 +301,30 @@ function checkAgentsDir(squadDir: string): DoctorCheck {
 }
 
 function checkCastingRegistry(squadDir: string): DoctorCheck {
-  const registryPath = path.join(squadDir, 'casting', 'registry.json');
+  const castingDir = path.join(squadDir, 'casting');
+  const registryPath = path.join(castingDir, 'registry.json');
   if (!fileExists(registryPath)) {
     return { name: 'casting/registry.json exists', status: 'fail', message: 'file not found' };
   }
   try {
-    readCastingRegistryPair(path.join(squadDir, 'casting'));
+    const registry = JSON.parse(storage.readSync(registryPath) ?? '{}') as unknown;
+    const history = JSON.parse(storage.readSync(path.join(castingDir, 'history.json')) ?? '{}') as unknown;
+    const legacySchema = detectHistoricalCastingSchema(registry, history);
+    if (legacySchema) {
+      return {
+        name: 'casting/registry.json exists',
+        status: 'fail',
+        message:
+          `detected legacy casting schema ${legacySchema} from a Squad 0.9.x coordinator. `
+          + 'Run `squad upgrade --force` to map persistent names through the existing agent folders, '
+          + 'preserve byte-exact originals, and create the managed durable pair.',
+      };
+    }
+  } catch {
+    // The strict pair reader below reports malformed JSON and missing history precisely.
+  }
+  try {
+    readCastingRegistryPair(castingDir);
   } catch (error) {
     return {
       name: 'casting/registry.json exists',
@@ -656,9 +684,12 @@ export async function checkSquadStateBridge(cwd: string): Promise<DoctorCheck> {
             };
           }
           const reportedTeamDir = path.resolve(teamLine);
-          const sameTeamDir = process.platform === 'win32'
-            ? reportedTeamDir.toLowerCase() === expectedTeamDir.toLowerCase()
-            : reportedTeamDir === expectedTeamDir;
+          // The bridge reports its team directory with symlinks resolved (macOS /var is /private/var),
+          // so compare real paths: two spellings of one directory are the same team.
+          const real = (p: string) => { try { return realpathSync(p); } catch { return p; } };
+          const a = real(reportedTeamDir);
+          const b = real(expectedTeamDir);
+          const sameTeamDir = process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
           if (!sameTeamDir) {
             return {
               name,
@@ -687,6 +718,82 @@ export async function checkSquadStateBridge(cwd: string): Promise<DoctorCheck> {
             message: `unreachable: ${detail}. ${fix}`,
           };
         }
+}
+
+// ── portable launch commands (#2462) ─────────────────────────────────
+
+/** Squad's launch commands in files the repository commits: `.mcp.json` and Claude hooks. */
+function committedSquadLaunches(cwd: string): { file: string; command: string; args: string[] }[] {
+  const found: { file: string; command: string; args: string[] }[] = [];
+  const read = (rel: string): unknown => {
+    try {
+      return JSON.parse(readFileSync(path.join(cwd, rel), 'utf8'));
+    } catch {
+      return undefined;
+    }
+  };
+  const mcp = read('.mcp.json') as { mcpServers?: Record<string, { command?: unknown; args?: unknown }> } | undefined;
+  const entry = mcp?.mcpServers?.['squad_state'];
+  if (entry && typeof entry.command === 'string') {
+    found.push({ file: '.mcp.json', command: entry.command, args: Array.isArray(entry.args) ? entry.args.map(String) : [] });
+  }
+  const settings = read('.claude/settings.json') as { hooks?: Record<string, unknown> } | undefined;
+  for (const groups of Object.values(settings?.hooks ?? {})) {
+    if (!Array.isArray(groups)) continue;
+    for (const group of groups as { hooks?: unknown }[]) {
+      for (const h of Array.isArray(group?.hooks) ? (group.hooks as Record<string, unknown>[]) : []) {
+        const args = Array.isArray(h?.['args']) ? (h['args'] as unknown[]).map(String) : [];
+        if (typeof h?.['command'] !== 'string') continue;
+        const squadHook = args.slice(-3, -1).join(' ') === 'hook claude' || / hook claude [A-Za-z]+$/.test(h['command'] as string);
+        if (squadHook) found.push({ file: '.claude/settings.json', command: h['command'] as string, args });
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * Committed launch commands must work on every clone: no absolute paths into one machine's
+ * install, and the repository launcher they name must exist. Returns undefined when the
+ * repository commits no Squad launch command.
+ */
+export function checkPortableSquadLaunch(cwd: string): DoctorCheck | undefined {
+  const name = 'portable squad_state launch';
+  const launches = committedSquadLaunches(cwd);
+  if (launches.length === 0) return undefined;
+  const fix = "Run 'squad upgrade' to switch to the repository launcher (.squad/squad.mjs), then commit the result.";
+  // A committed file may come from any OS: recognise Windows and POSIX absolute paths everywhere.
+  const isAbs = (p: string) => path.posix.isAbsolute(p) || path.win32.isAbsolute(p);
+  const absolute = launches.filter(l => isAbs(l.command) || l.args.some(a => /cli-entry\.js$/.test(a) && isAbs(a)));
+  if (absolute.length > 0) {
+    const files = [...new Set(absolute.map(l => l.file))].join(', ');
+    // Only an absolute command is a file to check; a bare `node` is found on PATH.
+    const missing = absolute.some(l => (isAbs(l.command) && !lstatExists(l.command)) ||
+      l.args.some(a => isAbs(a) && !lstatExists(a)));
+    return {
+      name,
+      status: missing ? 'fail' : 'warn',
+      message: missing
+        ? `${files} start Squad from a path that does not exist on this machine (written on another machine?), so squad_state and the Claude hooks fail. ${fix}`
+        : `${files} start Squad from an absolute path on this machine, which fails on every other clone. ${fix}`,
+    };
+  }
+  for (const l of launches) {
+    const script = l.command === 'node' ? squadRepoLauncherScript(l.command, l.args) : /^node "\$CLAUDE_PROJECT_DIR\/([^"]+)"/.exec(l.command)?.[1];
+    if (script && /(?:^|\/)squad\.mjs$/.test(script) && !isAbs(script) && !lstatExists(path.join(cwd, script))) {
+      return { name, status: 'fail', message: `${l.file} runs ${script}, which is missing. ${fix}` };
+    }
+  }
+  return { name, status: 'pass', message: `${launches.length} committed launch command(s) are portable` };
+}
+
+function lstatExists(file: string): boolean {
+  try {
+    lstatSync(file);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ── git sync hooks check ─────────────────────────────────────────────
@@ -861,6 +968,200 @@ export function checkWorktreeEol(cwd: string): DoctorCheck | undefined {
   };
 }
 
+interface HistoryArchivePointer {
+  source: string;
+  target: string;
+}
+
+const HISTORY_ARCHIVE_POINTER = /(?:Full pre-summary history archived at|Prior archive at)\s+(?:`([^`]+)`|<([^>]+)>|\[([^\]]+)\]|([^\s`<>]+))/gi;
+
+function findHistoryArchivePointers(squadDir: string): { pointers: HistoryArchivePointer[]; unreadable?: string } {
+  const pointers: HistoryArchivePointer[] = [];
+  const pending = [squadDir];
+
+  while (pending.length > 0) {
+    const directory = pending.pop()!;
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(directory, { withFileTypes: true });
+    } catch {
+      return { pointers, unreadable: directory };
+    }
+
+    for (const entry of entries) {
+      const filePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        pending.push(filePath);
+      } else if (entry.isFile() && path.extname(entry.name).toLowerCase() === '.md') {
+        let contents: string;
+        try {
+          contents = readFileSync(filePath, 'utf8');
+        } catch {
+          return { pointers, unreadable: filePath };
+        }
+
+        let inFence = false;
+        for (const line of contents.split(/\r?\n/)) {
+          if (/^\s*(`{3,}|~{3,})/.test(line)) {
+            inFence = !inFence;
+            continue;
+          }
+          if (inFence) continue;
+
+          for (const match of line.matchAll(HISTORY_ARCHIVE_POINTER)) {
+            const target = (match[1] ?? match[2] ?? match[3] ?? match[4] ?? '').replace(/[),.;:]+$/, '');
+            if (target) pointers.push({ source: filePath, target });
+          }
+        }
+      }
+    }
+  }
+
+  return { pointers };
+}
+
+/**
+ * Verify that every referenced archive exists and is tracked by Git. A worktree
+ * blob that differs from the staged blob is reported as a warning because
+ * `squad nap` may append to a valid archive before the user stages it.
+ */
+export function checkHistoryArchiveIntegrity(
+  stateDir: string,
+  cwd = path.dirname(stateDir),
+  backendConfigDir = stateDir,
+): DoctorCheck {
+  const stateBackend = configuredStateBackend(backendConfigDir);
+  if (stateBackend === 'orphan' || stateBackend === 'two-layer') {
+    return {
+      name: 'history archive integrity',
+      status: 'warn',
+      message: `Git worktree archive checks are not applicable to the '${stateBackend}' state backend`,
+    };
+  }
+
+  const scan = findHistoryArchivePointers(stateDir);
+  if (scan.unreadable) {
+    return {
+      name: 'history archive integrity',
+      status: 'warn',
+      message: `could not scan ${path.relative(stateDir, scan.unreadable) || '.'}`,
+    };
+  }
+
+  if (scan.pointers.length === 0) {
+    return { name: 'history archive integrity', status: 'pass', message: 'no history archive references found' };
+  }
+
+  let repoRoot: string;
+  try {
+    repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  } catch {
+    return {
+      name: 'history archive integrity',
+      status: 'warn',
+      message: 'Git is unavailable, so archive tracking could not be verified',
+    };
+  }
+
+  const relativeStateDir = path.relative(repoRoot, path.resolve(stateDir));
+  if (
+    relativeStateDir === '..' ||
+    relativeStateDir.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativeStateDir)
+  ) {
+    return {
+      name: 'history archive integrity',
+      status: 'warn',
+      message: 'state directory is outside the Git worktree, so archive tracking could not be verified',
+    };
+  }
+
+  const failures: string[] = [];
+  const warnings: string[] = [];
+  for (const pointer of scan.pointers) {
+    const source = path.relative(repoRoot, pointer.source).split(path.sep).join('/');
+    const normalizedTarget = pointer.target.replace(/\\/g, '/').replace(/^\.\//, '');
+    const targetPath = normalizedTarget.startsWith('.squad/')
+      ? path.resolve(repoRoot, normalizedTarget)
+      : path.resolve(stateDir, normalizedTarget);
+    const relativeTarget = path.relative(repoRoot, targetPath).split(path.sep).join('/');
+    const displayTarget = relativeTarget || normalizedTarget;
+
+    if (!relativeTarget || relativeTarget === '..' || relativeTarget.startsWith('../') || path.isAbsolute(relativeTarget)) {
+      failures.push(`${source} points outside the repository: ${pointer.target}`);
+      continue;
+    }
+
+    try {
+      if (!lstatSync(targetPath).isFile()) {
+        failures.push(`${source} -> ${displayTarget} is not a regular file`);
+        continue;
+      }
+    } catch {
+      failures.push(`${source} -> ${displayTarget} is missing on disk`);
+      continue;
+    }
+
+    let indexRecord: string;
+    try {
+      indexRecord = execFileSync('git', ['ls-files', '--stage', '--error-unmatch', '-z', '--', relativeTarget], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch {
+      failures.push(`${source} -> ${displayTarget} exists but is not tracked by Git`);
+      continue;
+    }
+
+    const stageZero = indexRecord.split('\0').find(record => /^\d+ [0-9a-f]+ 0\t/.test(record));
+    if (!stageZero) {
+      failures.push(`${source} -> ${displayTarget} has no resolved Git index entry`);
+      continue;
+    }
+    const indexBlob = /^\d+ ([0-9a-f]+) 0\t/.exec(stageZero)?.[1];
+
+    try {
+      const worktreeBlob = execFileSync('git', ['hash-object', `--path=${relativeTarget}`, '--', targetPath], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }).trim();
+      if (worktreeBlob !== indexBlob) {
+        warnings.push(`${source} -> ${displayTarget} differs from its staged Git blob`);
+      }
+    } catch {
+      failures.push(`${source} -> ${displayTarget} could not be verified against Git`);
+    }
+  }
+
+  if (failures.length > 0) {
+    return {
+      name: 'history archive integrity',
+      status: 'fail',
+      message: failures.slice(0, 5).join('; ') + (failures.length > 5 ? `; and ${failures.length - 5} more` : ''),
+    };
+  }
+
+  if (warnings.length > 0) {
+    return {
+      name: 'history archive integrity',
+      status: 'warn',
+      message: warnings.slice(0, 5).join('; ') + (warnings.length > 5 ? `; and ${warnings.length - 5} more` : ''),
+    };
+  }
+
+  return {
+    name: 'history archive integrity',
+    status: 'pass',
+    message: `verified ${scan.pointers.length} tracked history archive reference(s)`,
+  };
+}
+
 // ── public API ──────────────────────────────────────────────────────
 
 /**
@@ -921,12 +1222,13 @@ export async function runDoctor(cwd?: string): Promise<DoctorCheck[]> {
     // roots — mirrors the dual-root resolver used by `squad cast`/`squad status`
     // so linked (remote-mode) projects are validated against the team root's
     // .squad/ instead of the local stub that only holds config.json (#2056).
-    const { stateDir } = effectiveSquadDir(resolvedCwd);
+    const { stateDir, backendConfigDir } = effectiveSquadDir(resolvedCwd);
     checks.push(checkTeamMd(stateDir));
     checks.push(checkRoutingMd(stateDir));
     checks.push(checkAgentsDir(stateDir));
     checks.push(checkCastingRegistry(stateDir));
     checks.push(checkDecisionsMd(resolvedCwd, squadDir, stateDir));
+    checks.push(checkHistoryArchiveIntegrity(stateDir, resolvedCwd, backendConfigDir));
     const rateLimitCheck = checkRateLimitStatus(squadDir);
     if (rateLimitCheck) checks.push(rateLimitCheck);
 
@@ -937,6 +1239,8 @@ export async function runDoctor(cwd?: string): Promise<DoctorCheck[]> {
     if (upstreamCheck) checks.push(upstreamCheck);
 
     checks.push(await checkSquadStateBridge(resolvedCwd));
+    const portableLaunch = checkPortableSquadLaunch(resolvedCwd);
+    if (portableLaunch) checks.push(portableLaunch);
 
     // Hook presence check (only for two-layer / orphan backends)
     const hookCheck = checkGitSyncHooks(resolvedCwd, squadDir);
@@ -1014,4 +1318,7 @@ export async function doctorCommand(cwd?: string): Promise<void> {
   const mode = getDoctorMode(resolvedCwd);
   const checks = await runDoctor(resolvedCwd);
   printDoctorReport(checks, mode);
+  if (checks.some(check => check.status === 'fail')) {
+    process.exitCode = 1;
+  }
 }

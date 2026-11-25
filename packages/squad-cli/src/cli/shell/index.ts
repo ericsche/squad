@@ -276,7 +276,7 @@ export async function runShell(): Promise<void> {
   const nextUsageTurnId = (sessionId: string): string =>
     `${sessionId}:${Date.now()}:${++usageTurnSequence}`;
   streamingPipeline.onUsage(async (event) => {
-    await persistUsage(ledger => ledger.append(event));
+    await persistUsage(ledger => ledger.append(event, { squadSessionId: persistedSession.id }));
   });
   if (
     rawContextWarningThreshold
@@ -522,6 +522,7 @@ export async function runShell(): Promise<void> {
     await persistUsage(ledger => ledger.recordTurnStart({
       turnId,
       sessionId: sid,
+      squadSessionId: persistedSession.id,
       agentName,
       timestamp: new Date(),
     }));
@@ -719,6 +720,7 @@ export async function runShell(): Promise<void> {
     await persistUsage(ledger => ledger.recordTurnStart({
       turnId,
       sessionId: coordSid,
+      squadSessionId: persistedSession.id,
       agentName: 'coordinator',
       timestamp: new Date(),
     }));
@@ -1273,9 +1275,14 @@ export async function runShell(): Promise<void> {
       recordShellError('dispatch', err instanceof Error ? err.constructor.name : 'unknown');
       const errorMsg = err instanceof Error ? err.message : String(err);
       if (shellApi) {
+        const quotaExceeded = errorMsg.toLowerCase().split(/[\r\n\u2028\u2029]/).some((line) => {
+          const quota = line.indexOf('quota');
+          return quota !== -1 && line.indexOf('exceed', quota + 5) !== -1;
+        });
         const isRateLimit =
           err instanceof RateLimitError ||
-          /rate.?limit|quota.*exceed|429/i.test(errorMsg);
+          /rate.?limit|429/i.test(errorMsg) ||
+          quotaExceeded;
         let guidance;
         if (isRateLimit) {
           const retryAfter =

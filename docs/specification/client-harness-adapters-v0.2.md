@@ -229,10 +229,75 @@ registry lists harnesses during capability negotiation.
 `decision: 'approve' | 'deny'`, `reason?`, `epoch?`); the `hash` is the opaque
 string the harness itself supplied with its `approval-requested` event.
 
-No `HarnessAdapter` implementation ships in the SDK or CLI today. The
-registry, the SPI and the broker-side delivery guarantees exist and are tested
-with in-memory harnesses; the `squad state-mcp` bridge runs without any
-harness and refuses `squad_backend_send_message` accordingly.
+Two `HarnessAdapter`s ship, in `packages/squad-sdk/src/backend/harnesses/`.
+Both route approvals through one shared queue (`TurnApprovals`): requests are
+hash-bound (sha256 of the canonical action), offered one at a time because the
+broker holds one pending approval per turn, and a deny ends the turn.
+Approvals are scoped to their conversation, since runtime tool-call ids are
+not globally unique. The broker's approval record carries only a short,
+redacted action summary and the hash: the tool input itself is never sent as
+`payload`, so it stays out of backend state. The hash covers the full input.
+Redaction masks credentials (named values, JSON keys, `Authorization`
+schemes, credential flags, `-u user:password`, URL passwords, known token
+formats) but never masks executable syntax: a value containing shell
+expansion, substitution, chaining or redirection stays visible, so the
+approver always sees what would run.
+
+Both also share one turn lifecycle (`TurnHarness`). Concurrent deliveries of
+an operation share one acceptance, and a failed start forgets it so the retry
+runs. A run is registered before its runtime starts, so a cancel during
+startup or session creation is kept and the turn never reaches the runtime.
+`cancel` acknowledges once the stop is requested; the conversation's next turn
+starts only after the interrupt has finished, so late events from an aborted
+turn are never attributed to the next one. An interrupt that fails stays
+retryable, and the harness stops reusing the runtime session it may still be
+using. With a state directory (`stateDir`; `squad state-mcp` always passes one)
+accepted deliveries and each conversation's runtime session id survive a
+restart: a redelivered turn is not run again, and the next turn resumes the
+session instead of starting without context.
+
+`claude-agent-sdk` (`ClaudeAgentSdkHarness`) runs each admitted turn as a
+Claude Agent SDK `query()`, resuming the conversation's session, and maps
+`canUseTool` onto `approval-requested`: `approvalId` is the tool-use id, `hash`
+is a sha256 of the canonical tool name and input, parallel tool calls are
+offered one at a time (the broker holds one pending approval per turn), and a
+deny ends the turn. It runs with `permissionMode: 'default'` and
+`settingSources: []`, so no repository or user allow rule approves a call the
+broker never sees; the `permissions.deny` rules from user, project and local
+settings are carried over as `disallowedTools`, so they still apply. The real
+SDK starts only with an API credential (`ANTHROPIC_API_KEY`,
+`ANTHROPIC_AUTH_TOKEN`, or Bedrock, Vertex or Foundry settings), never a saved
+claude.ai login. Claude Code still runs some read-only commands (such as
+`echo`) without calling `canUseTool`, so those never reach the broker; anything
+that writes does (live-verified 2026-11-10: a `touch` was offered, denied, and
+not run). The SDK is an optional peer dependency; `squad state-mcp
+--experimental-backend` registers the harness only when it is installed and
+such a credential is configured (`SQUAD_BACKEND_HARNESSES=none` turns it off),
+and otherwise refuses
+`squad_backend_send_message`.
+
+`copilot-sdk` (`CopilotSdkHarness`) keeps one Copilot session per conversation
+(created on the first turn, resumed by id afterwards). A turn is `send()`
+followed by `session.idle` (completed) or `session.error` (failed); only
+main-agent `assistant.message` content enters the transcript. A turn reacts
+only to events after its own `user.message` (matched to the id `send()`
+returns), so an idle or answer from an earlier, aborted turn can't complete or
+join it. A session whose send failed, whose interrupt failed or whose turn
+timed out (`turnTimeoutMs`, default 30 minutes) is dropped and resumed fresh.
+`onPermissionRequest` goes through the same queue, with `toolCallId` as the
+`approvalId` (`#2`, `#3` … when one tool call asks for several permissions); approve answers `approve-once`, and deny answers `reject` and
+aborts the turn. The harness never answers with a remembered approval, but the
+Copilot runtime can keep "approve permanently" decisions (URL prompts) in its
+config directory; the `configDirectory` option points sessions at a
+harness-only directory so approvals made in the user's own Copilot CLI don't
+apply; the MCP bridge always sets one. Because `@github/copilot-sdk` is always installed, the MCP
+bridge registers this harness only when `SQUAD_BACKEND_HARNESSES` lists
+`copilot-sdk`.
+
+The shared contract suite (`test/harness-contract.ts`) runs the same
+assertions against both harnesses (§15 item 1). Both run in the
+worktree-aware repository root, so a linked worktree's turns edit that
+worktree even when its squad state resolves to the main checkout.
 
 `describe` and `projectWorkspace` on `ClientAdapter`
 let the broker reason about host capabilities and file projection without
@@ -289,7 +354,7 @@ distinct from negotiated `effectiveCapabilities`.
 | Host (`ClientId` / `hostKind`) | Agent anchor | MCP config | Support files | `submit` projection |
 |---|---|---|---|---|
 | GitHub Copilot (`copilot` / `github-copilot`) | `.github/agents/squad.agent.md` | `.mcp.json` | `.github/copilot-instructions.md` when present | `create_session`, `task`, or `runSubagent` depending on surface |
-| Claude Code (`claude` / `claude-code`) | `.claude/agents/squad.md` | `.mcp.json` | `CLAUDE.md` marker block, `.gitignore` `# squad:claude` lines | Claude `Task` subagent tool |
+| Claude Code (`claude` / `claude-code`) | `.claude/agents/squad.md` (plugin mode: the plugin's `squad:squad`, §7.4) | `.mcp.json` (plugin mode: the plugin's `.mcp.json`) | `CLAUDE.md` marker block, `.gitignore` `# squad:claude` lines, `.claude/agents/<member>.md`, `.claude/skills/<name>/SKILL.md`, opt-in `.claude/settings.json` hooks | Claude `Agent` subagent tool |
 | Kiro (`kiro`) | `.kiro/steering/squad.md` | `.kiro/settings/mcp.json` | `.kiro/agents/squad.json`, Kiro spec and steering hooks | Kiro agent or spec execution hook |
 | OpenCode (`opencode`) | `.opencode/agent/squad.md` | `opencode.json` | host agent and MCP definition blocks in `opencode.json` | OpenCode agent execution entry declared in `opencode.json` |
 | Cursor (`cursor`) | `.cursor/agents/squad.md` | `.cursor/mcp.json` | `.cursor/rules/squad.mdc` | Cursor agent dispatch or inline agent run with projected rules |
@@ -299,6 +364,18 @@ distinct from negotiated `effectiveCapabilities`.
 These file paths are the portable contract. A host-specific installer may
 write additional generated files, but it may not move the canonical anchor
 without changing the projection version.
+
+Projection versions are per host. The Claude Code projection is at **v3**
+(`CLAUDE_PROJECTION_VERSION`): v1 wrote the coordinator, `.mcp.json`, the
+`CLAUDE.md` block and the `.gitignore` lines; v2 adds one subagent per member,
+the template and coordinator skills, and the opt-in `settings.json` hooks; v3
+adds plugin mode (§7.4), where the Squad Claude Code plugin carries the
+coordinator, skills, hooks and MCP server. Without plugin mode, v3 writes the
+same files as v2. Every generated Claude Markdown file states its version in
+the generated-file note (`… Claude projection v3.`). The note keeps the v1
+wording as a prefix, so `squad upgrade` still recognizes v1 and v2 files as
+Squad-owned and replaces them in place. `settings.json` handlers are identified by their `hook claude <Event>`
+args instead, because JSON has no comments.
 
 The `submit` column describes the host execution primitive only. It is not the
 portable conversation wire contract. MCP-backed projections are still host
@@ -360,19 +437,145 @@ detail inside the harness adapter rather than a different workspace contract.
 
 - agent anchor: `.claude/agents/squad.md`
 - MCP config: `.mcp.json`
-- support files: `CLAUDE.md`
+- support files: `CLAUDE.md`, one member subagent `.claude/agents/<id>.md`
+  per charter in `.squad/agents/<id>/charter.md` (built-ins included), and
+  skills in `.claude/skills/<name>/SKILL.md`
+
+The skills are Squad's template skills (from `.squad/templates/skills/`,
+except where a team skill of the same name exists in `.squad/skills/`, which
+keeps its precedence) and the coordinator's on-demand `squad-coordinator-*`
+skills. The Claude coordinator digest replaces core-protocol items 0 (Init
+Mode and casting), 9 (Ralph mode), 15 (Ceremonies), 18 (GitHub Issues mode)
+and 19 (PRD mode) with stubs that keep each trigger and the rules that must
+hold before the skill is loaded; the full item text moves verbatim into the
+matching skill. The shared digest for other hosts and
+`.github/agents/squad.agent.md` are unchanged. Skill files remain untrusted
+data (core-protocol item 17).
+
+Member subagents map charter fields onto Claude Code frontmatter:
+
+| Charter field | Frontmatter |
+|---|---|
+| `Identity: ID` (or the charter directory name) | `name` |
+| `Identity: Purpose` (or name and role), plus the member's `routing.md` work types | `description` |
+| `Model: Preferred` | `model`, only for a Claude model or alias; omitted for `auto` |
+| `Model: Reasoning Effort` | `effort`; omitted for `auto` |
+| `X-squad-host-claude: Tools` | `tools` |
+| `X-squad-host-claude: Isolation` (`worktree`) | `isolation` |
+
+`X-squad-host-claude` is a charter extension (charter v0.1 §8: namespace
+`squad`, name `host-claude`). Its values are runtime configuration, not
+authorization (charter v0.1 §13.1). A preference the projection cannot apply
+(a non-Claude model, an invalid extension value, or `long_context` without a
+long-context Claude model) is recorded in a comment in the generated file
+rather than dropped silently (execution preferences v0.1 §6).
+
+Governance hooks are opt-in. With `"claudeHooks": "advisory"` in
+`.squad/config.json`, the projection adds one Squad handler per event to
+`.claude/settings.json`. Each handler is an exec-form command (no shell) that
+runs the MCP launch spec with `hook claude <Event>` in place of `state-mcp`.
+The handlers are:
+
+| Event | Matcher | Effect |
+|---|---|---|
+| `SessionStart`, `SubagentStart` | `squad` (SubagentStart only) | For the coordinator only: adds context with the CLI version the `squad_state` bridge must match, the roster, routing, active reviewer lockouts and an open Ralph circuit breaker |
+| `PreToolUse` | `Edit\|MultiEdit\|Write\|NotebookEdit` | A member listed in an active lockout that edits a path the subject covers gets a warning, shown to the user and to the model |
+| `PostToolUse` | `Agent\|Task` | After the coordinator spawns a member: adds a `squad-coordination-handoff/v0.1` envelope with structured fields only (`result` when the call finished; `acknowledgement` for a background launch, `status: "async_launched"`, which has not finished), a reminder to record decisions and run the reviewer gate, and the member's lockout state |
+| `Stop` | none | For the coordinator, once per stop (`stop_hook_active` is honoured): asks for Scribe when `decisions/inbox/` has entries, and reports an open Ralph circuit breaker |
+
+The hooks are advisory: no handler returns a `permissionDecision` or blocks a
+stop, so they never grant or deny a tool call (governance-review v0.1 §10).
+A handler that fails or finds hooks turned off prints nothing and exits 0.
+The decisions inbox is read from disk, so a team on a non-local state backend
+gets no Scribe reminder from `Stop`.
+
+Reviewer lockouts are recorded durably in
+`<squadDir>/governance/lockouts.json` by `squad lockout reject|assign|submit|approve|override|status`.
+That command implements the governance-review v0.1 §6 states (`author-locked`,
+`revision-assigned`, `revision-submitted`, `cleared`, `deadlocked`). An
+override needs an authority (the user, or a member listed in
+`governance.authorities` in `config.json`) and a reason. Revision authors are
+the members with a charter, except the coordinator, Scribe, Ralph, Rai and
+Fact Checker, whose charters exclude revision pairing. Each command reads,
+transitions and writes the record under an interprocess lock, so concurrent
+commands keep every transition. A `governance/` directory or file that resolves
+outside the team directory is refused.
+
+Projected Claude files never copy content from outside the team directory: a
+charter, `routing.md` or template `SKILL.md` that resolves outside it through a
+symlink is skipped.
 
 ### 7.2 `submit`
 
-`submit` maps to Claude Code's `Task` subagent tool. The harness adapter is
-responsible for shaping the portable prompt, handling streaming callbacks, and
-projecting Claude's task identity into the broker run identity.
+`submit` maps to Claude Code's `Agent` subagent tool (named `Task` in earlier
+Claude Code releases). Each call takes a `prompt` and a `subagent_type`, and
+optionally:
+
+- `model`: a per-call model override; subagent definitions in
+  `.claude/agents/` can also set `model` and `effort` in their frontmatter;
+- `run_in_background`: run the subagent without blocking the caller;
+- `isolation: "worktree"`: run the subagent in its own git worktree under
+  `.claude/worktrees/` (which is why the projection ignores that directory).
+
+The harness adapter is responsible for shaping the portable prompt, handling
+streaming callbacks, and projecting Claude's subagent identity into the broker
+run identity.
 
 ### 7.3 `projectWorkspace`
 
 The adapter reports the repository root, current working directory, and the
-pair `.claude/agents/squad.md` plus `CLAUDE.md` so the broker can verify that
-the projected host files are in sync with the portable Squad contract.
+pair `.claude/agents/squad.md` plus `CLAUDE.md`, with the member subagents
+under `supportFiles`, so the broker can verify that the projected host files
+are in sync with the portable Squad contract.
+
+### 7.4 Plugin mode
+
+The Squad Claude Code plugin is generated from the SDK
+(`client/adapters/claude-plugin.ts`) into `plugins/squad/` by
+`scripts/build-claude-plugin.mjs`, and listed in the repository's marketplace
+`.claude-plugin/marketplace.json` (marketplace `squad`, plugin `squad@squad`).
+It contains:
+
+- the coordinator, `agents/squad.md` (agent `squad:squad`): the Claude
+  coordinator digest with the plugin's MCP tool prefix
+  `mcp__plugin_squad_squad_state__*`;
+- the coordinator and template skills under `skills/` (`squad:<name>`);
+- the slash commands `/squad:ralph`, `/squad:cast`, `/squad:ceremony`,
+  `/squad:status` and `/squad:dashboard` (which runs only
+  `squad dashboard`, a 127.0.0.1-only page over the session transcripts);
+- `hooks/hooks.json`: the §7.1 handlers, with the SubagentStart matcher
+  `squad|squad:squad` and `--plugin` after the event;
+- `.mcp.json`: the `squad_state` server (`plugin:squad:squad_state`);
+- `scripts/squad.mjs`, a launcher every entry above runs through, and
+  `bin/squad`, which puts `squad` on the Bash tool's PATH. The launcher runs,
+  in order: `SQUAD_CLI`; the project's
+  `node_modules/@bradygaster/squad-cli`; a `squad` on PATH outside the
+  plugin; `npx -y @bradygaster/squad-cli@<plugin version>`.
+
+The plugin carries no `settings.json`, so installing it at user scope does
+not change the main agent of other repositories. A repository opts in with
+`"claudePlugin": true` in `.squad/config.json` (`squad init --client claude
+--claude-plugin`, or `squad upgrade --claude-plugin`; `--no-claude-plugin`
+switches back). In plugin mode the projection:
+
+- writes the member subagents, with the plugin MCP prefix, the `CLAUDE.md`
+  block and the `.gitignore` lines;
+- sets two keys in `.claude/settings.json`: `agent: "squad:squad"`, so a plain
+  `claude` starts the plugin coordinator, and `squad_state` in
+  `disabledMcpjsonServers`, so the project `.mcp.json` entry (which other
+  hosts use) is neither loaded twice nor put to an approval prompt;
+- removes the Squad-owned `.claude/agents/squad.md`, the projected skills and
+  the Squad hook handlers, which the plugin now supplies;
+- leaves `.mcp.json` as it is.
+
+Plugin hooks act only when `claudeHooks` is `advisory`, like the project
+handlers, and do nothing when `.claude/settings.json` already has Squad
+handlers, so a repository still in project mode never gets each hook twice.
+Hooks see the plugin coordinator as `squad:squad` and treat it as `squad`.
+
+The plugin's members are the project's `.claude/agents/<id>.md` files: Claude
+Code loads project agents alongside plugin agents, and the per-team roster
+cannot ship inside a shared plugin.
 
 ## 8. Kiro projection
 
@@ -499,11 +702,32 @@ Companion-file ownership is explicit:
 
 - `.kiro/steering/squad.md`, `.kiro/agents/squad.json`, and
   `.kiro/settings/mcp.json` are fully Squad-managed once projected;
-- `.claude/worktrees/` integration uses Squad-owned ID-scoped `.gitignore`
-  marker blocks with `<!-- SQUAD:claude:START -->` and
-  `<!-- SQUAD:claude:END -->`;
+- `.claude/worktrees/` integration adds Squad-owned `.gitignore` lines under
+  an ID-scoped `# squad:claude` comment; rollback removes that comment and the
+  listed lines directly beneath it, and lines the user already had stay;
+- `.claude/agents/<id>.md` member subagents and `.claude/skills/<name>/SKILL.md`
+  skills are Squad-managed only while they
+  carry the generated-file comment: a user-authored file at the same path is
+  never overwritten or removed (the apply result is `skipped`). Upgrade
+  removes the generated file of a member whose charter is gone (or of a skill
+  that is no longer projected), and rollback removes every generated file;
+- `.claude/settings.json` is user-owned. Squad owns only its hook handlers,
+  identified by args ending in `hook claude <Event>`. Upgrade replaces those
+  handlers and keeps every other setting and hook. Turning `claudeHooks` off
+  removes them on the next upgrade. Rollback removes them and restores the
+  remaining JSON, and deletes the file only when nothing else was in it.
+  With hooks off and no settings file, nothing is written. In plugin mode
+  (§7.4) Squad also owns `agent` while it is `squad:squad` and the
+  `squad_state` entry of `disabledMcpjsonServers`: an `agent` the user set to
+  anything else is kept, and leaving plugin mode or rolling back removes only
+  those values (and the list, if it is left empty);
+- the `CLAUDE.md` integration is a marker block between
+  `<!-- squad:begin (managed by Squad; do not edit between markers) -->` and
+  `<!-- squad:end -->`;
 - `AGENTS.md` and `GEMINI.md` integrations are marker-scoped and therefore use
-  byte-preserving rollback outside those managed regions.
+  byte-preserving rollback outside those managed regions. A block is appended after one blank line, and keeps
+  the file's missing final newline missing, so removing it restores the
+  original bytes however the file ended.
 
 Merge and upgrade behavior follows the same rule: full ownership allows
 replacement with the current projection version, while marker-scoped ownership
@@ -519,6 +743,7 @@ module and keep host projections in one sibling folder per host family.
 | backend conversation contracts (experimental) | `packages/squad-sdk/src/backend/` (`@bradygaster/squad-sdk/backend`) |
 | client and harness adapter SPI | `packages/squad-sdk/src/client/adapter-contract.ts` |
 | host projection implementations | `packages/squad-sdk/src/client/adapters/` |
+| execution harness implementations (experimental) | `packages/squad-sdk/src/backend/harnesses/` |
 | public client exports | `packages/squad-sdk/src/client/index.ts` (`@bradygaster/squad-sdk/client`) |
 | deprecated alias | `@bradygaster/squad-sdk/clients` via `src/clients/index.ts` |
 
