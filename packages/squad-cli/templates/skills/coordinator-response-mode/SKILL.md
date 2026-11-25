@@ -34,11 +34,12 @@ an existing requirement, without taking ownership of a new specialist deliverabl
 Lightweight means a smaller prompt, not a hidden native specialist.
 A runtime-required reviewer is not a small internal check or an App child.
 Frame the mission visibly first (SQL tasks, readable plan and a branded
-`🔒 Security · {mission}` native label) in the same first tool batch as the
-reviewer without changing the review; honor any native-first obligation and use its report for genuine bounded App
+`🔒 Security · {mission}` native label) no later than the reviewer's tool batch
+without changing the review; honor any native-first obligation and use its report for genuine bounded App
 restitution, even with zero findings or a read-only request. This is part of
 the substantive security review, not a separately requested follow-up; a
-host-required findings table or question does not end it.
+host-required findings table or question does not end it: create the App
+owner in the question's tool batch.
 Explain examined scope/coverage/limitations/result without rerunning the audit,
 and reconcile current-request SQL tasks and readable plan after the report
 using actual tool discovery/calls. Read-only repository scope does not forbid

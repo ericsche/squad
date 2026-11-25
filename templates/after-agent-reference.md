@@ -36,7 +36,8 @@ user decisions. That native result is not an App child or a completed
 restitution mission. Bounded App restitution is part of every substantive
 security review, even with zero findings or a read-only request; do not wait
 for a separate follow-up request. A host-required findings table or follow-up
-question does not end the mission. Continue through one actual suitable App
+question does not end the mission; create the owner in the question's tool
+batch, never after its answer. Continue through one actual suitable App
 owner using the existing report to explain scope, coverage, limitations and
 result; do not rerun the audit or create a shell child for appearance.
 After the report, reconcile the current-request SQL tasks and readable plan

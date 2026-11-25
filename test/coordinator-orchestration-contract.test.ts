@@ -199,24 +199,31 @@ describe('runtime-required review composition: instruction contracts, not securi
 
   it('frames the mission visibly before the required reviewer without changing the review', () => {
     const text = reviewProtocol();
-    expect(text, 'tasks and plan are published in the reviewer\'s first tool batch')
-      .toMatch(/publish its visible context in the same first tool batch as the required reviewer[^.]*SQL[^.]*plan/i);
+    expect(text, 'tasks and plan are written no later than the reviewer\'s tool batch')
+      .toMatch(/write its visible context no later than the reviewer's tool batch[^.]*SQL[^.]*plan/i);
+    expect(text, 'the blocking reviewer makes deferred framing invisible')
+      .toMatch(/reviewer call blocks until its report returns[^.]*stays invisible/i);
     expect(text, 'framing is metadata, not a review, probe, delegation or dispatch')
       .toMatch(/not a review, routing probe, delegation or App dispatch[^.]*never changes the reviewer's prompt, scope, order or result/i);
     expect(text, 'host "first" ordering is not a metadata prohibition')
       .toMatch(/does not prohibit mission metadata, so do not skip this framing/i);
     expect(text, 'the native reviewer carries the App title pattern without a fake session')
       .toMatch(/icon · specialist label · mission[^.]*`description` field, without implying an App session/i);
-    expect(text, 'a host-required table or question must not end the mission')
-      .toMatch(/findings table or follow-up question does not end the mission[^.]*continue[^.]*restitution owner/i);
+    expect(text, 'restitution is created with the host-required question, not after its answer')
+      .toMatch(/findings table or follow-up question does not end the mission[^.]*same tool batch as any host-required question[^.]*restitution owner[^.]*never delays or cancels restitution/i);
     expect(text, 'framing is skipped only for refusal, explicit prohibition or unavailable tools')
       .toMatch(/Skip the framing only when the user refused plan metadata, a higher-priority instruction explicitly prohibits it, or[^.]*plan tools are unavailable/i);
     expect(text).not.toMatch(/routing probes or plan writes|forbids any action before the reviewer/i);
 
     const firstResponse = section(sources.coordinator, '### Security Requests in the App — First Response').replace(/\s+/g, ' ');
-    expect(firstResponse, 'early first-response recipe batches metadata with the reviewer')
-      .toMatch(/In one tool batch[^.]*SQL tasks[^.]*squad_session_plan_[^.]*security-review[^.]*🔒 Security · \{mission\}/i);
-    expect(firstResponse).toMatch(/same turn[^.]*branded App restitution owner/i);
+    expect(firstResponse, 'reads come first, without the blocking reviewer')
+      .toMatch(/First tool batch, metadata reads only[^.]*squad_session_plan_read/i);
+    expect(firstResponse).toMatch(/Do not call the reviewer in this batch/i);
+    expect(firstResponse, 'writes share the reviewer\'s batch')
+      .toMatch(/Second tool batch[^.]*SQL tasks[^.]*native plan[^.]*security-review[^.]*🔒 Security · \{mission\}/i);
+    expect(firstResponse, 'restitution owner is created with the host question')
+      .toMatch(/one tool batch create or reuse the branded App restitution owner[^.]*ask any host-required follow-up question/i);
+    expect(firstResponse).toMatch(/Restitution never waits for that answer/i);
     expect(sources.coordinator.indexOf('### Security Requests in the App — First Response'),
       'the recipe must precede the routing sections where the first action is chosen')
       .toBeLessThan(sources.coordinator.indexOf('### Routing'));
@@ -224,11 +231,13 @@ describe('runtime-required review composition: instruction contracts, not securi
     for (const key of ['spawn', 'client', 'response', 'after'] as const) {
       expect(sources[key].replace(/\s+/g, ' '), `${key}: host follow-up continuation missing`)
         .toMatch(/findings table or (?:follow-up )?question does not end/i);
+      expect(sources[key].replace(/\s+/g, ' '), `${key}: owner must be created with the question`)
+        .toMatch(/question's tool batch|same tool batch as the question/i);
     }
     for (const key of ['spawn', 'client', 'response'] as const) {
       expect(sources[key], `${key}: branded native reviewer label missing`).toContain('🔒 Security · {mission}');
-      expect(sources[key].replace(/\s+/g, ' '), `${key}: framing must share the reviewer's first tool batch`)
-        .toMatch(/same first tool batch/i);
+      expect(sources[key].replace(/\s+/g, ' '), `${key}: framing must be written no later than the reviewer's batch`)
+        .toMatch(/no later than the reviewer's tool batch/i);
     }
   });
 
