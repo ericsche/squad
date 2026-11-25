@@ -199,23 +199,36 @@ describe('runtime-required review composition: instruction contracts, not securi
 
   it('frames the mission visibly before the required reviewer without changing the review', () => {
     const text = reviewProtocol();
-    expect(text, 'tasks and plan are published immediately before the native reviewer')
-      .toMatch(/publish its visible context immediately before invoking the required reviewer[^.]*SQL[^.]*plan/i);
+    expect(text, 'tasks and plan are published in the reviewer\'s first tool batch')
+      .toMatch(/publish its visible context in the same first tool batch as the required reviewer[^.]*SQL[^.]*plan/i);
     expect(text, 'framing is metadata, not a review, probe, delegation or dispatch')
       .toMatch(/not a review, routing probe, delegation or App dispatch[^.]*never changes the reviewer's prompt, scope, order or result/i);
+    expect(text, 'host "first" ordering is not a metadata prohibition')
+      .toMatch(/does not prohibit mission metadata, so do not skip this framing/i);
     expect(text, 'the native reviewer carries the App title pattern without a fake session')
-      .toMatch(/icon · specialist label · mission[^.]*without implying an App session/i);
+      .toMatch(/icon · specialist label · mission[^.]*`description` field, without implying an App session/i);
     expect(text, 'a host-required table or question must not end the mission')
       .toMatch(/findings table or follow-up question does not end the mission[^.]*continue[^.]*restitution owner/i);
-    expect(text, 'framing yields to a stricter higher-priority instruction')
-      .toMatch(/forbids any action before the reviewer[^.]*skip this framing/i);
-    expect(text).not.toMatch(/routing probes or plan writes/i);
+    expect(text, 'framing is skipped only for refusal, explicit prohibition or unavailable tools')
+      .toMatch(/Skip the framing only when the user refused plan metadata, a higher-priority instruction explicitly prohibits it, or[^.]*plan tools are unavailable/i);
+    expect(text).not.toMatch(/routing probes or plan writes|forbids any action before the reviewer/i);
+
+    const firstResponse = section(sources.coordinator, '### Security Requests in the App — First Response').replace(/\s+/g, ' ');
+    expect(firstResponse, 'early first-response recipe batches metadata with the reviewer')
+      .toMatch(/In one tool batch[^.]*SQL tasks[^.]*squad_session_plan_[^.]*security-review[^.]*🔒 Security · \{mission\}/i);
+    expect(firstResponse).toMatch(/same turn[^.]*branded App restitution owner/i);
+    expect(sources.coordinator.indexOf('### Security Requests in the App — First Response'),
+      'the recipe must precede the routing sections where the first action is chosen')
+      .toBeLessThan(sources.coordinator.indexOf('### Routing'));
+
     for (const key of ['spawn', 'client', 'response', 'after'] as const) {
       expect(sources[key].replace(/\s+/g, ' '), `${key}: host follow-up continuation missing`)
         .toMatch(/findings table or (?:follow-up )?question does not end/i);
     }
     for (const key of ['spawn', 'client', 'response'] as const) {
-      expect(sources[key], `${key}: branded native reviewer label missing`).toContain('🛡️ Security · {mission}');
+      expect(sources[key], `${key}: branded native reviewer label missing`).toContain('🔒 Security · {mission}');
+      expect(sources[key].replace(/\s+/g, ' '), `${key}: framing must share the reviewer's first tool batch`)
+        .toMatch(/same first tool batch/i);
     }
   });
 

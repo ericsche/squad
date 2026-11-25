@@ -217,6 +217,16 @@ For each squad member with assigned issues, note them in the session context. Wh
 
 The acknowledgment goes before the dispatch calls — text first, then tools. Keep it to 1-2 sentences plus the table; for multi-step work also keep the current visible plan up to date (see Visible Main-Session Plan).
 
+### Security Requests in the App — First Response
+
+When a request asks for a security review (alone or with other work, such as dependency updates) and the host requires its native `security-review` first, the first response is:
+
+1. One-sentence acknowledgment naming the security review and any follow-up work.
+2. In one tool batch: insert the request's SQL tasks (native security review `in_progress`; App restitution and each requested follow-up `pending`), publish or update the native plan (`squad_session_plan_*`), and call the native `security-review` task with `description: "🔒 Security · {mission}"`.
+3. After the report returns: present any host-required findings table or question, then in the same turn update the plan/tasks and create the branded App restitution owner, with any requested follow-up gated on the report.
+
+This changes what the user sees, never the review's prompt, scope, order or result. Metadata in the same batch does not violate the host's "security-review first" ordering. Details: Runtime-Required Reviewers and Visible Follow-Up.
+
 ### Role Emoji and Specialist Labels
 
 Use the role emoji in an App child's native `name` to make specialist sessions
@@ -253,6 +263,7 @@ role from `team.md`.
 - `name: "runtime-engineer"`, `description: "🔧 Runtime Engineer: Refactoring auth module"`
 - `name: "quality-engineer"`, `description: "🧪 Quality Engineer: Writing test cases"`
 - `name: "scribe"`, `description: "📋 Scribe: Merge accepted durable decisions"`
+- Runtime-required native reviewer: `description: "🔒 Security · Dependency and code review"`
 
 For an App child, put the icon, stable specialist label and mission in its native
 `name`; keep the exact lowercase cast identity in `kickoff.prompt` and the main
@@ -583,7 +594,7 @@ Contributors and reviewers advise or verify without becoming additional owners.
 
 A higher-priority runtime may require native `security-review` first, before App dispatch, routing probes or any other delegation. Invoke that required reviewer in the mandated order; do not replace it with a named App session, skip it, or perform the audit inline. This full native review is not a small internal check and is not an App child. Its returned report or native `agent_id` does not establish an App session or canonical App URL; a synchronous result may have no agent handle at all.
 
-Visible framing changes the experience, never the review. For a substantive security mission, publish its visible context immediately before invoking the required reviewer when the supported SQL and plan tools are available: SQL tasks for the native security review (in progress), App restitution (pending) and any requested follow-up such as dependency updates (pending, gated on the report), plus a readable native plan stating purpose, scope, the native review as the first step and the planned restitution owner already resolvable from the roster in context. This metadata is not a review, routing probe, delegation or App dispatch: it adds no investigation and never changes the reviewer's prompt, scope, order or result. Label the native reviewer call with the App title pattern of icon · specialist label · mission, for example `🛡️ Security · Dependency review`, in its display name or description field, without implying an App session or link. If a higher-priority instruction forbids any action before the reviewer, or real discovery shows the plan tools are unavailable, skip this framing, invoke the reviewer and reconcile after the report.
+Visible framing changes the experience, never the review. For a substantive security mission in the App, publish its visible context in the same first tool batch as the required reviewer call, before any other work: SQL tasks for the native security review (in progress), App restitution (pending) and any requested follow-up such as dependency updates (pending, gated on the report), plus a readable native plan stating purpose, scope, the native review as the first step and the planned restitution owner already resolvable from the roster in context. This metadata is not a review, routing probe, delegation or App dispatch: it adds no investigation and never changes the reviewer's prompt, scope, order or result. The host's "invoke security-review first" wording orders the reviewer before any other review, delegation, App dispatch or inline audit; it does not prohibit mission metadata, so do not skip this framing because of it. Label the native reviewer call with the App title pattern of icon · specialist label · mission, for example `🔒 Security · Dependency review`, in its `description` field, without implying an App session or link. Skip the framing only when the user refused plan metadata, a higher-priority instruction explicitly prohibits it, or real discovery shows the plan tools are unavailable; then invoke the reviewer and reconcile after the report.
 
 A substantive security review includes bounded App restitution as part of the ordinary request, even with zero findings; no separate follow-up request, positive finding or remediation choice is required. After the report returns, reuse a suitable App child for the same mission or use `create_session` for one real restitution owner. Reuse the returned report as input; do not rerun the audit to populate the sidebar. Preserve findings, severity, confidence, evidence and reviewer attribution, including required host result formatting and outstanding user decisions. A host-required findings table or follow-up question does not end the mission: present it, handle the answer as the host returns it, then continue in the same turn with plan reconciliation and the branded App restitution owner; that answer may scope remediation but never cancels restitution. Give the owner the complete report or a verified accessible report artifact, not invented metadata or a new discovery assignment.
 

@@ -94,11 +94,11 @@ App session. This is a full review, not a small internal check, and its result
 is not an App child. A synchronous result may have no native agent ID, and even
 a native ID is not a canonical App session URL.
 
-Squad still frames the mission visibly before the review starts. When the
-plan tools are available, it publishes the SQL tasks and readable plan (review
+Squad still frames the mission visibly as the review starts. In the same
+first tool batch as the reviewer call, when the plan tools are available, it publishes the SQL tasks and readable plan (review
 in progress; restitution and any requested follow-up, such as dependency
 updates, pending) and labels the native reviewer with the specialist title
-pattern, for example `🛡️ Security · Dependency review`. That framing changes
+pattern, for example `🔒 Security · Dependency review`. That framing changes
 what you see, never the review's prompt, scope, order or result. A findings
 table or follow-up question required by the host after the review does not end
 the mission; Squad continues with the visible restitution owner.
