@@ -183,12 +183,12 @@ Every row below is a pinned, published artifact of an older Squad release driven
 
 ### Runs
 
-All recorded runs executed against **one tree**, commit `4ed5efa72bc59dbce44854aa3e76cb6bd7607d92`, with harness hash `6834a11421555611…` (sha256 over the suite, renderer, workflow, fs hook and this fixture minus `runs`; the integrity test refuses a recorded run whose harness differs from the committed one, so folding results may change nothing but the runs data).
+All recorded runs executed against **one tree**, commit `eea0f273076c336a8a1eb3867f48afb19b9c7c54`, with harness hash `70f6bfe5afe5f792…` (sha256 over the suite, renderer, workflow, fs hook and this fixture minus `runs`; the integrity test refuses a recorded run whose harness differs from the committed one, so folding results may change nothing but the runs data).
 
 | Platform | Arch | Node | Target | Tree (targetSha) | Trigger | Recorded | Outcome |
 |----------|------|------|--------|------------------|---------|----------|---------|
-| Linux (`linux`) | x64 | v22.23.5 | v2.0.0 | `4ed5efa72bc5` | [pull_request](https://github.com/ericsche/squad/actions/runs/45597674416) | 2026-11-25 | 35 rows passed all non-xfail assertions; 4 of them carry a known expected failure (F3: Squad 0.9.1 squad upgrade --dry-run is not dry); 0 rows failed; 7 rows are structurally inapplicable (listed below). |
-| Windows (`win32`) | x64 | v22.23.5 | v2.0.0 | `4ed5efa72bc5` | [pull_request](https://github.com/ericsche/squad/actions/runs/45597674416) | 2026-11-25 | 35 rows passed all non-xfail assertions; 4 of them carry a known expected failure (F3: Squad 0.9.1 squad upgrade --dry-run is not dry); 0 rows failed; 7 rows are structurally inapplicable (listed below). |
+| Linux (`linux`) | x64 | v22.23.5 | v2.0.0 | `eea0f273076c` | [pull_request](https://github.com/ericsche/squad/actions/runs/45656741039) | 2026-11-25 | 35 rows passed all non-xfail assertions; 4 of them carry a known expected failure (F3: Squad 0.9.1 squad upgrade --dry-run is not dry); 0 rows failed; 7 rows are structurally inapplicable (listed below). |
+| Windows (`win32`) | x64 | v22.23.5 | v2.0.0 | `eea0f273076c` | [pull_request](https://github.com/ericsche/squad/actions/runs/45656741039) | 2026-11-25 | 35 rows passed all non-xfail assertions; 4 of them carry a known expected failure (F3: Squad 0.9.1 squad upgrade --dry-run is not dry); 0 rows failed; 7 rows are structurally inapplicable (listed below). |
 
 _Earlier runs remain in `historicalRuns` in the fixture; they do not attest the current harness._
 
