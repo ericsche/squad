@@ -89,25 +89,23 @@ An end-of-agent-turn, idle notification or native `onSubagentStop` hook is not p
 
 A host may require its native `security-review` agent **first** for a security
 review request. That higher-priority requirement takes precedence over Squad's
-other dispatch: use the mandated reviewer, not an inline audit or a substitute
-reviewer. In the Copilot App, Squad runs it as the first action of one branded
-security session, such as `🛡️ Security · Dependency review`, created on the
-current worktree read-only. The review therefore appears as a linked
-sub-session with the same reviewer, target, scope and result. That session
-shows any findings table or question and hands the complete report back. This
-is a full review, not a small internal check. A native agent ID is not a
-canonical App session URL; only the security session's own link is used. When
-App child sessions are unavailable, the reviewer runs in the main session.
+App dispatch: the coordinator invokes the mandated reviewer itself, not an
+inline audit or a replacement App session. This is a full review, not a small
+internal check, and its result is not an App child. A synchronous result may
+have no native agent ID, and even a native ID is not a canonical App session URL.
 
-Squad also frames the mission visibly as the review starts. No later than
-the call that starts the review, when the plan tools are available, it publishes the SQL tasks and readable plan (review
-in progress; any requested follow-up, such as dependency updates, pending)
-and then adds the security session's link. That framing changes what you see,
-never the review's prompt, scope, order or result. A findings table or
-follow-up question required by the host after the review does not end the
-mission. When the reviewer had to run in the main session, Squad creates the
-visible restitution owner alongside the question rather than waiting for its
-answer.
+Squad still frames the mission visibly as the review starts. No later than the
+reviewer call, when the plan tools are available, it publishes the SQL tasks
+and readable plan (review in progress; any requested follow-up, such as
+dependency updates, pending) and labels the native reviewer with the specialist
+title pattern, for example `🛡️ Security · Dependency review`. In the same step,
+never before the reviewer, it creates the branded restitution sub-session with
+that name, so the security mission appears in the sidebar with a real link while
+the review runs. That sub-session starts no review itself; it receives the
+report. The framing changes what you see, never the review's prompt, scope,
+order or result. A findings table or follow-up question required by the host
+after the review does not end the mission: Squad sends the report to the
+sub-session alongside the question rather than waiting for its answer.
 
 A substantive security review includes bounded App restitution, even with
 zero findings or a read-only request such as "Review this project's security

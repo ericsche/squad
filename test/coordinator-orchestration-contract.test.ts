@@ -133,19 +133,16 @@ describe('runtime-required review composition: instruction contracts, not securi
   }
 
   function assertReviewComposition(text: string): void {
-    expect(text, 'the required native reviewer precedes other dispatch')
-      .toMatch(/higher-priority[^.]*security-review[^.]*first[^.]*before App specialist dispatch/i);
-    expect(text, 'the App runs it inside one branded, linked security session')
-      .toMatch(/In the Copilot App with `create_session`, run it inside one branded App security session[^.]*first action is the native `security-review`[^.]*visible sub-session with a real link/i);
-    expect(text, 'the coordinator neither repeats the reviewer nor audits inline')
-      .toMatch(/coordinator does not also run it natively[^.]*review inline/i);
-    expect(text, 'a mandatory full review is not an internal check').toMatch(/not a small internal check/i);
+    expect(text, 'the required native reviewer must precede App dispatch')
+      .toMatch(/higher-priority[^.]*security-review[^.]*first[^.]*before App/i);
+    expect(text, 'the coordinator invokes the required reviewer itself')
+      .toMatch(/Invoke that required reviewer yourself in the mandated order; do not replace it with an App session/i);
+    expect(text, 'a mandatory full review is neither an internal check nor an App session')
+      .toMatch(/not a small internal check[^.]*not an App child/i);
     expect(text, 'visible follow-up reuses the result instead of a second audit')
-      .toMatch(/reuse the returned report[^.]*do not rerun[^.]*audit/i);
+      .toMatch(/Reuse the returned report[^.]*do not rerun[^.]*audit/i);
     expect(text, 'native result identity cannot create a fictitious App session')
-      .toMatch(/native `agent_id`[^.]*does not establish[^.]*App session/i);
-    expect(text, 'the main session runs the reviewer only when App children are unavailable')
-      .toMatch(/If `create_session` is unavailable or creation fails, disclose that and invoke the native reviewer in the main session/i);
+      .toMatch(/native `agent_id` does not establish[^.]*App session/i);
   }
 
   function assertImplicitRestitution(text: string): void {
@@ -155,24 +152,37 @@ describe('runtime-required review composition: instruction contracts, not securi
       .not.toMatch(/when restitution or follow-up is within the user's request or explicitly approved|only if findings exist|only when follow-up is requested/i);
   }
 
-  it('runs the required reviewer inside one branded, linked App security session', () => {
+  // App test 5 (fork 2.0.1-fork.20261125.6): telling the coordinator to hand the required reviewer
+  // to a sub-session instead of invoking it conflicted with the host's "invoke security-review first"
+  // rule, and the coordinator dropped the whole recipe (no acknowledgment, plan or label).
+  it('never asks the coordinator to substitute a sub-session for invoking the required reviewer', () => {
+    for (const text of [reviewProtocol(), firstResponse()]) {
+      expect(text).not.toMatch(/does not also run it natively|run it inside one branded App security session|kickoff makes the native `security-review` (?:its|the) first action/i);
+    }
+    for (const key of ['spawn', 'client', 'response', 'after'] as const) {
+      expect(sources[key].replace(/\s+/g, ' '), `${key}: reviewer substitution must not return`)
+        .not.toMatch(/does not also run (?:it|the reviewer) natively|run it inside one branded App security session|runs as the first action of one branded security session/i);
+    }
+    expect(firstResponse()).toMatch(/invoke that reviewer yourself/i);
+  });
+
+  it('shows the security mission as a branded, linked sub-session created with the reviewer call', () => {
     const text = reviewProtocol();
-    assertReviewComposition(text);
-    expect(text).toMatch(/security session is that restitution owner/i);
-    expect(text, 'the child reviews exactly what the main session would')
-      .toMatch(/parent worktree path, read-only, so uncommitted state is reviewed exactly as in the main session/i);
-    expect(text).toContain('AUTHORIZATION_SCOPE: inspect/read-only');
-    expect(text).toMatch(/runs the native reviewer once[^.]*send_session_message/i);
-    expect(text).toMatch(/link only the security session's verified `app_url`/i);
+    expect(text, 'the sub-session shares the reviewer batch, never before it')
+      .toMatch(/create its owner, the branded security sub-session `🛡️ Security · \{mission\}`, with `create_session` in the same tool batch as the reviewer call, never before it/i);
+    expect(text, 'the sub-session starts no review of its own')
+      .toMatch(/forbids starting any review, scan or `security-review` itself, and tells it to wait for the report/i);
+    expect(text, 'background scheduling lets the plan link appear during the review')
+      .toMatch(/background scheduling[^.]*sub-session's verified link while the review runs/i);
+    expect(text, 'the report is sent to the owner in the question batch')
+      .toMatch(/in one tool batch send the complete report to that owner with `send_session_message`[^.]*never delays or cancels restitution/i);
 
     const recipe = firstResponse();
     expect(recipe, 'reads come first').toMatch(/First tool batch, metadata reads only[^.]*squad_session_plan_read/i);
-    expect(recipe, 'writes share the batch that creates the branded security session')
-      .toMatch(/Second tool batch[^.]*SQL tasks[^.]*native plan[^.]*create_session[^.]*🛡️ Security · \{mission\}/i);
-    expect(recipe).toMatch(/native `security-review` its first action, on the parent worktree path read-only/i);
-    expect(recipe, 'the plan gets the real sub-session link').toMatch(/update the plan with the child's verified `app_url`/i);
-    expect(recipe).toMatch(/without polling, reviewing in parallel or running the reviewer again/i);
-    expect(recipe).toMatch(/If `create_session` is unavailable or creation fails[^.]*run the native reviewer in this session/i);
+    expect(recipe, 'writes, sub-session and reviewer share one unsplit batch')
+      .toMatch(/Second tool batch, never split[^.]*SQL tasks[^.]*native plan[^.]*create_session[^.]*🛡️ Security · \{mission\}[^.]*native `security-review` task with `description: "🛡️ Security · \{mission\}"`/i);
+    expect(recipe).toMatch(/update the plan with the sub-session's verified `app_url`/i);
+    expect(recipe).toMatch(/send the complete report to the security sub-session[^.]*ask any host-required follow-up question/i);
     expect(sources.coordinator.indexOf('### Security Requests in the App — First Response'),
       'the recipe must precede the routing sections where the first action is chosen')
       .toBeLessThan(sources.coordinator.indexOf('### Routing'));
@@ -195,7 +205,7 @@ describe('runtime-required review composition: instruction contracts, not securi
     expect(text).toMatch(/After the native report returns[^.]*SQL[^.]*plan[^.]*zero findings/i);
     expect(text).toMatch(/read-only[^.]*repository files[^.]*not[^.]*task[^.]*plan metadata/i);
     expect(text).toMatch(/discover[^.]*schemas[^.]*before[^.]*unavailable/i);
-    expect(text).toMatch(/review in progress, the report handed off and each follow-up distinct until the genuine handoff/i);
+    expect(text).toMatch(/native review completed[^.]*restitution in progress[^.]*handoff/i);
     expect(text).toMatch(/Do not invent[^.]*remediation[^.]*decision task/i);
     expect(text).toMatch(/changes-only[^.]*not[^.]*exhaustive project review/i);
   });
@@ -211,13 +221,13 @@ describe('runtime-required review composition: instruction contracts, not securi
     }
   });
 
-  it('defines a genuine, authorized App follow-up in the fallback without repeating the audit', () => {
+  it('honors native-first review while defining a genuine, authorized App follow-up without repeating the audit', () => {
     const text = reviewProtocol();
     assertReviewComposition(text);
-    expect(text).toMatch(/once the main-session report returns[^.]*create_session[^.]*same tool batch as any host-required question[^.]*never delays or cancels restitution/i);
     expect(text).toMatch(/findings[^.]*severity[^.]*confidence[^.]*evidence[^.]*attribution/i);
     expect(text).toMatch(/actual[^.]*app_url[^.]*verified creation/i);
     expect(text).toMatch(/unavailable[^.]*report the limitation[^.]*no fabricated/i);
+    expect(text).toMatch(/`create_session` is unavailable or fails, keep the native review and plan, disclose the missing sub-session/i);
   });
 
   it('resolves a synthesis owner by active role and charter rather than inventing a security expert or architect name', () => {
@@ -225,37 +235,38 @@ describe('runtime-required review composition: instruction contracts, not securi
     expect(text).toMatch(/active Lead\/Architect role[^.]*charter[^.]*scope/i);
     expect(text).toMatch(/not[^.]*literal[^.]*architect/i);
     const review = reviewProtocol();
-    expect(review).toMatch(/labelled for the native reviewer it runs, not a cast member; do not invent, recast or hire/i);
+    expect(review).toMatch(/labelled for the security mission it owns, not a cast member; do not invent, recast or hire/i);
     expect(review).toMatch(/synthesis[^.]*not[^.]*security expertise/i);
     expect(review).toMatch(/no suitable owner[^.]*user decision/i);
   });
 
-  it('frames the mission visibly without changing the review', () => {
+  it('frames the mission visibly before the required reviewer without changing the review', () => {
     const text = reviewProtocol();
-    expect(text, 'tasks and plan are written no later than the batch that starts the review')
-      .toMatch(/write its visible context no later than the tool batch that starts the review[^.]*SQL[^.]*plan/i);
-    expect(text, 'a blocking native reviewer makes deferred framing invisible')
-      .toMatch(/native reviewer call blocks until its report returns[^.]*stays invisible/i);
+    expect(text, 'tasks and plan are written no later than the reviewer\'s tool batch')
+      .toMatch(/write its visible context no later than the reviewer's tool batch[^.]*SQL[^.]*plan/i);
+    expect(text, 'a blocking reviewer makes deferred framing invisible')
+      .toMatch(/sync reviewer call blocks until its report returns[^.]*stays invisible/i);
     expect(text, 'framing is metadata, not a review, probe, delegation or dispatch')
       .toMatch(/not a review, routing probe, delegation or App dispatch[^.]*never changes the reviewer's prompt, scope, order or result/i);
     expect(text, 'host "first" ordering is not a metadata prohibition')
       .toMatch(/does not prohibit mission metadata, so do not skip this framing/i);
-    expect(text, 'titles follow the App pattern; a native label is not a session')
-      .toMatch(/icon · specialist label · mission[^.]*native call label does not imply an App session or link/i);
+    expect(text, 'the native reviewer carries the App title pattern without a fake session')
+      .toMatch(/icon · specialist label · mission[^.]*`description` field, without implying an App session/i);
     expect(text, 'framing is skipped only for refusal, explicit prohibition or unavailable tools')
       .toMatch(/Skip the framing only when the user refused plan metadata, a higher-priority instruction explicitly prohibits it, or[^.]*plan tools are unavailable/i);
-    expect(text).not.toMatch(/routing probes or plan writes|forbids any action before the reviewer|do not replace it with a named App session/i);
+    expect(text).not.toMatch(/routing probes or plan writes|forbids any action before the reviewer/i);
 
     for (const key of ['spawn', 'client', 'response', 'after'] as const) {
       expect(sources[key].replace(/\s+/g, ' '), `${key}: host follow-up continuation missing`)
         .toMatch(/findings table or (?:follow-up )?question does not end/i);
+      expect(sources[key].replace(/\s+/g, ' '), `${key}: report must reach the owner with the question`)
+        .toMatch(/question's tool batch|same tool batch as any host-required findings question/i);
     }
     for (const key of ['spawn', 'client', 'response'] as const) {
       const ref = sources[key].replace(/\s+/g, ' ');
-      expect(sources[key], `${key}: branded security title missing`).toContain('🛡️ Security · {mission}');
-      expect(ref, `${key}: security session must review the parent worktree read-only`).toMatch(/create_session[^.]*parent worktree path read-only/i);
+      expect(sources[key], `${key}: branded security label missing`).toContain('🛡️ Security · {mission}');
       expect(ref, `${key}: framing must be written no later than the reviewer's batch`).toMatch(/no later than the reviewer's tool batch/i);
-      expect(ref, `${key}: main-session fallback missing`).toMatch(/(?:If|Without) `create_session`/i);
+      expect(ref, `${key}: sub-session must share the reviewer batch, never before it`).toMatch(/same (?:tool )?batch, never before it/i);
     }
   });
 
@@ -264,19 +275,18 @@ describe('runtime-required review composition: instruction contracts, not securi
       expect(sources[key], `${key}: missing required-reviewer composition`).toContain('runtime-required reviewer');
     }
     for (const key of ['coordinator', 'spawn'] as const) {
-      expect(sources[key].replace(/\s+/g, ' ')).toMatch(/(?:only because|Only inside)[^.]*(?:higher-priority runtime|App mission)[^.]*not general (?:native )?specialist delegation[^.]*nested App children/i);
+      expect(sources[key].replace(/\s+/g, ' ')).toMatch(/only if the higher-priority runtime permits[^.]*inside the existing App mission[^.]*not[^.]*general[^.]*delegation/i);
     }
   });
 
-  it('rejects native-ID phantom sessions, audit duplication, main-session substitution and violation of native-first ordering', () => {
+  it('rejects native-ID phantom sessions, audit duplication and violation of native-first ordering', () => {
     const text = reviewProtocol();
     assertReviewComposition(text);
     for (const [from, to] of [
       ['before App', 'after App'],
       ['do not rerun the audit', 'rerun the audit to populate the sidebar'],
       ['does not establish an App session', 'establishes an App session'],
-      ['In the Copilot App with `create_session`, run it inside one branded App security session', 'In the Copilot App, run it in the main session'],
-      ['coordinator does not also run it natively', 'coordinator also runs it natively'],
+      ['Invoke that required reviewer yourself', 'Let an App sub-session invoke that required reviewer'],
     ]) {
       const mutant = text.replace(from, to);
       expect(mutant).not.toBe(text);

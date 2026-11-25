@@ -32,14 +32,13 @@ independent foreground work remains. No needless polling.
 
 After a runtime-required reviewer returns, preserve its report and attribution,
 including original severity/confidence/evidence and required host formatting or
-user decisions. A native result is not by itself an App child; in the App the
-reviewer runs inside the branded security session, which hands the report back.
-In the main-session fallback, the native result is not a completed restitution
-mission. Bounded App restitution is part of every substantive
+user decisions. That native result is not an App child or a completed
+restitution mission; send it to the branded restitution sub-session created
+alongside the reviewer call. Bounded App restitution is part of every substantive
 security review, even with zero findings or a read-only request; do not wait
 for a separate follow-up request. A host-required findings table or follow-up
-question does not end the mission; create the owner in the question's tool
-batch, never after its answer. Continue through one actual suitable App
+question does not end the mission; send the report in the question's tool
+batch, never after its answer. Continue through that actual App
 owner using the existing report to explain scope, coverage, limitations and
 result; do not rerun the audit or create a shell child for appearance.
 After the report, reconcile the current-request SQL tasks and readable plan
