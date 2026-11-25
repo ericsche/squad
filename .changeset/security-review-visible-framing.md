@@ -4,9 +4,14 @@
 ---
 
 Make runtime-required security reviews visible in the Copilot App without
-changing the review: publish the mission's SQL tasks and readable plan
-no later than the tool call that starts the native `security-review` (review in progress,
-restitution and requested follow-up pending), label the native call with the
-`🔒 Security · {mission}` title pattern, and create the branded App restitution
-owner alongside any host-required findings table or follow-up question rather
-than after its answer. The reviewer's prompt, scope, order and result are unchanged.
+changing the review. The native `security-review` now runs as the first action
+of one branded App security session (`🔒 Security · {mission}`, created with
+`create_session` on the parent worktree read-only), so it appears as a linked
+sub-session with the same reviewer, target, scope and result; that session
+presents the findings and hands the complete report back. The coordinator
+writes the mission's SQL tasks and readable plan no later than that creation,
+adds the session's verified link to the plan, then dispatches requested
+follow-up (such as dependency updates) gated on the report. When App child
+sessions are unavailable, the native reviewer runs in the main session with the
+same branded label and an App restitution owner is created alongside any
+host-required question.

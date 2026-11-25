@@ -27,16 +27,21 @@ Internal checks run a known test selector or compare one explicit output against
 an existing requirement, without assuming a specialist-owned deliverable.
 
 A runtime-required reviewer such as native `security-review` takes precedence
-when the host requires it first. It is a full review, not an internal check or
-an App child. Write the mission's SQL tasks and readable plan no later than
-the reviewer's tool batch when supported and label the native call
-`🔒 Security · {mission}`; this framing changes the experience, not the review.
+when the host requires it first. It is a full review, not an internal check.
+In the App, it runs as the first action of one branded security session
+(`🔒 Security · {mission}`, created with `create_session` on the parent worktree
+path read-only), so it appears as a linked sub-session with the same reviewer,
+target, scope and result. Write the mission's SQL tasks and readable plan no
+later than the reviewer's tool batch (that creation) when supported; this
+framing changes the experience, not the review. If `create_session` is
+unavailable, run the native call in the main session with that label.
 Bounded App restitution is part of every substantive security
 review, even with zero findings or a read-only request; no separate follow-up
-request is needed. Once its report returns, use a real suitable App owner to
-explain examined scope, coverage, limitations and result from that report,
-without repeating the audit. A host-required findings table or follow-up
-question does not end the mission; create the owner in the question's tool batch. Reconcile SQL tasks and readable plan after the
+request is needed. The security session presents the report and hands it
+back; in the main-session fallback, use a real suitable App owner to explain
+examined scope, coverage, limitations and result from that report, without
+repeating the audit. A host-required findings table or follow-up question does
+not end the mission; in the fallback, create the owner in the question's tool batch. Reconcile SQL tasks and readable plan after the
 report using actual schema discovery/calls, not an assumption that unchanged
 repository files forbids mission metadata. Zero findings is not a security
 certification or a reason to invent remediation work.
