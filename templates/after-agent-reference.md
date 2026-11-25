@@ -138,6 +138,8 @@ host-supplied `app_url` in readable context, following the coordinator's
 assigned-session link rules. Pending dispatch or failed launch has no fabricated
 link; native fallback without an App session cannot supply one. Preserve valid
 user links and reconcile mission changes instead of silently repointing them.
+When a new request rewrites the plan, earlier missions in the conversation keep
+their own session links next to their summaries, never unlinked prose.
 
 #### Scribe — accepted durable decisions only
 

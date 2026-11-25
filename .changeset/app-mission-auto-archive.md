@@ -15,3 +15,7 @@ keep. Archiving keeps the conversation history; only the user can restore it,
 and only that brings the conversation back, so for a later follow-up on that
 mission the coordinator asks the user to restore it or starts a new sub-session
 from its kickoff and report.
+
+When a later request in the same conversation rewrites the plan, every earlier
+mission keeps its own session link next to its summary (marked archived once
+archived) instead of being folded into unlinked prose.

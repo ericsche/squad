@@ -714,6 +714,15 @@ describe('verified plan child-session links: instruction contracts, not host nav
     expect(docs).toMatch(/Markdown link[^.]*not[^.]*native task-row[^.]*navigation/i);
   });
 
+  // User feedback after App test 12: a later request rewrote the plan and folded earlier missions
+  // into unlinked prose, so only the newest sub-session kept its link.
+  it('keeps every earlier mission\'s session link when a later request rewrites the plan', () => {
+    const plan = section(sources.coordinator, heading).replace(/\s+/g, ' ');
+    expect(plan).toMatch(/When a later request in the same conversation rewrites or extends the plan, keep every earlier mission's session link next to its summary \(marked archived once archived\); never fold earlier missions into unlinked prose/i);
+    expect(plan).toMatch(/\*\*Assigned work:\*\*[^}]*earlier missions in this conversation keep their own links/i);
+    expect(sources.after.replace(/\s+/g, ' ')).toMatch(/earlier missions in the conversation keep their own session links/i);
+  });
+
   it('rejects prelaunch and failed-launch phantom link guidance independently', () => {
     const plan = section(sources.coordinator, heading);
     assertPlanSessionLinks(plan);
