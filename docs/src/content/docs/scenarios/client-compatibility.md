@@ -94,12 +94,17 @@ App session. This is a full review, not a small internal check, and its result
 is not an App child. A synchronous result may have no native agent ID, and even
 a native ID is not a canonical App session URL.
 
-Squad still frames the mission visibly as the review starts. No later than
-the reviewer call, when the plan tools are available, it publishes the SQL tasks and readable plan (review
-in progress; restitution and any requested follow-up, such as dependency
-updates, pending) and labels the native reviewer with the specialist title
+Squad still frames the mission visibly as the review starts. It calls the
+native reviewer first, as the host requires, and right after that call it
+publishes the SQL tasks and readable plan when the plan tools are available
+(review in progress; restitution and any requested follow-up, such as
+dependency updates, pending). It labels the native reviewer with the specialist title
 pattern, for example `🛡️ Security · Dependency review`, running it in the
-background when the host allows. Right after that call returns, and never
+background when the host allows. In the Copilot App, the
+`.github/extensions/squad-security-framing/` extension that `squad init` and
+`squad upgrade` install applies that label and background mode to the
+coordinator's reviewer call and reminds it of the next steps; it never changes
+the review's prompt, agent or result. Right after that call returns, and never
 before it, Squad creates the branded restitution sub-session with the same
 name and links it in the plan, so the security mission appears in the sidebar
 while the review runs; that sub-session starts no review and waits for the

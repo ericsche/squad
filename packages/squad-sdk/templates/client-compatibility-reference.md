@@ -28,12 +28,13 @@ an existing requirement, without assuming a specialist-owned deliverable.
 
 A runtime-required reviewer such as native `security-review` takes precedence
 when the host requires it first. It is a full review, not an internal check or
-an App child. Write the mission's SQL tasks and readable plan no later than
-the reviewer's tool batch when supported and label the native call
-`🛡️ Security · {mission}` (background when supported); this framing changes the
-experience, not the review. Only after that call returns its handle, create the
-branded `🛡️ Security · {mission}` restitution sub-session, which waits for the
-report and starts no review, and link it in the plan.
+an App child. Make it the first tool call, alone, labelled
+`🛡️ Security · {mission}` and in the background when supported (the Squad
+security-framing extension applies both). Only after that call returns its
+handle, write the mission's SQL tasks and readable plan when supported, create
+the branded `🛡️ Security · {mission}` restitution sub-session, which waits for
+the report and starts no review, and link it in the plan; this framing changes
+the experience, not the review.
 Bounded App restitution is part of every substantive security
 review, even with zero findings or a read-only request; no separate follow-up
 request is needed. Once its report returns, use a real suitable App owner to

@@ -182,6 +182,18 @@ export const TEMPLATE_MANIFEST: TemplateFile[] = [
     description: 'Current-session plan RPC helpers (user-owned)',
   },
   {
+    source: 'extensions/squad-security-framing/extension.mjs',
+    destination: '../.github/extensions/squad-security-framing/extension.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Native security-review App framing hooks extension (user-owned)',
+  },
+  {
+    source: 'extensions/squad-security-framing/framing-hooks.mjs',
+    destination: '../.github/extensions/squad-security-framing/framing-hooks.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Security-review label, background and guidance hooks (user-owned)',
+  },
+  {
     source: 'extensions/squad-provider-onboarding/extension.mjs',
     destination: '../.github/extensions/squad-provider-onboarding/extension.mjs',
     overwriteOnUpgrade: false,
