@@ -104,15 +104,15 @@ background when the host allows. In the Copilot App, the
 `.github/extensions/squad-security-framing/` extension that `squad init` and
 `squad upgrade` install applies that label and background mode to the
 coordinator's reviewer call and reminds it of the next steps; it never changes
-the review's prompt, agent or result. Right after that call returns, and never
-before it, Squad creates the branded restitution sub-session with the same
-name and links it in the plan, so the security mission appears in the sidebar
-while the review runs; that sub-session starts no review and waits for the
-report. That framing changes what you see, never the review's prompt, scope,
-order or result. A findings
-table or follow-up question required by the host after the review does not end
-the mission: Squad creates the visible restitution owner alongside the question
-rather than waiting for its answer.
+the review's prompt, agent or result. While the review runs, it is the only
+agent working on it: Squad creates no waiting child that would look like a
+second review. When the report returns, Squad creates the restitution owner
+with that report, named as a synthesis for its owner role, for example
+`🏗️ Lead · Security report synthesis`, and links it in the plan; it starts no
+review. That framing changes what you see, never the review's prompt, scope,
+order or result. A findings table or follow-up question required by the host
+after the review does not end the mission: Squad creates the restitution owner
+alongside the question rather than waiting for its answer.
 
 A substantive security review includes bounded App restitution, even with
 zero findings or a read-only request such as "Review this project's security

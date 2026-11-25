@@ -27,28 +27,30 @@ function coordinatorReviewer(input) {
     !Array.isArray(args) && args.agent_type === REVIEWER;
 }
 
+// The restitution owner is a synthesis of the finished report, never a second
+// review: it is created only once the report exists, and never as a waiting child.
+const SYNTHESIS = 'create the restitution owner with create_session, clearly named as a synthesis for its owner role ' +
+  '(for example "🏗️ Lead · Security report synthesis"), never with the reviewer\'s own label, and carrying the complete report ' +
+  '(it explains the examined scope, coverage, limitations and findings, even zero findings, and starts no review, scan or security-review)';
+
 function runningGuidance(label) {
   return `Squad App framing: the native security-review "${label}" now runs in the background, ` +
-    'so the host\'s "security-review first" order is already satisfied. Do not start another review, scan or audit. ' +
+    'so the host\'s "security-review first" order is already satisfied. It is the only agent doing this review: ' +
+    'do not start another review, scan or audit, and do not create the restitution owner yet (a waiting child looks like a second review). ' +
     'Now, while it runs: (1) one-sentence acknowledgment naming the security review and any follow-up work the user asked for; ' +
     '(2) one read batch: this request\'s SQL tasks and squad_session_plan_read; ' +
-    '(3) one tool batch: record the SQL tasks (native review in_progress; App restitution and each requested follow-up pending, gated on the report), ' +
-    `publish or update the native plan, and create the branded restitution sub-session "${label}" with create_session; ` +
-    'its kickoff says the native review is already running, forbids it from starting any review, scan or security-review, ' +
-    'and tells it to wait for the report message; ' +
-    '(4) update the plan with the sub-session\'s verified app_url. Then wait for the review\'s completion notification without polling. ' +
-    'When it completes: present any host-required findings table, then in one tool batch send the complete report to that sub-session ' +
-    '(send_session_message), update the plan and tasks, and ask any host-required follow-up question; then dispatch the requested follow-up work. ' +
-    'If create_session is unavailable, say so and keep restitution in this chat.';
+    '(3) one tool batch: record the SQL tasks (native review in_progress; App restitution and each requested follow-up pending, gated on the report) ' +
+    'and publish or update the native plan naming the restitution owner. Then wait for the review\'s completion notification without polling. ' +
+    `When its report returns: present any host-required findings table, then in one tool batch ${SYNTHESIS}, ` +
+    'update the SQL tasks and native plan with its verified app_url, and ask any host-required follow-up question; ' +
+    'then dispatch the requested follow-up work. If create_session is unavailable, say so and keep restitution in this chat.';
 }
 
 function returnedGuidance(label) {
   return `Squad App framing: the native security-review "${label}" has returned its report. ` +
-    'Present any host-required findings table, then in one tool batch: record or update this request\'s SQL tasks and native plan, ' +
-    `create the branded restitution sub-session "${label}" with create_session carrying the complete report ` +
-    '(it starts no review, scan or security-review), and ask any host-required follow-up question. ' +
-    'Add the sub-session\'s verified app_url to the plan, then dispatch the requested follow-up work. ' +
-    'If create_session is unavailable, say so and keep restitution in this chat.';
+    `Present any host-required findings table, then in one tool batch ${SYNTHESIS}, ` +
+    'update the SQL tasks and native plan with its verified app_url, and ask any host-required follow-up question. ' +
+    'Then dispatch the requested follow-up work. If create_session is unavailable, say so and keep restitution in this chat.';
 }
 
 /**

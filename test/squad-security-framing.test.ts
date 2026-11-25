@@ -45,7 +45,7 @@ describe('squad-security-framing hooks', () => {
     expect(result.modifiedArgs.description).toBe('🛡️ Security · Repository dependencies');
     const post = await hooks.onPostToolUse(input(result.modifiedArgs)) as { additionalContext: string };
     expect(post.additionalContext).toMatch(/has returned its report/);
-    expect(post.additionalContext).toMatch(/create_session carrying the complete report/);
+    expect(post.additionalContext).toMatch(/create the restitution owner with create_session, clearly named as a synthesis[^]*Lead · Security report synthesis[^]*carrying the complete report/);
   });
 
   it('returns the framing steps with a background handle', async () => {
@@ -53,9 +53,12 @@ describe('squad-security-framing hooks', () => {
     const pre = await hooks.onPreToolUse(input({ ...reviewerArgs })) as { modifiedArgs: object };
     const post = await hooks.onPostToolUse(input(pre.modifiedArgs)) as { additionalContext: string };
     expect(post.additionalContext).toContain('"🛡️ Security · Repository dependencies" now runs in the background');
-    expect(post.additionalContext).toMatch(/already satisfied\. Do not start another review, scan or audit/);
-    expect(post.additionalContext).toMatch(/acknowledgment[^]*squad_session_plan_read[^]*create_session[^]*verified app_url/);
-    expect(post.additionalContext).toMatch(/send_session_message/);
+    expect(post.additionalContext).toMatch(/already satisfied\. It is the only agent doing this review/);
+    expect(post.additionalContext).toMatch(/acknowledgment[^]*squad_session_plan_read[^]*When its report returns:[^]*create_session[^]*verified app_url/);
+    expect(post.additionalContext, 'no waiting child while the review runs')
+      .toMatch(/only agent doing this review: do not start another review, scan or audit, and do not create the restitution owner yet/);
+    expect(post.additionalContext.indexOf('create_session')).toBeGreaterThan(post.additionalContext.indexOf('When its report returns:'));
+    expect(post.additionalContext).not.toMatch(/send_session_message|wait for the report message/);
   });
 
   it('is a no-op for other agents, subagents, tools, reviewers and unknown hosts', async () => {

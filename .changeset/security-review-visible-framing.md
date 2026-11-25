@@ -13,8 +13,9 @@ allows, and writes nothing before it. A new user-owned
 the Squad coordinator's own reviewer call and returns the next steps with its
 handle; it never changes the review's prompt, agent or result and writes
 nothing itself. While the review runs, the coordinator acknowledges the
-request, writes the mission's SQL tasks and readable plan, creates the branded
-`🛡️ Security · {mission}` restitution sub-session, which starts no review and
-waits for the report, and links it in the plan. The report goes to the
-sub-session alongside any host-required findings table or question, and
+request and writes the mission's SQL tasks and readable plan; the native
+reviewer is the only agent doing the review, so no waiting child is created.
+When the report returns, the coordinator creates the restitution owner with
+it, named as a synthesis such as `🏗️ Lead · Security report synthesis` and
+linked in the plan, alongside any host-required findings table or question;
 requested follow-up such as dependency updates is dispatched afterwards.

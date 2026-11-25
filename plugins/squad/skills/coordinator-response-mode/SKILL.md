@@ -39,10 +39,10 @@ the background when supported, then frame the mission visibly (SQL tasks,
 readable plan) right after its handle returns, without changing the review; honor any native-first obligation and use its report for genuine bounded App
 restitution, even with zero findings or a read-only request. This is part of
 the substantive security review, not a separately requested follow-up; a
-host-required findings table or question does not end it. Create the branded
-restitution sub-session only after the reviewer call returns (right after a
-background handle, or with the report), never alongside it, and send it the
-report in the question's tool batch.
+host-required findings table or question does not end it. Create the
+restitution owner only after the reviewer call returns its report, never as a
+waiting child, named as a synthesis (for example
+`🏗️ Lead · Security report synthesis`), in the question's tool batch.
 Explain examined scope/coverage/limitations/result without rerunning the audit,
 and reconcile current-request SQL tasks and readable plan after the report
 using actual tool discovery/calls. Read-only repository scope does not forbid

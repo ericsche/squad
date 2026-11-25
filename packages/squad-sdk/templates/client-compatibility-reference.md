@@ -31,17 +31,17 @@ when the host requires it first. It is a full review, not an internal check or
 an App child. Make it the first tool call, alone, labelled
 `🛡️ Security · {mission}` and in the background when supported (the Squad
 security-framing extension applies both). Only after that call returns its
-handle, write the mission's SQL tasks and readable plan when supported, create
-the branded `🛡️ Security · {mission}` restitution sub-session, which waits for
-the report and starts no review, and link it in the plan; this framing changes
-the experience, not the review.
+handle, write the mission's SQL tasks and readable plan when supported; create
+no waiting restitution child while the review runs. This framing changes the
+experience, not the review.
 Bounded App restitution is part of every substantive security
 review, even with zero findings or a read-only request; no separate follow-up
 request is needed. Once its report returns, use a real suitable App owner to
 explain examined scope, coverage, limitations and result from that report,
 without repeating the audit. A host-required findings table or follow-up
-question does not end the mission; send the report to the owner (creating it
-if needed) in the question's tool batch. Reconcile SQL tasks and readable plan after the
+question does not end the mission; create or reuse the owner with the report,
+named as a synthesis (for example `🏗️ Lead · Security report synthesis`), in
+the question's tool batch. Reconcile SQL tasks and readable plan after the
 report using actual schema discovery/calls, not an assumption that unchanged
 repository files forbids mission metadata. Zero findings is not a security
 certification or a reason to invent remediation work.

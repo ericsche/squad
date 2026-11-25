@@ -182,7 +182,7 @@ describe('runtime-required review composition: instruction contracts, not securi
   it('honors native-first review while defining a genuine, authorized App follow-up without repeating the audit', () => {
     const text = reviewProtocol();
     assertReviewComposition(text);
-    expect(text).toMatch(/With a synchronous reviewer, create or reuse it after the report returns/i);
+    expect(text).toMatch(/Create or reuse one real restitution owner only after the report returns, never before or alongside the reviewer and never as a waiting child/i);
     expect(text).toMatch(/findings[^.]*severity[^.]*confidence[^.]*evidence[^.]*attribution/i);
     expect(text).toMatch(/actual[^.]*app_url[^.]*verified creation/i);
     expect(text).toMatch(/unavailable[^.]*report the limitation[^.]*no fabricated/i);
@@ -199,8 +199,10 @@ describe('runtime-required review composition: instruction contracts, not securi
 
   // App tests 5-7 (fork .6/.7/.8): the host applies "invoke security-review first" literally, so the
   // model called a bare reviewer before any framing written ahead of it, and create_session in or before
-  // the reviewer batch made it drop the recipe entirely. The reviewer now goes first, alone and in the
-  // background; acknowledgment, tasks, plan and the branded sub-session follow its handle.
+  // the reviewer batch made it drop the recipe entirely. App test 8 (.9): a restitution child created
+  // while the review ran sat waiting and looked like a second, parallel audit. The reviewer now goes
+  // first, alone and in the background; acknowledgment, tasks and plan follow its handle, and the
+  // restitution owner is created only with the report, named as a synthesis.
   it('calls the required reviewer first and alone, then frames the mission while it runs', () => {
     const recipe = section(sources.coordinator, '### Security Requests in the App — First Response').replace(/\s+/g, ' ');
     expect(recipe, 'the reviewer is the first, solitary tool call, labelled and non-blocking')
@@ -209,23 +211,28 @@ describe('runtime-required review composition: instruction contracts, not securi
       .toMatch(/security-framing extension is loaded, it applies that label and background mode itself/i);
     expect(recipe, 'acknowledgment and reads follow the handle')
       .toMatch(/As soon as the reviewer returns its background handle: a one-sentence acknowledgment[^.]*squad_session_plan_read/i);
-    expect(recipe, 'writes and the branded sub-session follow the reads')
-      .toMatch(/Next tool batch: record the SQL tasks[^.]*publish or update the native plan, and create the branded restitution sub-session `🛡️ Security · \{mission\}` with `create_session`/i);
-    expect(recipe).toMatch(/Then update the plan with its verified `app_url` and wait for the review's completion notification without polling/i);
-    expect(recipe).toMatch(/If the reviewer ran synchronously, do steps 2-3 when its report returns and create the sub-session with the report/i);
+    expect(recipe, 'tasks and plan follow the reads, with no child yet')
+      .toMatch(/Next tool batch: record the SQL tasks[^.]*publish or update the native plan naming the restitution owner/i);
+    expect(recipe, 'no waiting child while the review runs')
+      .toMatch(/Do not create the restitution owner yet: the native reviewer is the only agent doing this review, and a waiting child looks like a second one/i);
+    expect(recipe).toMatch(/Then wait for the review's completion notification without polling/i);
+    expect(recipe).toMatch(/If the reviewer ran synchronously, do steps 2-3 when its report returns/i);
+    expect(recipe, 'the synthesis owner is created with the report')
+      .toMatch(/When the report returns:[^.]*create the restitution owner with `create_session`, clearly named as a synthesis for its owner role \(for example `🏗️ Lead · Security report synthesis`, never the reviewer's own `🛡️ Security · \{mission\}` label\) and carrying the complete report/i);
     const text = reviewProtocol();
-    expect(text).toMatch(/only after the reviewer has been invoked, never before or alongside it[^.]*background reviewer[^.]*verified link while the review runs/i);
-    expect(text).toMatch(/forbids starting any review, scan or `security-review`, and tells it to wait for the report/i);
+    expect(text).toMatch(/only after the report returns, never before or alongside the reviewer and never as a waiting child while it runs/i);
+    expect(text).toMatch(/Name it clearly as a synthesis for its owner role[^.]*never with the reviewer's own `🛡️ Security · \{mission\}` label, and tell it to start no review, scan or `security-review`/i);
     for (const source of [recipe, text]) {
-      expect(source, 'no framing, dispatch or substitution may precede or join the reviewer')
-        .not.toMatch(/no later than the reviewer's tool batch|First tool batch, metadata reads only|Do not call the reviewer in this batch|same tool batch as the reviewer call|run it inside one branded App security session|does not also run it natively|Second tool batch, never split/i);
+      expect(source, 'no framing, dispatch, substitution or waiting child may precede, join or shadow the reviewer')
+        .not.toMatch(/no later than the reviewer's tool batch|First tool batch, metadata reads only|Do not call the reviewer in this batch|same tool batch as the reviewer call|run it inside one branded App security session|does not also run it natively|Second tool batch, never split|wait for the report message|tells it to wait for the report|verified link while the review runs/i);
     }
     for (const key of ['spawn', 'client', 'response'] as const) {
       const source = sources[key].replace(/\s+/g, ' ');
       expect(source, `${key}: reviewer first and alone`).toMatch(/first tool call, alone|first and alone/i);
       expect(source, `${key}: framing and sub-session follow the reviewer call`)
         .toMatch(/only after (?:the reviewer call (?:has returned|returns)|that call returns)/i);
-      expect(source, `${key}: stale pre-reviewer framing`).not.toMatch(/no later than the reviewer's tool batch/i);
+      expect(source, `${key}: stale pre-reviewer framing or waiting child`)
+        .not.toMatch(/no later than the reviewer's tool batch|waits for the report|wait for the report without/i);
     }
   });
 
@@ -241,15 +248,15 @@ describe('runtime-required review composition: instruction contracts, not securi
     expect(text).toMatch(/With a synchronous reviewer, write the same context when the report returns/i);
     expect(text, 'framing is metadata, not a review, probe, delegation or dispatch')
       .toMatch(/not a review, routing probe, delegation or App dispatch[^.]*never changes the reviewer's prompt, scope, agent or result/i);
-    expect(text, 'the report reaches the owner with the host-required question, not after its answer')
-      .toMatch(/findings table or follow-up question does not end the mission[^.]*same tool batch as any host-required question send the report to that owner[^.]*never delays or cancels restitution/i);
+    expect(text, 'the owner is created with the report and the host-required question, not after its answer')
+      .toMatch(/findings table or follow-up question does not end the mission[^.]*same tool batch as any host-required question create or reuse that owner with the report[^.]*never delays or cancels restitution/i);
     expect(text, 'framing is skipped only for refusal, explicit prohibition or unavailable tools')
       .toMatch(/Skip the framing only when the user refused plan metadata, a higher-priority instruction explicitly prohibits it, or[^.]*plan tools are unavailable/i);
     expect(text).not.toMatch(/routing probes or plan writes|forbids any action before the reviewer/i);
 
     const firstResponse = section(sources.coordinator, '### Security Requests in the App — First Response').replace(/\s+/g, ' ');
-    expect(firstResponse, 'the report reaches the owner with the host question')
-      .toMatch(/one tool batch send the complete report to the security sub-session[^.]*ask any host-required follow-up question/i);
+    expect(firstResponse, 'the owner is created with the report and the host question')
+      .toMatch(/one tool batch create the restitution owner with `create_session`[^.]*ask any host-required follow-up question/i);
     expect(firstResponse).toMatch(/Restitution never waits for that answer/i);
     expect(firstResponse).toMatch(/never the review's prompt, scope, agent or result/i);
     expect(sources.coordinator.indexOf('### Security Requests in the App — First Response'),
