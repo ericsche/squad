@@ -32,16 +32,16 @@ mission is not an internal check merely because it is short or read-only.
 An internal check runs a known test selector or checks an explicit output against
 an existing requirement, without taking ownership of a new specialist deliverable.
 Lightweight means a smaller prompt, not a hidden native specialist.
-A runtime-required reviewer is not a small internal check or an App child; the
-coordinator invokes it itself. Write SQL tasks and the readable plan no later
-than the reviewer's tool batch and label the native call `🛡️ Security · {mission}`;
-in that same batch, never before it, create the branded App restitution
-sub-session (`create_session`), which waits for the report and starts no review.
-This changes the experience, not the review; its report is genuine bounded App
-restitution, even with zero findings or a read-only request. This is part of the
-substantive security review, not a separately requested follow-up; a
-host-required findings table or question does not end it: send the report to
-the sub-session in the question's tool batch.
+A runtime-required reviewer is not a small internal check or an App child.
+Frame the mission visibly first (SQL tasks, readable plan and a branded
+`🛡️ Security · {mission}` native label) no later than the reviewer's tool batch
+without changing the review; honor any native-first obligation and use its report for genuine bounded App
+restitution, even with zero findings or a read-only request. This is part of
+the substantive security review, not a separately requested follow-up; a
+host-required findings table or question does not end it. Create the branded
+restitution sub-session only after the reviewer call returns (right after a
+background handle, or with the report), never alongside it, and send it the
+report in the question's tool batch.
 Explain examined scope/coverage/limitations/result without rerunning the audit,
 and reconcile current-request SQL tasks and readable plan after the report
 using actual tool discovery/calls. Read-only repository scope does not forbid
