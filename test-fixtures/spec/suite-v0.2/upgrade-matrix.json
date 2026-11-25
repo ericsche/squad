@@ -6027,11 +6027,11 @@
       "arch": "x64",
       "node": "v22.23.5",
       "target": "2.0.0",
-      "targetSha": "eea0f273076c336a8a1eb3867f48afb19b9c7c54",
-      "harnessHash": "70f6bfe5afe5f7928033557db38b562701fbc28c0e5788b0f6efb7047fcc2439",
+      "targetSha": "49f3495716e8a7e6f3fc961f9b6194617b2126a4",
+      "harnessHash": "b5d89789343c3877c9517871b2769f4d8644ec786878a4dd17f640d132305a5a",
       "event": "pull_request",
-      "runUrl": "https://github.com/ericsche/squad/actions/runs/45656741039",
-      "recordedAt": "2026-11-25T16:44:28.973Z",
+      "runUrl": "https://github.com/ericsche/squad/actions/runs/45715907560",
+      "recordedAt": "2026-11-25T22:47:25.118Z",
       "results": [
         {
           "producer": "0.9.1",
@@ -6138,7 +6138,169 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 244 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+240)",
+            "plain upgrade changed 248 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+244)",
+            "old 0.9.1 upgrade --dry-run on upgraded project: exit 0, last lines \"\u001b[32m✓\u001b[0m refreshed .squad/templates/ | Upgrade complete: v2.0.0 → v0.9.1 | \u001b[2mPreserves user state: team.md, decisions/, agents/*/history.md\u001b[0m\"; MODIFIED 69 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)",
+            "downgrade-probe: F3"
+          ]
+        },
+        {
+          "producer": "0.9.1",
+          "source": "npm",
+          "shape": "legacy-casting",
+          "status": "pass",
+          "provenance": "npm: @bradygaster/squad-cli@0.9.1 sha512-TcZqRbJk3XBg4N8Y5/5OWJeA52ARAMuzk4MGtB0bfdr87e7iJRV6lJEw8+OIYz9IQ+1JxN/Q30dZDALMOcdi2w==; @bradygaster/squad-sdk@0.9.1 sha512-1KqZ2N6Lt/B4uYlU/Su9JjA1s/7ng0OAEb9CZrkRk19YSPi6tg7K5QWdTKl5gY/gp8zPAJqfjVffOwrZwGlzmw==",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "skipped",
+              "detail": "not an .ai-team shape"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "xfail",
+              "detail": "dry-run MODIFIED 69 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 249 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+245)",
+            "old 0.9.1 upgrade --dry-run on upgraded project: exit 0, last lines \"\u001b[32m✓\u001b[0m refreshed .squad/templates/ | Upgrade complete: v2.0.0 → v0.9.1 | \u001b[2mPreserves user state: team.md, decisions/, agents/*/history.md\u001b[0m\"; MODIFIED 69 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)",
+            "downgrade-probe: F3"
+          ]
+        },
+        {
+          "producer": "0.9.1",
+          "source": "npm",
+          "shape": "default",
+          "status": "pass",
+          "provenance": "npm: @bradygaster/squad-cli@0.9.1 sha512-TcZqRbJk3XBg4N8Y5/5OWJeA52ARAMuzk4MGtB0bfdr87e7iJRV6lJEw8+OIYz9IQ+1JxN/Q30dZDALMOcdi2w==; @bradygaster/squad-sdk@0.9.1 sha512-1KqZ2N6Lt/B4uYlU/Su9JjA1s/7ng0OAEb9CZrkRk19YSPi6tg7K5QWdTKl5gY/gp8zPAJqfjVffOwrZwGlzmw==",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "skipped",
+              "detail": "not an .ai-team shape"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "xfail",
+              "detail": "dry-run MODIFIED 69 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 248 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+244)",
             "old 0.9.1 upgrade --dry-run on upgraded project: exit 0, last lines \"\u001b[32m✓\u001b[0m refreshed .squad/templates/ | Upgrade complete: v2.0.0 → v0.9.1 | \u001b[2mPreserves user state: team.md, decisions/, agents/*/history.md\u001b[0m\"; MODIFIED 69 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)",
             "downgrade-probe: F3"
           ]
@@ -6218,169 +6380,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 244 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+240)",
-            "old 0.9.1 upgrade --dry-run on upgraded project: exit 0, last lines \"\u001b[32m✓\u001b[0m refreshed .squad/templates/ | Upgrade complete: v2.0.0 → v0.9.1 | \u001b[2mPreserves user state: team.md, decisions/, agents/*/history.md\u001b[0m\"; MODIFIED 69 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)",
-            "downgrade-probe: F3"
-          ]
-        },
-        {
-          "producer": "0.9.1",
-          "source": "npm",
-          "shape": "legacy-casting",
-          "status": "pass",
-          "provenance": "npm: @bradygaster/squad-cli@0.9.1 sha512-TcZqRbJk3XBg4N8Y5/5OWJeA52ARAMuzk4MGtB0bfdr87e7iJRV6lJEw8+OIYz9IQ+1JxN/Q30dZDALMOcdi2w==; @bradygaster/squad-sdk@0.9.1 sha512-1KqZ2N6Lt/B4uYlU/Su9JjA1s/7ng0OAEb9CZrkRk19YSPi6tg7K5QWdTKl5gY/gp8zPAJqfjVffOwrZwGlzmw==",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "skipped",
-              "detail": "not an .ai-team shape"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "xfail",
-              "detail": "dry-run MODIFIED 69 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 245 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+241)",
-            "old 0.9.1 upgrade --dry-run on upgraded project: exit 0, last lines \"\u001b[32m✓\u001b[0m refreshed .squad/templates/ | Upgrade complete: v2.0.0 → v0.9.1 | \u001b[2mPreserves user state: team.md, decisions/, agents/*/history.md\u001b[0m\"; MODIFIED 69 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)",
-            "downgrade-probe: F3"
-          ]
-        },
-        {
-          "producer": "0.9.1",
-          "source": "npm",
-          "shape": "default",
-          "status": "pass",
-          "provenance": "npm: @bradygaster/squad-cli@0.9.1 sha512-TcZqRbJk3XBg4N8Y5/5OWJeA52ARAMuzk4MGtB0bfdr87e7iJRV6lJEw8+OIYz9IQ+1JxN/Q30dZDALMOcdi2w==; @bradygaster/squad-sdk@0.9.1 sha512-1KqZ2N6Lt/B4uYlU/Su9JjA1s/7ng0OAEb9CZrkRk19YSPi6tg7K5QWdTKl5gY/gp8zPAJqfjVffOwrZwGlzmw==",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "skipped",
-              "detail": "not an .ai-team shape"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "xfail",
-              "detail": "dry-run MODIFIED 69 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 244 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+240)",
+            "plain upgrade changed 248 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+244)",
             "old 0.9.1 upgrade --dry-run on upgraded project: exit 0, last lines \"\u001b[32m✓\u001b[0m refreshed .squad/templates/ | Upgrade complete: v2.0.0 → v0.9.1 | \u001b[2mPreserves user state: team.md, decisions/, agents/*/history.md\u001b[0m\"; MODIFIED 69 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)",
             "downgrade-probe: F3"
           ]
@@ -6460,98 +6460,9 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 178 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+174)",
+            "plain upgrade changed 182 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+178)",
             "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
-        },
-        {
-          "producer": "0.13.1",
-          "source": "npm",
-          "shape": "legacy-casting",
-          "status": "pass",
-          "provenance": "npm: @bradygaster/squad-cli@0.13.1 sha512-ogfx2nhyx6fqMyqlaI5tDnOzUbRdh+a6Uh/rMQ0aNJwAXnvQp4N37Xp/eOTyB5CxcB7E34NBtAfCxyXbWSiS8w==; @bradygaster/squad-sdk@0.13.1 sha512-1Jt6c9kahJq1JCcE77j/50D79YcXVG6Rt1genuLJ3O9J2SKTZKemlbvHgftkc5LgGH22DkWqHh5zLNEQ/p+ukA==",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "skipped",
-              "detail": "not an .ai-team shape"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "pass"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 178 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+174)",
-            "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
-          ]
-        },
-        {
-          "producer": "0.13.1",
-          "source": "npm",
-          "shape": "upstream",
-          "status": "skipped",
-          "reason": "Upstream inheritance (`.squad/upstream.json`, `squad upstream add`) is a Squad 2.0 feature; 0.13.1 cannot declare an upstream, so there is nothing for the upgrade to preserve.",
-          "provenance": "npm: @bradygaster/squad-cli@0.13.1 sha512-ogfx2nhyx6fqMyqlaI5tDnOzUbRdh+a6Uh/rMQ0aNJwAXnvQp4N37Xp/eOTyB5CxcB7E34NBtAfCxyXbWSiS8w==; @bradygaster/squad-sdk@0.13.1 sha512-1Jt6c9kahJq1JCcE77j/50D79YcXVG6Rt1genuLJ3O9J2SKTZKemlbvHgftkc5LgGH22DkWqHh5zLNEQ/p+ukA==",
-          "checks": [],
-          "notes": []
         },
         {
           "producer": "0.13.1",
@@ -6628,14 +6539,24 @@
           ],
           "notes": [
             "producer wrote teamRoot=<config-home>/squad at init",
-            "plain upgrade changed 179 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+175)",
+            "plain upgrade changed 183 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+179)",
             "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
         {
           "producer": "0.13.1",
           "source": "npm",
-          "shape": "ai-team",
+          "shape": "upstream",
+          "status": "skipped",
+          "reason": "Upstream inheritance (`.squad/upstream.json`, `squad upstream add`) is a Squad 2.0 feature; 0.13.1 cannot declare an upstream, so there is nothing for the upgrade to preserve.",
+          "provenance": "npm: @bradygaster/squad-cli@0.13.1 sha512-ogfx2nhyx6fqMyqlaI5tDnOzUbRdh+a6Uh/rMQ0aNJwAXnvQp4N37Xp/eOTyB5CxcB7E34NBtAfCxyXbWSiS8w==; @bradygaster/squad-sdk@0.13.1 sha512-1Jt6c9kahJq1JCcE77j/50D79YcXVG6Rt1genuLJ3O9J2SKTZKemlbvHgftkc5LgGH22DkWqHh5zLNEQ/p+ukA==",
+          "checks": [],
+          "notes": []
+        },
+        {
+          "producer": "0.13.1",
+          "source": "npm",
+          "shape": "legacy-casting",
           "status": "pass",
           "provenance": "npm: @bradygaster/squad-cli@0.13.1 sha512-ogfx2nhyx6fqMyqlaI5tDnOzUbRdh+a6Uh/rMQ0aNJwAXnvQp4N37Xp/eOTyB5CxcB7E34NBtAfCxyXbWSiS8w==; @bradygaster/squad-sdk@0.13.1 sha512-1Jt6c9kahJq1JCcE77j/50D79YcXVG6Rt1genuLJ3O9J2SKTZKemlbvHgftkc5LgGH22DkWqHh5zLNEQ/p+ukA==",
           "checks": [
@@ -6669,7 +6590,8 @@
             },
             {
               "id": "ai-team-migrated",
-              "status": "pass"
+              "status": "skipped",
+              "detail": "not an .ai-team shape"
             },
             {
               "id": "team-root-absent",
@@ -6706,7 +6628,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 178 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+174)",
+            "plain upgrade changed 182 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+178)",
             "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -6785,7 +6707,85 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 176 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+172); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 180 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+176); squad-state blobs for 3 seeded path(s) identical",
+            "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
+          ]
+        },
+        {
+          "producer": "0.13.1",
+          "source": "npm",
+          "shape": "ai-team",
+          "status": "pass",
+          "provenance": "npm: @bradygaster/squad-cli@0.13.1 sha512-ogfx2nhyx6fqMyqlaI5tDnOzUbRdh+a6Uh/rMQ0aNJwAXnvQp4N37Xp/eOTyB5CxcB7E34NBtAfCxyXbWSiS8w==; @bradygaster/squad-sdk@0.13.1 sha512-1Jt6c9kahJq1JCcE77j/50D79YcXVG6Rt1genuLJ3O9J2SKTZKemlbvHgftkc5LgGH22DkWqHh5zLNEQ/p+ukA==",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "pass"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "pass"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 182 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+178)",
             "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -6864,87 +6864,8 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 176 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+172); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 180 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+176); squad-state blobs for 3 seeded path(s) identical",
             "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
-          ]
-        },
-        {
-          "producer": "1.0.0",
-          "source": "npm",
-          "shape": "profile",
-          "status": "pass",
-          "provenance": "npm: @bradygaster/squad-cli@1.0.0 sha512-mnZXnA+GAtp4KSLf7a4Zw0BpeOaHFAxYV5oxAy58ancZ9C2LguUGbcTxWIG0djM96XWET8K9fcncif3Vm6Z9RQ==; @bradygaster/squad-sdk@1.0.0 sha512-9f4NthJaQDq6ifXU3f6VfsZz2bbWs2u57fHhXKtDgDMSvZ3Xq8FPjMvddxhRvseWqaSlkYcWsag3M/lzTtKaJA==",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "skipped",
-              "detail": "not an .ai-team shape"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "pass"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "pass"
-            }
-          ],
-          "notes": [
-            "producer wrote teamRoot=<config-home>/squad at init",
-            "plain upgrade changed 115 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+111)",
-            "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
         {
@@ -7022,7 +6943,86 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 114 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+110)",
+            "plain upgrade changed 118 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+114)",
+            "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
+          ]
+        },
+        {
+          "producer": "1.0.0",
+          "source": "npm",
+          "shape": "profile",
+          "status": "pass",
+          "provenance": "npm: @bradygaster/squad-cli@1.0.0 sha512-mnZXnA+GAtp4KSLf7a4Zw0BpeOaHFAxYV5oxAy58ancZ9C2LguUGbcTxWIG0djM96XWET8K9fcncif3Vm6Z9RQ==; @bradygaster/squad-sdk@1.0.0 sha512-9f4NthJaQDq6ifXU3f6VfsZz2bbWs2u57fHhXKtDgDMSvZ3Xq8FPjMvddxhRvseWqaSlkYcWsag3M/lzTtKaJA==",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "skipped",
+              "detail": "not an .ai-team shape"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "pass"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "pass"
+            }
+          ],
+          "notes": [
+            "producer wrote teamRoot=<config-home>/squad at init",
+            "plain upgrade changed 119 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+115)",
             "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -7111,7 +7111,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 119 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+115)",
+            "plain upgrade changed 123 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+119)",
             "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -7190,7 +7190,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 112 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+108); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 116 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+112); squad-state blobs for 3 seeded path(s) identical",
             "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -7269,7 +7269,85 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 112 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+108); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 116 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+112); squad-state blobs for 3 seeded path(s) identical",
+            "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
+          ]
+        },
+        {
+          "producer": "1.0.0",
+          "source": "npm",
+          "shape": "ai-team",
+          "status": "pass",
+          "provenance": "npm: @bradygaster/squad-cli@1.0.0 sha512-mnZXnA+GAtp4KSLf7a4Zw0BpeOaHFAxYV5oxAy58ancZ9C2LguUGbcTxWIG0djM96XWET8K9fcncif3Vm6Z9RQ==; @bradygaster/squad-sdk@1.0.0 sha512-9f4NthJaQDq6ifXU3f6VfsZz2bbWs2u57fHhXKtDgDMSvZ3Xq8FPjMvddxhRvseWqaSlkYcWsag3M/lzTtKaJA==",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "pass"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "pass"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 118 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+114)",
             "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -7348,86 +7426,8 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 114 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+110)",
+            "plain upgrade changed 118 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+114)",
             "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
-          ]
-        },
-        {
-          "producer": "1.0.0",
-          "source": "npm",
-          "shape": "ai-team",
-          "status": "pass",
-          "provenance": "npm: @bradygaster/squad-cli@1.0.0 sha512-mnZXnA+GAtp4KSLf7a4Zw0BpeOaHFAxYV5oxAy58ancZ9C2LguUGbcTxWIG0djM96XWET8K9fcncif3Vm6Z9RQ==; @bradygaster/squad-sdk@1.0.0 sha512-9f4NthJaQDq6ifXU3f6VfsZz2bbWs2u57fHhXKtDgDMSvZ3Xq8FPjMvddxhRvseWqaSlkYcWsag3M/lzTtKaJA==",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "pass"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "pass"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 114 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+110)",
-            "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
         {
@@ -7505,7 +7505,7 @@
           ],
           "notes": [
             "producer wrote teamRoot=<config-home>/squad at init",
-            "plain upgrade changed 115 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+111)",
+            "plain upgrade changed 119 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+115)",
             "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -7594,7 +7594,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 119 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+115)",
+            "plain upgrade changed 123 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+119)",
             "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -7673,164 +7673,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 112 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+108); squad-state blobs for 3 seeded path(s) identical",
-            "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
-          ]
-        },
-        {
-          "producer": "1.0.1",
-          "source": "github-release",
-          "shape": "ai-team",
-          "status": "pass",
-          "provenance": "github-release: github/squad@v1.0.1 asset squad-linux-x64.tar.gz id 610330551 sha256 283a1893be9ddad11056dcc8bd0673eff6b48a789bbf523b3f7ec31994d27ac7 (bundled node 22.20.0)",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "pass"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "pass"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 114 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+110)",
-            "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
-          ]
-        },
-        {
-          "producer": "1.0.1",
-          "source": "github-release",
-          "shape": "two-layer",
-          "status": "pass",
-          "provenance": "github-release: github/squad@v1.0.1 asset squad-linux-x64.tar.gz id 610330551 sha256 283a1893be9ddad11056dcc8bd0673eff6b48a789bbf523b3f7ec31994d27ac7 (bundled node 22.20.0)",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "skipped",
-              "detail": "not an .ai-team shape"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "pass"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 112 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+108); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 116 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+112); squad-state blobs for 3 seeded path(s) identical",
             "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -7909,8 +7752,86 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 86 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+82)",
+            "plain upgrade changed 92 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+88)",
             "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
+          ]
+        },
+        {
+          "producer": "1.0.1",
+          "source": "github-release",
+          "shape": "ai-team",
+          "status": "pass",
+          "provenance": "github-release: github/squad@v1.0.1 asset squad-linux-x64.tar.gz id 610330551 sha256 283a1893be9ddad11056dcc8bd0673eff6b48a789bbf523b3f7ec31994d27ac7 (bundled node 22.20.0)",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "pass"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "pass"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 118 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+114)",
+            "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
         {
@@ -7988,8 +7909,87 @@
           ],
           "notes": [
             "producer wrote teamRoot=<config-home>/squad at init",
-            "plain upgrade changed 87 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+83)",
+            "plain upgrade changed 93 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+89)",
             "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
+          ]
+        },
+        {
+          "producer": "1.0.1",
+          "source": "github-release",
+          "shape": "two-layer",
+          "status": "pass",
+          "provenance": "github-release: github/squad@v1.0.1 asset squad-linux-x64.tar.gz id 610330551 sha256 283a1893be9ddad11056dcc8bd0673eff6b48a789bbf523b3f7ec31994d27ac7 (bundled node 22.20.0)",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "skipped",
+              "detail": "not an .ai-team shape"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "pass"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 116 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+112); squad-state blobs for 3 seeded path(s) identical",
+            "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
         {
@@ -8077,85 +8077,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 91 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+87)",
-            "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
-          ]
-        },
-        {
-          "producer": "1.1.0",
-          "source": "github-release",
-          "shape": "ai-team",
-          "status": "pass",
-          "provenance": "github-release: github/squad@v1.1.0 asset squad-linux-x64.tar.gz id 659607641 sha256 2de647a3feaef334051eb1b3084acba37a511818aad029a16abfe32fadb41aff (bundled node 22.20.0)",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "pass"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "pass"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 86 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+82)",
+            "plain upgrade changed 97 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+93)",
             "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -8234,8 +8156,87 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 84 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+80); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 90 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+86); squad-state blobs for 3 seeded path(s) identical",
             "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
+          ]
+        },
+        {
+          "producer": "HEAD",
+          "source": "pack",
+          "shape": "default",
+          "status": "pass",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "skipped",
+              "detail": "not an .ai-team shape"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "skipped",
+              "detail": "producer is the target version"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 12 working-tree path(s), all Squad-owned: .github/workflows/squad-ci.yml, .github/workflows/squad-docs.yml, .github/workflows/squad-insider-release.yml, .github/workflows/squad-label-enforce.yml … (+8)"
           ]
         },
         {
@@ -8313,16 +8314,16 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 84 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+80); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 90 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+86); squad-state blobs for 3 seeded path(s) identical",
             "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
         {
-          "producer": "HEAD",
-          "source": "pack",
-          "shape": "default",
+          "producer": "1.1.0",
+          "source": "github-release",
+          "shape": "ai-team",
           "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
+          "provenance": "github-release: github/squad@v1.1.0 asset squad-linux-x64.tar.gz id 659607641 sha256 2de647a3feaef334051eb1b3084acba37a511818aad029a16abfe32fadb41aff (bundled node 22.20.0)",
           "checks": [
             {
               "id": "producer-artifact-verified",
@@ -8354,8 +8355,7 @@
             },
             {
               "id": "ai-team-migrated",
-              "status": "skipped",
-              "detail": "not an .ai-team shape"
+              "status": "pass"
             },
             {
               "id": "team-root-absent",
@@ -8367,8 +8367,7 @@
             },
             {
               "id": "downgrade-probe",
-              "status": "skipped",
-              "detail": "producer is the target version"
+              "status": "pass"
             },
             {
               "id": "clients-projected",
@@ -8393,7 +8392,8 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 12 working-tree path(s), all Squad-owned: .github/workflows/squad-ci.yml, .github/workflows/squad-docs.yml, .github/workflows/squad-insider-release.yml, .github/workflows/squad-label-enforce.yml … (+8)"
+            "plain upgrade changed 92 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+88)",
+            "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
         {
@@ -8401,7 +8401,7 @@
           "source": "pack",
           "shape": "profile",
           "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
           "checks": [
             {
               "id": "producer-artifact-verified",
@@ -8479,7 +8479,7 @@
           "source": "pack",
           "shape": "legacy-casting",
           "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
           "checks": [
             {
               "id": "producer-artifact-verified",
@@ -8556,9 +8556,87 @@
         {
           "producer": "HEAD",
           "source": "pack",
+          "shape": "ai-team",
+          "status": "pass",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "pass"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "skipped",
+              "detail": "producer is the target version"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 12 working-tree path(s), all Squad-owned: .github/workflows/squad-ci.yml, .github/workflows/squad-docs.yml, .github/workflows/squad-insider-release.yml, .github/workflows/squad-label-enforce.yml … (+8)"
+          ]
+        },
+        {
+          "producer": "HEAD",
+          "source": "pack",
           "shape": "orphan",
           "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
           "checks": [
             {
               "id": "producer-artifact-verified",
@@ -8637,7 +8715,7 @@
           "source": "pack",
           "shape": "two-layer",
           "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
           "checks": [
             {
               "id": "producer-artifact-verified",
@@ -8714,87 +8792,9 @@
         {
           "producer": "HEAD",
           "source": "pack",
-          "shape": "ai-team",
-          "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "pass"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "skipped",
-              "detail": "producer is the target version"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 12 working-tree path(s), all Squad-owned: .github/workflows/squad-ci.yml, .github/workflows/squad-docs.yml, .github/workflows/squad-insider-release.yml, .github/workflows/squad-label-enforce.yml … (+8)"
-          ]
-        },
-        {
-          "producer": "HEAD",
-          "source": "pack",
           "shape": "upstream",
           "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
           "checks": [
             {
               "id": "producer-artifact-verified",
@@ -8875,11 +8875,11 @@
       "arch": "x64",
       "node": "v22.23.5",
       "target": "2.0.0",
-      "targetSha": "eea0f273076c336a8a1eb3867f48afb19b9c7c54",
-      "harnessHash": "70f6bfe5afe5f7928033557db38b562701fbc28c0e5788b0f6efb7047fcc2439",
+      "targetSha": "49f3495716e8a7e6f3fc961f9b6194617b2126a4",
+      "harnessHash": "b5d89789343c3877c9517871b2769f4d8644ec786878a4dd17f640d132305a5a",
       "event": "pull_request",
-      "runUrl": "https://github.com/ericsche/squad/actions/runs/45656741039",
-      "recordedAt": "2026-11-25T16:47:43.357Z",
+      "runUrl": "https://github.com/ericsche/squad/actions/runs/45715907560",
+      "recordedAt": "2026-11-25T22:51:14.085Z",
       "results": [
         {
           "producer": "0.9.1",
@@ -8910,167 +8910,6 @@
           "provenance": "npm: @bradygaster/squad-cli@0.9.1 sha512-TcZqRbJk3XBg4N8Y5/5OWJeA52ARAMuzk4MGtB0bfdr87e7iJRV6lJEw8+OIYz9IQ+1JxN/Q30dZDALMOcdi2w==; @bradygaster/squad-sdk@0.9.1 sha512-1KqZ2N6Lt/B4uYlU/Su9JjA1s/7ng0OAEb9CZrkRk19YSPi6tg7K5QWdTKl5gY/gp8zPAJqfjVffOwrZwGlzmw==",
           "checks": [],
           "notes": []
-        },
-        {
-          "producer": "0.9.1",
-          "source": "npm",
-          "shape": "ai-team",
-          "status": "pass",
-          "provenance": "npm: @bradygaster/squad-cli@0.9.1 sha512-TcZqRbJk3XBg4N8Y5/5OWJeA52ARAMuzk4MGtB0bfdr87e7iJRV6lJEw8+OIYz9IQ+1JxN/Q30dZDALMOcdi2w==; @bradygaster/squad-sdk@0.9.1 sha512-1KqZ2N6Lt/B4uYlU/Su9JjA1s/7ng0OAEb9CZrkRk19YSPi6tg7K5QWdTKl5gY/gp8zPAJqfjVffOwrZwGlzmw==",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "pass"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "xfail",
-              "detail": "dry-run MODIFIED 68 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 244 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+240)",
-            "old 0.9.1 upgrade --dry-run on upgraded project: exit 0, last lines \"\u001b[32m✓\u001b[0m refreshed .squad/templates/ | Upgrade complete: v2.0.0 → v0.9.1 | \u001b[2mPreserves user state: team.md, decisions/, agents/*/history.md\u001b[0m\"; MODIFIED 68 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)",
-            "downgrade-probe: F3"
-          ]
-        },
-        {
-          "producer": "0.9.1",
-          "source": "npm",
-          "shape": "default",
-          "status": "pass",
-          "provenance": "npm: @bradygaster/squad-cli@0.9.1 sha512-TcZqRbJk3XBg4N8Y5/5OWJeA52ARAMuzk4MGtB0bfdr87e7iJRV6lJEw8+OIYz9IQ+1JxN/Q30dZDALMOcdi2w==; @bradygaster/squad-sdk@0.9.1 sha512-1KqZ2N6Lt/B4uYlU/Su9JjA1s/7ng0OAEb9CZrkRk19YSPi6tg7K5QWdTKl5gY/gp8zPAJqfjVffOwrZwGlzmw==",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "skipped",
-              "detail": "not an .ai-team shape"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "xfail",
-              "detail": "dry-run MODIFIED 68 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 244 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+240)",
-            "old 0.9.1 upgrade --dry-run on upgraded project: exit 0, last lines \"\u001b[32m✓\u001b[0m refreshed .squad/templates/ | Upgrade complete: v2.0.0 → v0.9.1 | \u001b[2mPreserves user state: team.md, decisions/, agents/*/history.md\u001b[0m\"; MODIFIED 68 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)",
-            "downgrade-probe: F3"
-          ]
         },
         {
           "producer": "0.9.1",
@@ -9147,7 +8986,87 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 244 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+240)",
+            "plain upgrade changed 248 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+244)",
+            "old 0.9.1 upgrade --dry-run on upgraded project: exit 0, last lines \"\u001b[32m✓\u001b[0m refreshed .squad/templates/ | Upgrade complete: v2.0.0 → v0.9.1 | \u001b[2mPreserves user state: team.md, decisions/, agents/*/history.md\u001b[0m\"; MODIFIED 68 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)",
+            "downgrade-probe: F3"
+          ]
+        },
+        {
+          "producer": "0.9.1",
+          "source": "npm",
+          "shape": "ai-team",
+          "status": "pass",
+          "provenance": "npm: @bradygaster/squad-cli@0.9.1 sha512-TcZqRbJk3XBg4N8Y5/5OWJeA52ARAMuzk4MGtB0bfdr87e7iJRV6lJEw8+OIYz9IQ+1JxN/Q30dZDALMOcdi2w==; @bradygaster/squad-sdk@0.9.1 sha512-1KqZ2N6Lt/B4uYlU/Su9JjA1s/7ng0OAEb9CZrkRk19YSPi6tg7K5QWdTKl5gY/gp8zPAJqfjVffOwrZwGlzmw==",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "pass"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "xfail",
+              "detail": "dry-run MODIFIED 68 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 248 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+244)",
             "old 0.9.1 upgrade --dry-run on upgraded project: exit 0, last lines \"\u001b[32m✓\u001b[0m refreshed .squad/templates/ | Upgrade complete: v2.0.0 → v0.9.1 | \u001b[2mPreserves user state: team.md, decisions/, agents/*/history.md\u001b[0m\"; MODIFIED 68 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)",
             "downgrade-probe: F3"
           ]
@@ -9228,7 +9147,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 245 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+241)",
+            "plain upgrade changed 249 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+245)",
             "old 0.9.1 upgrade --dry-run on upgraded project: exit 0, last lines \"\u001b[32m✓\u001b[0m refreshed .squad/templates/ | Upgrade complete: v2.0.0 → v0.9.1 | \u001b[2mPreserves user state: team.md, decisions/, agents/*/history.md\u001b[0m\"; MODIFIED 68 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)",
             "downgrade-probe: F3"
           ]
@@ -9308,16 +9227,16 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 178 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+174)",
+            "plain upgrade changed 182 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+178)",
             "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
         {
-          "producer": "0.13.1",
+          "producer": "0.9.1",
           "source": "npm",
-          "shape": "legacy-casting",
+          "shape": "default",
           "status": "pass",
-          "provenance": "npm: @bradygaster/squad-cli@0.13.1 sha512-ogfx2nhyx6fqMyqlaI5tDnOzUbRdh+a6Uh/rMQ0aNJwAXnvQp4N37Xp/eOTyB5CxcB7E34NBtAfCxyXbWSiS8w==; @bradygaster/squad-sdk@0.13.1 sha512-1Jt6c9kahJq1JCcE77j/50D79YcXVG6Rt1genuLJ3O9J2SKTZKemlbvHgftkc5LgGH22DkWqHh5zLNEQ/p+ukA==",
+          "provenance": "npm: @bradygaster/squad-cli@0.9.1 sha512-TcZqRbJk3XBg4N8Y5/5OWJeA52ARAMuzk4MGtB0bfdr87e7iJRV6lJEw8+OIYz9IQ+1JxN/Q30dZDALMOcdi2w==; @bradygaster/squad-sdk@0.9.1 sha512-1KqZ2N6Lt/B4uYlU/Su9JjA1s/7ng0OAEb9CZrkRk19YSPi6tg7K5QWdTKl5gY/gp8zPAJqfjVffOwrZwGlzmw==",
           "checks": [
             {
               "id": "producer-artifact-verified",
@@ -9362,7 +9281,8 @@
             },
             {
               "id": "downgrade-probe",
-              "status": "pass"
+              "status": "xfail",
+              "detail": "dry-run MODIFIED 68 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)"
             },
             {
               "id": "clients-projected",
@@ -9387,19 +9307,10 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 178 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+174)",
-            "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
+            "plain upgrade changed 248 working-tree path(s), all Squad-owned: .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md, .copilot/skills/ci-validation-gates/SKILL.md … (+244)",
+            "old 0.9.1 upgrade --dry-run on upgraded project: exit 0, last lines \"\u001b[32m✓\u001b[0m refreshed .squad/templates/ | Upgrade complete: v2.0.0 → v0.9.1 | \u001b[2mPreserves user state: team.md, decisions/, agents/*/history.md\u001b[0m\"; MODIFIED 68 files (21 coordinator/templates/workflows, e.g. .copilot/skills/agent-collaboration/SKILL.md, .copilot/skills/agent-conduct/SKILL.md, .copilot/skills/architectural-proposals/SKILL.md …)",
+            "downgrade-probe: F3"
           ]
-        },
-        {
-          "producer": "0.13.1",
-          "source": "npm",
-          "shape": "upstream",
-          "status": "skipped",
-          "reason": "Upstream inheritance (`.squad/upstream.json`, `squad upstream add`) is a Squad 2.0 feature; 0.13.1 cannot declare an upstream, so there is nothing for the upgrade to preserve.",
-          "provenance": "npm: @bradygaster/squad-cli@0.13.1 sha512-ogfx2nhyx6fqMyqlaI5tDnOzUbRdh+a6Uh/rMQ0aNJwAXnvQp4N37Xp/eOTyB5CxcB7E34NBtAfCxyXbWSiS8w==; @bradygaster/squad-sdk@0.13.1 sha512-1Jt6c9kahJq1JCcE77j/50D79YcXVG6Rt1genuLJ3O9J2SKTZKemlbvHgftkc5LgGH22DkWqHh5zLNEQ/p+ukA==",
-          "checks": [],
-          "notes": []
         },
         {
           "producer": "0.13.1",
@@ -9476,7 +9387,96 @@
           ],
           "notes": [
             "producer wrote teamRoot=<config-home>\\squad at init",
-            "plain upgrade changed 179 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+175)",
+            "plain upgrade changed 183 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+179)",
+            "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
+          ]
+        },
+        {
+          "producer": "0.13.1",
+          "source": "npm",
+          "shape": "upstream",
+          "status": "skipped",
+          "reason": "Upstream inheritance (`.squad/upstream.json`, `squad upstream add`) is a Squad 2.0 feature; 0.13.1 cannot declare an upstream, so there is nothing for the upgrade to preserve.",
+          "provenance": "npm: @bradygaster/squad-cli@0.13.1 sha512-ogfx2nhyx6fqMyqlaI5tDnOzUbRdh+a6Uh/rMQ0aNJwAXnvQp4N37Xp/eOTyB5CxcB7E34NBtAfCxyXbWSiS8w==; @bradygaster/squad-sdk@0.13.1 sha512-1Jt6c9kahJq1JCcE77j/50D79YcXVG6Rt1genuLJ3O9J2SKTZKemlbvHgftkc5LgGH22DkWqHh5zLNEQ/p+ukA==",
+          "checks": [],
+          "notes": []
+        },
+        {
+          "producer": "0.13.1",
+          "source": "npm",
+          "shape": "legacy-casting",
+          "status": "pass",
+          "provenance": "npm: @bradygaster/squad-cli@0.13.1 sha512-ogfx2nhyx6fqMyqlaI5tDnOzUbRdh+a6Uh/rMQ0aNJwAXnvQp4N37Xp/eOTyB5CxcB7E34NBtAfCxyXbWSiS8w==; @bradygaster/squad-sdk@0.13.1 sha512-1Jt6c9kahJq1JCcE77j/50D79YcXVG6Rt1genuLJ3O9J2SKTZKemlbvHgftkc5LgGH22DkWqHh5zLNEQ/p+ukA==",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "skipped",
+              "detail": "not an .ai-team shape"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "pass"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 182 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+178)",
             "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -9554,7 +9554,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 178 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+174)",
+            "plain upgrade changed 182 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+178)",
             "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -9633,7 +9633,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 176 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+172); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 180 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+176); squad-state blobs for 3 seeded path(s) identical",
             "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -9712,7 +9712,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 176 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+172); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 180 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+176); squad-state blobs for 3 seeded path(s) identical",
             "old 0.13.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -9791,7 +9791,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 115 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+111)",
+            "plain upgrade changed 119 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+115)",
             "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -9870,7 +9870,7 @@
           ],
           "notes": [
             "producer wrote teamRoot=<config-home>\\squad at init",
-            "plain upgrade changed 116 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+112)",
+            "plain upgrade changed 120 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+116)",
             "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -9959,86 +9959,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 120 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+116)",
-            "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
-          ]
-        },
-        {
-          "producer": "1.0.0",
-          "source": "npm",
-          "shape": "two-layer",
-          "status": "pass",
-          "provenance": "npm: @bradygaster/squad-cli@1.0.0 sha512-mnZXnA+GAtp4KSLf7a4Zw0BpeOaHFAxYV5oxAy58ancZ9C2LguUGbcTxWIG0djM96XWET8K9fcncif3Vm6Z9RQ==; @bradygaster/squad-sdk@1.0.0 sha512-9f4NthJaQDq6ifXU3f6VfsZz2bbWs2u57fHhXKtDgDMSvZ3Xq8FPjMvddxhRvseWqaSlkYcWsag3M/lzTtKaJA==",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "skipped",
-              "detail": "not an .ai-team shape"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "pass"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 113 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+109); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 124 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+120)",
             "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -10117,7 +10038,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 113 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+109); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 117 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+113); squad-state blobs for 3 seeded path(s) identical",
             "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -10195,7 +10116,86 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 115 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+111)",
+            "plain upgrade changed 119 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+115)",
+            "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
+          ]
+        },
+        {
+          "producer": "1.0.0",
+          "source": "npm",
+          "shape": "two-layer",
+          "status": "pass",
+          "provenance": "npm: @bradygaster/squad-cli@1.0.0 sha512-mnZXnA+GAtp4KSLf7a4Zw0BpeOaHFAxYV5oxAy58ancZ9C2LguUGbcTxWIG0djM96XWET8K9fcncif3Vm6Z9RQ==; @bradygaster/squad-sdk@1.0.0 sha512-9f4NthJaQDq6ifXU3f6VfsZz2bbWs2u57fHhXKtDgDMSvZ3Xq8FPjMvddxhRvseWqaSlkYcWsag3M/lzTtKaJA==",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "skipped",
+              "detail": "not an .ai-team shape"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "pass"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 117 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+113); squad-state blobs for 3 seeded path(s) identical",
             "old 1.0.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -10274,7 +10274,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 115 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+111)",
+            "plain upgrade changed 119 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+115)",
             "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -10353,7 +10353,7 @@
           ],
           "notes": [
             "producer wrote teamRoot=<config-home>\\squad at init",
-            "plain upgrade changed 116 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+112)",
+            "plain upgrade changed 120 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+116)",
             "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -10442,7 +10442,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 120 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+116)",
+            "plain upgrade changed 124 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+120)",
             "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -10520,7 +10520,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 115 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+111)",
+            "plain upgrade changed 119 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+115)",
             "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -10599,7 +10599,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 113 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+109); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 117 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+113); squad-state blobs for 3 seeded path(s) identical",
             "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -10678,7 +10678,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 113 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+109); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 117 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+113); squad-state blobs for 3 seeded path(s) identical",
             "old 1.0.1 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -10757,7 +10757,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 90 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+86)",
+            "plain upgrade changed 96 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+92)",
             "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -10836,7 +10836,7 @@
           ],
           "notes": [
             "producer wrote teamRoot=<config-home>\\squad at init",
-            "plain upgrade changed 91 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+87)",
+            "plain upgrade changed 97 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+93)",
             "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -10925,8 +10925,87 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 95 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+91)",
+            "plain upgrade changed 101 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+97)",
             "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
+          ]
+        },
+        {
+          "producer": "HEAD",
+          "source": "pack",
+          "shape": "default",
+          "status": "pass",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "skipped",
+              "detail": "not an .ai-team shape"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "skipped",
+              "detail": "producer is the target version"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 17 working-tree path(s), all Squad-owned: .github/workflows/squad-ci.yml, .github/workflows/squad-docs.yml, .github/workflows/squad-heartbeat.yml, .github/workflows/squad-insider-release.yml … (+13)"
           ]
         },
         {
@@ -11003,86 +11082,7 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 90 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+86)",
-            "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
-          ]
-        },
-        {
-          "producer": "1.1.0",
-          "source": "github-release",
-          "shape": "orphan",
-          "status": "pass",
-          "provenance": "github-release: github/squad@v1.1.0 asset squad-win32-x64.zip id 659607643 sha256 571d734f7ae718fefefdfa9864f9f82a3d1fb1546f01ec8bf8866fa7e1829c57 (bundled node 22.20.0)",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "skipped",
-              "detail": "not an .ai-team shape"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "pass"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 88 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+84); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 96 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+92)",
             "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
@@ -11161,16 +11161,16 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 88 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+84); squad-state blobs for 3 seeded path(s) identical",
+            "plain upgrade changed 94 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+90); squad-state blobs for 3 seeded path(s) identical",
             "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
         {
-          "producer": "HEAD",
-          "source": "pack",
-          "shape": "default",
+          "producer": "1.1.0",
+          "source": "github-release",
+          "shape": "orphan",
           "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
+          "provenance": "github-release: github/squad@v1.1.0 asset squad-win32-x64.zip id 659607643 sha256 571d734f7ae718fefefdfa9864f9f82a3d1fb1546f01ec8bf8866fa7e1829c57 (bundled node 22.20.0)",
           "checks": [
             {
               "id": "producer-artifact-verified",
@@ -11215,8 +11215,7 @@
             },
             {
               "id": "downgrade-probe",
-              "status": "skipped",
-              "detail": "producer is the target version"
+              "status": "pass"
             },
             {
               "id": "clients-projected",
@@ -11241,7 +11240,8 @@
             }
           ],
           "notes": [
-            "plain upgrade changed 17 working-tree path(s), all Squad-owned: .github/workflows/squad-ci.yml, .github/workflows/squad-docs.yml, .github/workflows/squad-heartbeat.yml, .github/workflows/squad-insider-release.yml … (+13)"
+            "plain upgrade changed 94 working-tree path(s), all Squad-owned: .gitattributes, .github/agents/squad.agent.md, .github/agents/squad.agent.md.local-backup, .github/extensions/squad-provider-onboarding/extension.mjs … (+90); squad-state blobs for 3 seeded path(s) identical",
+            "old 1.1.0 upgrade --dry-run on upgraded project: exit 0, last lines \"overwrite  ../.github/workflows/squad-triage.yml | overwrite  ../.github/workflows/sync-squad-labels.yml | Run without --dry-run to apply.\"; modified nothing"
           ]
         },
         {
@@ -11249,7 +11249,7 @@
           "source": "pack",
           "shape": "profile",
           "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
           "checks": [
             {
               "id": "producer-artifact-verified",
@@ -11327,7 +11327,7 @@
           "source": "pack",
           "shape": "legacy-casting",
           "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
           "checks": [
             {
               "id": "producer-artifact-verified",
@@ -11404,87 +11404,9 @@
         {
           "producer": "HEAD",
           "source": "pack",
-          "shape": "ai-team",
-          "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
-          "checks": [
-            {
-              "id": "producer-artifact-verified",
-              "status": "pass"
-            },
-            {
-              "id": "producer-init",
-              "status": "pass"
-            },
-            {
-              "id": "upgrade-plain",
-              "status": "pass"
-            },
-            {
-              "id": "coordinator-is-new-template",
-              "status": "pass"
-            },
-            {
-              "id": "user-state-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "casting-pair-valid",
-              "status": "pass"
-            },
-            {
-              "id": "state-backend-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "ai-team-migrated",
-              "status": "pass"
-            },
-            {
-              "id": "team-root-absent",
-              "status": "pass"
-            },
-            {
-              "id": "idempotent-second-upgrade",
-              "status": "pass"
-            },
-            {
-              "id": "downgrade-probe",
-              "status": "skipped",
-              "detail": "producer is the target version"
-            },
-            {
-              "id": "clients-projected",
-              "status": "pass"
-            },
-            {
-              "id": "user-config-preserved",
-              "status": "pass"
-            },
-            {
-              "id": "doctor",
-              "status": "pass"
-            },
-            {
-              "id": "projection-uninstall-byte-exact",
-              "status": "pass"
-            },
-            {
-              "id": "profile-untouched",
-              "status": "skipped",
-              "detail": "no profile squad seeded in this shape"
-            }
-          ],
-          "notes": [
-            "plain upgrade changed 17 working-tree path(s), all Squad-owned: .github/workflows/squad-ci.yml, .github/workflows/squad-docs.yml, .github/workflows/squad-heartbeat.yml, .github/workflows/squad-insider-release.yml … (+13)"
-          ]
-        },
-        {
-          "producer": "HEAD",
-          "source": "pack",
           "shape": "orphan",
           "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
           "checks": [
             {
               "id": "producer-artifact-verified",
@@ -11561,9 +11483,87 @@
         {
           "producer": "HEAD",
           "source": "pack",
+          "shape": "ai-team",
+          "status": "pass",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
+          "checks": [
+            {
+              "id": "producer-artifact-verified",
+              "status": "pass"
+            },
+            {
+              "id": "producer-init",
+              "status": "pass"
+            },
+            {
+              "id": "upgrade-plain",
+              "status": "pass"
+            },
+            {
+              "id": "coordinator-is-new-template",
+              "status": "pass"
+            },
+            {
+              "id": "user-state-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "casting-pair-valid",
+              "status": "pass"
+            },
+            {
+              "id": "state-backend-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "ai-team-migrated",
+              "status": "pass"
+            },
+            {
+              "id": "team-root-absent",
+              "status": "pass"
+            },
+            {
+              "id": "idempotent-second-upgrade",
+              "status": "pass"
+            },
+            {
+              "id": "downgrade-probe",
+              "status": "skipped",
+              "detail": "producer is the target version"
+            },
+            {
+              "id": "clients-projected",
+              "status": "pass"
+            },
+            {
+              "id": "user-config-preserved",
+              "status": "pass"
+            },
+            {
+              "id": "doctor",
+              "status": "pass"
+            },
+            {
+              "id": "projection-uninstall-byte-exact",
+              "status": "pass"
+            },
+            {
+              "id": "profile-untouched",
+              "status": "skipped",
+              "detail": "no profile squad seeded in this shape"
+            }
+          ],
+          "notes": [
+            "plain upgrade changed 17 working-tree path(s), all Squad-owned: .github/workflows/squad-ci.yml, .github/workflows/squad-docs.yml, .github/workflows/squad-heartbeat.yml, .github/workflows/squad-insider-release.yml … (+13)"
+          ]
+        },
+        {
+          "producer": "HEAD",
+          "source": "pack",
           "shape": "two-layer",
           "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
           "checks": [
             {
               "id": "producer-artifact-verified",
@@ -11642,7 +11642,7 @@
           "source": "pack",
           "shape": "upstream",
           "status": "pass",
-          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at eea0f273076c336a8a1eb3867f48afb19b9c7c54 (v2.0.0)",
+          "provenance": "pack: npm pack of packages/squad-sdk + packages/squad-cli at 49f3495716e8a7e6f3fc961f9b6194617b2126a4 (v2.0.0)",
           "checks": [
             {
               "id": "producer-artifact-verified",
