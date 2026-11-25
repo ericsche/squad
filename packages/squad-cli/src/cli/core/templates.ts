@@ -194,6 +194,18 @@ export const TEMPLATE_MANIFEST: TemplateFile[] = [
     description: 'Security-review label, background and guidance hooks (user-owned)',
   },
   {
+    source: 'extensions/squad-spawn-config/extension.mjs',
+    destination: '../.github/extensions/squad-spawn-config/extension.mjs',
+    overwriteOnUpgrade: false,
+    description: 'App sub-session model and reasoning-effort config hooks extension (user-owned)',
+  },
+  {
+    source: 'extensions/squad-spawn-config/spawn-config-hooks.mjs',
+    destination: '../.github/extensions/squad-spawn-config/spawn-config-hooks.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Fills .squad/config.json model and effort into create_session kickoffs (user-owned)',
+  },
+  {
     source: 'extensions/squad-provider-onboarding/extension.mjs',
     destination: '../.github/extensions/squad-provider-onboarding/extension.mjs',
     overwriteOnUpgrade: false,

@@ -11,6 +11,8 @@ exports[`host projection regression guards (#2438) > guard 1: the Copilot projec
   ".github/extensions/squad-security-framing/framing-hooks.mjs": "3585ffc6de6c055661301dfd328320496b7569ea539302aff32c0a695900cff2",
   ".github/extensions/squad-session-plan/extension.mjs": "0b81fadeebd4f5e2d2188a6abfda262eb48ca5d127b71848190530c9ae29d396",
   ".github/extensions/squad-session-plan/plan-tools.mjs": "cef9b4f5315a90a7e5dee39ba23e95b858a6ed4dd7fac1593ccc0aa220a78b5a",
+  ".github/extensions/squad-spawn-config/extension.mjs": "d5c97232359824e4646b6cdc1876fd6237a6379fd3802bd1e23110b252e37719",
+  ".github/extensions/squad-spawn-config/spawn-config-hooks.mjs": "b327ed970a7ba288755ed0c325afb64ba6d287adec2d0eb7f01a7c34c866e324",
   ".github/skills/agent-collaboration/SKILL.md": "e1943766f6aa5efeb145f22d1583f5b38d4d8a7109ae17f085ec064dada4b9bf",
   ".github/skills/coordinator-init-mode/SKILL.md": "d015096ed0a2577884d105809a4df166e0dccfcbdb5694f2af986805f97bdeb3",
   ".github/skills/coordinator-response-mode/SKILL.md": "69387d0a5f83ba306b06e6007a33a1b5cfcc4cc112deda00798e928d693186c3",

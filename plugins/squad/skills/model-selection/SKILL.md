@@ -131,6 +131,7 @@ After resolving the model and including it in the spawn template, this skill is 
 
 - `defaultModel` — applies to ALL agents unless overridden by `agentModelOverrides`
 - `agentModelOverrides` — per-agent overrides that take priority over `defaultModel`
+- In the Copilot App, the user-owned `.github/extensions/squad-spawn-config/` extension applies these config values (`agentModelOverrides`/`defaultModel` and `agentReasoningEffortOverrides`/`defaultReasoningEffort`) to a `create_session` kickoff that omits `model` or `reasoning_effort`, using the member named in the session title. It never overrides a value the call sets, and skips a model the host does not offer. Still pass the resolved values yourself.
 - `modelProfile` — `quality-first` (default), `balanced`, `economy` or `hydrafusion` (opt-in research preview); affects only Layers 3-4
 - All fields are optional. When absent, Layers 1-4 apply normally.
 
