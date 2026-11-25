@@ -9,7 +9,13 @@ import { StepDefinitions, registerStep } from '../support/runner.js';
 const tempDirs = new Set<string>();
 
 export function cleanupAcceptanceTempDirs(): void {
-  for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+  for (const dir of tempDirs) {
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      // Best effort: a Windows file lock must not cascade into later scenarios.
+    }
+  }
   tempDirs.clear();
 }
 
