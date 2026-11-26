@@ -14,3 +14,12 @@ Squad coordinator's `create_session` call from the member named in the
 sub-session title. It never overrides a value the call sets, skips a model the
 host does not offer and an effort the target model does not support, and
 writes nothing.
+
+Dev and security work now defaults to `mai-code-2` with `high` reasoning
+effort, above the model the coordinator session runs on: members whose
+`team.md` role writes code (implementation, tests, infrastructure), members
+with a security role, any security mission and the native security reviewer.
+Config and per-spawn choices still win, the `economy` and `hydrafusion`
+profiles turn it off, and it applies only when the host lists the model. The
+security-framing extension, which owns the native reviewer's call, applies the
+same policy to it.

@@ -117,10 +117,12 @@ Native `agent_id` is not App `project_session_id`; never pass App children to
 receive `write_agent` follow-ups in hosts that reject them.
 Reuse only same-mission context with a compatible lifecycle, never an unrelated
 worker pool. A fresh same-owner invocation is not persistent session reuse.
-Archive a request's App children with `archive_session` once the whole request
-is done and each mission is verified completed and integrated (or read-only),
-never while it is busy, awaiting input, holding unintegrated work, an open pull
-request or automation, or open to a same-mission follow-up. Only the user can
+Archive a request's finished App children with `archive_session` once the whole
+request is done, each mission verified completed and integrated (or read-only) or
+blocked on something only the user or an outside change can resolve; name kept
+children with their reasons. Never archive one while it is busy, blocked,
+awaiting input, holding unintegrated work, an open pull request or automation, or
+open to a same-mission follow-up. Only the user can
 restore it, and only that brings back its conversation: for later follow-up,
 ask the user to restore it or start a new child with its kickoff and report.
 

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import {
   createSecurityFramingHooks, missionFrom, SECURITY_PREFIX,
 } from '../.squad-templates/extensions/squad-security-framing/framing-hooks.mjs';
@@ -18,7 +19,7 @@ function hooksFor(agentName: string | null = 'Squad', getCurrent?: () => Promise
   const session = {
     rpc: { agent: { getCurrent: vi.fn(getCurrent ?? (async () => ({ agent: agentName ? { name: agentName } : null }))) } },
   };
-  return { session, hooks: createSecurityFramingHooks(() => session) };
+  return { session, hooks: createSecurityFramingHooks(() => session, async () => ({ reviewerPreferences: async () => ({}) })) };
 }
 
 const input = (toolArgs: unknown, extra: object = {}) => ({
@@ -94,8 +95,48 @@ describe('squad-security-framing hooks', () => {
     expect(post.additionalContext).toContain('"🛡️ Security · Auth flows" has returned its report');
   });
 
+  it('fills the reviewer model and effort from the spawn-config policy, never over the call', async () => {
+    const policy = { reviewerPreferences: vi.fn(async () => ({ model: 'mai-code-2', reasoning_effort: 'high' })) };
+    const session = { rpc: { agent: { getCurrent: async () => ({ agent: { name: 'Squad' } }) } } };
+    const hooks = createSecurityFramingHooks(() => session, async () => policy);
+    const result = await hooks.onPreToolUse(input({ ...reviewerArgs })) as { modifiedArgs: Record<string, unknown> };
+    expect(result.modifiedArgs).toEqual({
+      ...reviewerArgs, description: '🛡️ Security · Repository dependencies', mode: 'background', model: 'mai-code-2', reasoning_effort: 'high',
+    });
+    expect(policy.reviewerPreferences).toHaveBeenCalledWith(session, '/repo', expect.objectContaining({ agent_type: 'security-review' }));
+    const explicit = await hooks.onPreToolUse(input({ ...reviewerArgs, model: 'gpt-6.1-sol', reasoning_effort: 'low' })) as { modifiedArgs: Record<string, unknown> };
+    expect(explicit.modifiedArgs).toMatchObject({ model: 'gpt-6.1-sol', reasoning_effort: 'low' });
+    expect(policy.reviewerPreferences).toHaveBeenCalledTimes(1);
+    const broken = createSecurityFramingHooks(() => session, async () => { throw new Error('missing'); });
+    const fallback = await broken.onPreToolUse(input({ ...reviewerArgs })) as { modifiedArgs: Record<string, unknown> };
+    expect(fallback.modifiedArgs).not.toHaveProperty('model');
+    expect(fallback.modifiedArgs.description).toBe('🛡️ Security · Repository dependencies');
+  });
+
+  it('loads the sibling squad-spawn-config policy by default', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'squad-framing-'));
+    try {
+      mkdirSync(join(root, '.git'));
+      mkdirSync(join(root, '.squad'));
+      writeFileSync(join(root, '.squad', 'config.json'), '{"version":1}');
+      const session = {
+        rpc: {
+          agent: { getCurrent: async () => ({ agent: { name: 'Squad' } }) },
+          model: { list: async () => ({ list: [{ id: 'mai-code-2', supportedReasoningEfforts: ['high'] }] }), getCurrent: async () => ({ modelId: 'gpt-6.1-sol' }) },
+        },
+      };
+      const hooks = createSecurityFramingHooks(() => session);
+      const result = await hooks.onPreToolUse(input({ ...reviewerArgs }, { workingDirectory: root })) as { modifiedArgs: Record<string, unknown> };
+      expect(result.modifiedArgs).toMatchObject({ model: 'mai-code-2', reasoning_effort: 'high', prompt: reviewerArgs.prompt });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('derives one mission label without stacking prefixes', () => {
     expect(missionFrom('Security review repository dependencies')).toBe('Repository dependencies');
+    expect(missionFrom('Security review of dependencies')).toBe('Dependencies');
+    expect(missionFrom('Security review for the auth module')).toBe('Auth module');
     expect(missionFrom('Security Review: auth flows')).toBe('Auth flows');
     expect(missionFrom('🛡️ Security · Dependency review')).toBe('Dependency review');
     expect(missionFrom('🔒 Security · Project review')).toBe('Project review');

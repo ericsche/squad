@@ -10,10 +10,11 @@ Spawn guidance never names a model ID. It reasons in sources and tiers (`premium
 |---|--------|----------------------------|
 | 1 | `user-override` | Explicit per-spawn directive in the current request ("use {model} for this task") |
 | 2 | `config` | Persistent `.squad/config.json`: `agentModelOverrides.{agentName}`, otherwise `defaultModel` |
-| 3 | `session` | The model picked for this session (by the user or the session itself); inherited by every sub-agent spawn |
-| 4 | `charter` | The agent charter's `## Model` → `**Preferred:**` value, unless it is `auto` |
-| 5 | `task-auto` | Task-aware tier selection under the active quality profile (default `quality-first`) |
-| 6 | `default` | Nothing else matched (head of the standard tier; fast tier only under the `economy` profile) |
+| 3 | `work-default` | Dev and security work gets the fork's work-default model and effort (Appendix A) when the host lists it |
+| 4 | `session` | The model picked for this session (by the user or the session itself); inherited by every other sub-agent spawn |
+| 5 | `charter` | The agent charter's `## Model` → `**Preferred:**` value, unless it is `auto` |
+| 6 | `task-auto` | Task-aware tier selection under the active quality profile (default `quality-first`) |
+| 7 | `default` | Nothing else matched (head of the standard tier; fast tier only under the `economy` profile) |
 | — | `fallback` | Not a layer: replaces the chosen model only after it is known to be unavailable |
 
 `auto` at any layer (any letter case) means "no preference here"; continue to the next layer. This includes a per-spawn directive, the persistent config fields, the session model and the charter.
@@ -26,7 +27,9 @@ Spawn guidance never names a model ID. It reasons in sources and tiers (`premium
 - **When user says "use X for {agent}":** Write to `agentModelOverrides.{agent}` in `.squad/config.json`. Acknowledge: `✅ {Agent} will always use {model} — saved to config.`
 - **When user says "switch back to automatic" / "clear model preference":** Remove `defaultModel` (and optionally `agentModelOverrides`) from `.squad/config.json`. Acknowledge: `✅ Model preference cleared — returning to automatic selection.`
 
-**`session` — session model:** If the user picked a model for this session ("use {model} for this session"), or the session itself is running on a model the user chose, that is the session model. Session-wide directives persist until the session ends or are contradicted. Pass the session model to **every** sub-agent spawn unchanged, with source `session`; sub-agents inherit it rather than re-resolving from their charter or task. Pass it through even when it is not listed in Appendix A (for example, an opt-in or preview model the user selected).
+**`work-default` — dev and security work:** A spawn is dev work when the member's `team.md` role writes code (implementation, tests, infrastructure, for example Backend, Frontend, Tester or DevOps), and security work when the member's role covers security or the mission is about security, including the native security reviewer. Such a spawn gets the work-default model and reasoning effort from Appendix A, above the inherited session model, when the host's live model list offers that model; otherwise continue to the next layer. Config and per-spawn directives still win, and the `economy` and opt-in preview profiles skip this layer. In the Copilot App, the user-owned squad-spawn-config extension (sub-sessions) and security-framing extension (native reviewer) apply it when a call omits the model or effort.
+
+**`session` — session model:** If the user picked a model for this session ("use {model} for this session"), or the session itself is running on a model the user chose, that is the session model. Session-wide directives persist until the session ends or are contradicted. Pass the session model to **every** other sub-agent spawn unchanged, with source `session`; sub-agents inherit it rather than re-resolving from their charter or task. A session directive that names a model for every agent is a per-spawn directive for each spawn and also wins over `work-default`. Pass it through even when it is not listed in Appendix A (for example, an opt-in or preview model the user selected).
 
 **`charter` — charter preference:** Does the agent's charter have a `## Model` section with `**Preferred:**` set to a specific model (not `auto`)? If yes, use that model.
 
@@ -79,7 +82,7 @@ Quality-sensitive work that is not code (architecture, research, verification, r
 - **Switch to the code specialist (Appendix A):** large multi-file refactors, complex implementation from spec, heavy code generation (500+ lines)
 - **Switch to the analytical-diversity model (Appendix A):** code reviews where a second perspective helps, security reviews, architecture reviews after a rejection
 
-**Live availability:** When the runtime supplies a live model list (`availableModels`) or a list of unavailable models, it is authoritative for availability. A recommended model missing from the live list falls forward to the next listed candidate; an explicitly chosen model missing from it falls back visibly (source `fallback`, rationale names it). Recommendations and defaults come only from the public GA catalog in Appendix A; a model that is merely exposed by a tool schema is not a recommendation.
+**Live availability:** When the runtime supplies a live model list (`availableModels`) or a list of unavailable models, it is authoritative for availability. A recommended model missing from the live list falls forward to the next listed candidate; an explicitly chosen model missing from it falls back visibly (source `fallback`, rationale names it). Recommendations and defaults come only from the public GA catalog in Appendix A, apart from the fork's work default, which applies only when the live list offers it; a model that is merely exposed by a tool schema is not a recommendation.
 
 **`default`:** If nothing else matched, use the head of the standard tier chain. Under the `economy` profile, use the economy default from the fast tier instead.
 
@@ -144,6 +147,8 @@ Fast:     claude-haiku-5.5 → gpt-6-luna → gpt-5.6-luna → gemini-3.8-flash 
 **Economy default:** `gpt-5.6-luna`. The economy map moves premium to standard (`claude-opus-5.5` → `claude-sonnet-5.5`; `claude-opus-5`, `claude-opus-4.8` → `claude-sonnet-5`; GPT Sol models → `gpt-5.6-terra`) and standard or fast Anthropic/Terra models to `gpt-5.6-luna`.
 
 **Specialists:** code specialists `gpt-5.3-codex` (powerful) and `mai-code-1.1-flash` (lightweight); analytical diversity `gemini-4-argon` (powerful), `grok-4.7` and `grok-4.6` (versatile).
+
+**Work default (fork):** `mai-code-2` at `high` reasoning effort for dev and security work. It is the one model here outside the public GA catalog: it is in no fallback chain and is used only when the host's live model list offers it; otherwise resolution continues to the session model.
 
 **Valid models (public GA catalog):**
 

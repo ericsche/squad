@@ -756,9 +756,11 @@ describe('App specialist visibility: canonical contracts', () => {
   it('archives a finished request\'s verified, integrated children and never one with live or unintegrated work', () => {
     const rules = sources.coordinator.replace(/\s+/g, ' ');
     expect(rules, 'archive at the end of the request, not after each mission')
-      .toMatch(/\*\*Lifecycle:\*\*[^*]*Archive at the end of the user's request, not after each mission: once every mission in the current request is verified completed \(handoff verified, its commits integrated into the parent or the mission read-only\) and the plan is marked completed, archive that request's finished children with `archive_session`/i);
+      .toMatch(/\*\*Lifecycle:\*\*[^*]*Archive at the end of the user's request, not after each mission: once every mission in the current request is verified completed \(handoff verified, its commits integrated into the parent or the mission read-only\) or blocked on something only the user or an outside change can resolve, and the plan shows that final state, archive that request's finished children with `archive_session`/i);
     expect(rules, 'finished children stay available for follow-ups while the request continues')
-      .toMatch(/Until then, keep finished children for same-mission follow-ups/i);
+      .toMatch(/Until then, keep finished children for same-mission follow-ups, and keep a blocked mission's child for its follow-up/i);
+    expect(rules, 'the final message says which children were kept and why')
+      .toMatch(/In the final message, name in one line the archived children and each kept child with its reason \(blocked, awaiting a decision, unintegrated work or the user asked to keep it\)/i);
     expect(rules).not.toMatch(/archive that child with `archive_session`/i);
     expect(rules).toMatch(/Never archive a child that is busy, awaiting input or plan approval, holds unintegrated commits or uncommitted work, has an open pull request or an attached session automation, or may still receive a same-mission follow-up[^.]*never one the user asked to keep or that you did not create/i);
     expect(rules, 'continuation keeps the conversation through a user restore, or starts fresh from the report')
@@ -766,13 +768,55 @@ describe('App specialist visibility: canonical contracts', () => {
     for (const key of ['after', 'client'] as const) {
       const text = sources[key].replace(/\s+/g, ' ');
       expect(text, `${key}: archive finished missions at the end of the request`)
-        .toMatch(/whole request is done[^.]*archive|archive[^.]*whole request is done/i);
-      expect(text, `${key}: never archive live or unintegrated work`)
-        .toMatch(/Never archive a child that is busy, awaiting input, holds unintegrated work|never while it is busy, awaiting input, holding unintegrated work/i);
+        .toMatch(/whole request is done[^.]*blocked on something only the user or an outside change can resolve[^.]*archive|archive[^.]*whole request is done[^.]*blocked on something only the user/i);
+      expect(text, `${key}: never archive live, blocked or unintegrated work`)
+        .toMatch(/Never archive a child that is busy, blocked, awaiting input, holds unintegrated work|Never archive one while it is busy, blocked, awaiting input, holding unintegrated work/i);
     }
     const docs = readFileSync(resolve(ROOT, 'docs/src/content/docs/scenarios/client-compatibility.md'), 'utf8').replace(/\s+/g, ' ');
-    expect(docs).toMatch(/Finished missions are archived when your request is done[^]*never archives a sub-session that is busy, waiting for your answer, holding changes not yet integrated/i);
+    expect(docs).toMatch(/Finished missions are archived when your request is done[^]*tells you which ones it kept and why[^]*never archives a sub-session that is busy, blocked, waiting for your answer, holding changes not yet integrated/i);
     expect(docs).toMatch(/Squad asks you to restore it or starts a new sub-session from its kickoff and report/i);
+  });
+
+  it('works as a team: automatic staffing, one peer review before integration and routed teammate requests', () => {
+    const team = section(sources.coordinator, '### Team Workflow').replace(/\s+/g, ' ');
+    expect(team, 'staffing is delegated, not asked')
+      .toMatch(/Delegate without asking who\.\*\* Route each part of the request to its owner[^]*?dispatch independently deliverable outcomes in one batch\. Ask the user about scope, priorities or decisions they own, never about staffing/i);
+    expect(team, 'review happens before integration by a different member')
+      .toMatch(/When a mission hands off commits or a patch to integrate, dispatch one peer reviewer before integrating: a different active member whose route covers the change/i);
+    expect(team, 'the peer review is the single blocking gate').toMatch(/one blocking gate and also covers any material-risk gate/i);
+    expect(team, 'the reviewer reads the author branch').toMatch(/read-only, with `base_branch` set to the author's branch/i);
+    expect(team).toMatch(/approve, changes requested \(specific items\) or reject/i);
+    expect(team, 'changes go back to the author, then the same reviewer')
+      .toMatch(/Changes requested: forward the items to the author's existing child, then send the revision back to the same reviewer; after two rounds without approval, bring both positions to the user/i);
+    expect(team, 'teammate requests go to the member, not the user')
+      .toMatch(/A child never spawns or impersonates teammates[^]*`needs_input` report naming the member and the question\. Route it to that member without asking the user/i);
+    expect(team, 'ceremonies do not nest sessions').toMatch(/facilitator child[^.]*without spawning participants/i);
+    expect(team, 'no speculative agents').toMatch(/none adds speculative agents/i);
+    const collaboration = section(sources.coordinator, '### Bounded Collaboration');
+    expect(collaboration).toMatch(/Add the one peer reviewer Team Workflow requires before integrating work/);
+    expect(collaboration).not.toMatch(/Add a reviewer only when/);
+    const rejection = section(sources.coordinator, '## Reviewer Rejection Protocol').replace(/\s+/g, ' ');
+    expect(rejection).toMatch(/\*\*Changes requested\*\*[^.]*the original author makes them in its existing session and the same reviewer re-reviews\. After two rounds without approval, escalate to the user\. Only a rejection triggers lockout/i);
+    const spawnTemplate = section(sources.coordinator, '### How to Spawn an Agent');
+    expect(spawnTemplate).toMatch(/TEAM: \{peer reviewer for this mission[^\n]*send a needs_input report naming the member and the question; never spawn teammates or do their work/);
+    const childTemplate = sources.spawn.replace(/\s+/g, ' ');
+    expect(childTemplate).toMatch(/TEAM: \{peer reviewer for this mission/);
+    expect(childTemplate).toMatch(/TEAMWORK: When your work is to be integrated, hand off what your peer reviewer needs[^]*send a needs_input report naming the member and the question; the coordinator routes it/i);
+    expect(childTemplate).toMatch(/get its peer review verdict \(coordinator Team Workflow\)/);
+    expect(sources.after.replace(/\s+/g, ' ')).toMatch(/Before integrating a child's commits, get its peer review verdict from a different team member/i);
+    const docs = readFileSync(resolve(ROOT, 'docs/src/content/docs/scenarios/client-compatibility.md'), 'utf8').replace(/\s+/g, ' ');
+    expect(docs).toMatch(/The team reviews and helps each other\.[^]*Before a mission's commits are integrated, a different team member reviews them in their own sub-session/i);
+  });
+
+  it('puts the dev and security work default after config and above the inherited session model', () => {
+    const coordinator = section(sources.coordinator, '### Per-Agent Model Selection').replace(/\s+/g, ' ');
+    expect(coordinator).toMatch(/\*\*config\*\*[^→]*→ \*\*work-default\*\* \(dev and security work[^)]*native security reviewer[^)]*`high` effort when the host lists it; skipped under the `economy` and opt-in preview profiles\) → \*\*session\*\*/);
+    expect(coordinator, 'no model ID in spawn guidance').not.toMatch(/mai-code-2/);
+    const model = sources.model.replace(/\s+/g, ' ');
+    expect(model).toMatch(/\| 2 \| `config` \|[^|]*\| \| 3 \| `work-default` \|[^|]*\| \| 4 \| `session` \|/);
+    expect(model).toMatch(/\*\*Work default \(fork\):\*\* `mai-code-2` at `high` reasoning effort for dev and security work[^.]*\. It is the one model here outside the public GA catalog: it is in no fallback chain and is used only when the host's live model list offers it/);
+    const effort = section(sources.coordinator, '### Per-Agent Reasoning Effort');
+    expect(effort).toMatch(/2\. \*\*User directive:\*\*[^\n]*\r?\n3\. \*\*Work default:\*\* Dev or security work on the work-default model[^\n]*`high`\r?\n4\. \*\*Charter preference:\*\*/);
   });
 
   it('makes the actual project-child example select the parent project and isolated worktree', () => {

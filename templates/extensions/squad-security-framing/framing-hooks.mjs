@@ -1,15 +1,21 @@
-// Dependency-free; tests inject the joined session.
+// Dependency-free; tests inject the joined session and the model policy.
 //
 // A higher-priority host rule makes the coordinator call the native
 // `security-review` first. These hooks keep that order and make the call
 // visible instead: they label it and, when the host's task schema offers it,
 // run it in the background, then return the next App framing steps with its
-// handle. They never change the reviewer's prompt, agent type or result, and
-// never write plans, tasks or sessions themselves.
+// handle. This extension owns that call's arguments, so it also fills a missing
+// model and reasoning effort from the sibling squad-spawn-config policy
+// (security work default); without that policy it changes no model. They never
+// change the reviewer's prompt, agent type or result, and never write plans,
+// tasks or sessions themselves.
 
 export const SECURITY_PREFIX = '🛡️ Security · ';
 const REVIEWER = 'security-review';
 const COORDINATOR = 'squad';
+const POLICY = '../squad-spawn-config/spawn-config-hooks.mjs';
+
+const loadSiblingPolicy = () => import(new URL(POLICY, import.meta.url).href);
 
 /** Mission name from the model's description, without any reviewer or label prefix. */
 export function missionFrom(description) {
@@ -17,6 +23,7 @@ export function missionFrom(description) {
   const mission = text
     .replace(/^(?:🛡️|🛡|🔒)\s*Security\s*·\s*/u, '')
     .replace(/^security[\s-]+review\b[\s:·—–-]*/iu, '')
+    .replace(/^(?:(?:of|for|on|in|across|the)\s+)+/iu, '')
     .trim();
   return mission ? mission.charAt(0).toUpperCase() + mission.slice(1) : 'Project review';
 }
@@ -64,7 +71,7 @@ function returnedGuidance(label) {
  * Hooks act only on the foreground coordinator's own native reviewer call while
  * the Squad agent is selected; every other call, agent or failure is a no-op.
  */
-export function createSecurityFramingHooks(getSession) {
+export function createSecurityFramingHooks(getSession, loadPolicy = loadSiblingPolicy) {
   // Hook inputs carry no tool call ID: match pre and post calls in order.
   const pending = [];
 
@@ -82,6 +89,19 @@ export function createSecurityFramingHooks(getSession) {
     return coordinatorReviewer(input) && await squadSelected();
   }
 
+  /** Missing model and effort from the spawn-config policy; nothing when it is absent or fails. */
+  async function modelPatch(input) {
+    const args = input.toolArgs;
+    if (args.model !== undefined && args.reasoning_effort !== undefined) return {};
+    try {
+      const policy = await loadPolicy();
+      const patch = await policy?.reviewerPreferences?.(getSession(), input.workingDirectory ?? input.cwd, args);
+      return patch && typeof patch === 'object' ? patch : {};
+    } catch {
+      return {};
+    }
+  }
+
   return {
     async onPreToolUse(input) {
       if (!(await applies(input))) return undefined;
@@ -90,7 +110,8 @@ export function createSecurityFramingHooks(getSession) {
       // An explicit mode proves the host schema offers it; never add an unknown argument.
       const background = Object.hasOwn(args, 'mode');
       pending.push({ label, background });
-      return { modifiedArgs: { ...args, description: label, ...(background ? { mode: 'background' } : {}) } };
+      const model = await modelPatch(input);
+      return { modifiedArgs: { ...args, ...model, description: label, ...(background ? { mode: 'background' } : {}) } };
     },
 
     async onPostToolUse(input) {

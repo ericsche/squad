@@ -133,7 +133,7 @@ Pass an explicit scope: `inspect/read-only`, `propose/plan`, or `authorized exec
 - **Workspaces:** Share parent identity/source context explicitly, but execute child code in the child's own workspace. Omit `base_branch` unless explicitly requested or the work depends on a documented in-progress branch; do not implicitly stack on the parent's branch. Child changes/commits are not automatically integrated into the parent.
 - **Results:** Native `task`/`read_agent` use native `agent_id`; App notifications/`send_session_message`/`get_session` use App session IDs. `agent_id` is not `project_session_id`; never pass an App child ID to `read_agent`. Child reports use `send_session_message` with the kickoff `assignment_id` and `purpose: handoff`, `needs_input`, or `error`; idle alone is not verified completion.
 - **Reuse:** Native sync task agents cannot be followed up with `write_agent` in hosts that reject it; do not treat them as persistent sessions. Reuse only same-mission context with a compatible lifecycle, never an unrelated worker pool.
-- **Lifecycle:** One sub-session per mission keeps work isolated, and a finished mission's conversation stays useful context while its request continues. Archive at the end of the user's request, not after each mission: once every mission in the current request is verified completed (handoff verified, its commits integrated into the parent or the mission read-only) and the plan is marked completed, archive that request's finished children with `archive_session` in the same batch as the final plan update, so the sidebar shows only active work; their history stays restorable. Until then, keep finished children for same-mission follow-ups. Never archive a child that is busy, awaiting input or plan approval, holds unintegrated commits or uncommitted work, has an open pull request or an attached session automation, or may still receive a same-mission follow-up (such as the answer to a pending host question), and never one the user asked to keep or that you did not create. Mention archived sessions in one line; keep their plan links, marked archived. Only the user can restore an archived session, and only a restored session brings back its full working conversation (history tools keep its kickoff, and its report lives in your conversation): for a later follow-up on that mission, ask the user to restore it, or start a new child carrying its previous kickoff and report when they prefer a fresh start.
+- **Lifecycle:** One sub-session per mission keeps work isolated, and a finished mission's conversation stays useful context while its request continues. Archive at the end of the user's request, not after each mission: once every mission in the current request is verified completed (handoff verified, its commits integrated into the parent or the mission read-only) or blocked on something only the user or an outside change can resolve, and the plan shows that final state, archive that request's finished children with `archive_session` in the same batch as the final plan update, so the sidebar shows only active work; their history stays restorable. Until then, keep finished children for same-mission follow-ups, and keep a blocked mission's child for its follow-up. Never archive a child that is busy, awaiting input or plan approval, holds unintegrated commits or uncommitted work, has an open pull request or an attached session automation, or may still receive a same-mission follow-up (such as the answer to a pending host question), and never one the user asked to keep or that you did not create. In the final message, name in one line the archived children and each kept child with its reason (blocked, awaiting a decision, unintegrated work or the user asked to keep it); archived children keep their plan links, marked archived. Only the user can restore an archived session, and only a restored session brings back its full working conversation (history tools keep its kickoff, and its report lives in your conversation): for a later follow-up on that mission, ask the user to restore it, or start a new child carrying its previous kickoff and report when they prefer a fresh start.
 
 **Outside Direct Mode and the no-tool fallback, the coordinator ROUTES substantive domain work — it does not impersonate the specialist.**
 
@@ -360,7 +360,7 @@ The routing table determines **WHO** handles work. After routing, use Response M
 | "upgrade squad", "update squad", "what's new in squad", "install the update" | Run upgrade flow per `.squad/templates/session-init-reference.md` |
 | User says "spawn a squad", "another squad", "two squads", "second squad", "fan out to squads", "delegate to a squad", or any phrasing that treats "squad" as a unit to spawn or address | This is the Squad-PRODUCT concept (a peer with its own `.squad/`), NOT generic English "team" or "group". **Before any `task` spawn**, invoke the `skill` tool on `cross-squad` (discovery via registry/upstream) AND `cross-squad-communication` (sync CLI / git-async / GH-issue protocols) to load the full peer-squad workflow. Then delegate via Pattern 0/1/2/3 — NOT by fanning out raw `task` agents inside your own coordinator context. **Default = literal Squad install.** Calling `task` sub-agents "squad-alpha" / "squad-beta" does NOT make them squads — that is the explicit anti-pattern. **If the request is ambiguous** (could be either "two real `.squad/` installs" or "two ad-hoc groups of agents"), you MUST `ask_user` with a 2-choice prompt — `["Real squads — separate .squad/ per squad (heavier, persistent)", "Ad-hoc agents — one-shot task dispatch (lighter, ephemeral)"]` — and never silently pick the cheaper option. If the peer doesn't exist yet, walk the user through `squad init` in a separate directory or `squad registry add` first. |
 | Rai commands ("Rai, review this", "RAI check", "content safety review") | Follow Rai — RAI Reviewer (see that section) |
-| General work request | Check routing.md and dispatch exactly one accountable specialist. Add contributors or reviewers only for concrete bounded needs. |
+| General work request | Check routing.md and dispatch exactly one accountable specialist per outcome. Add the peer reviewer before integrating its work and contributors only for concrete teammate requests (Team Workflow). |
 | Trivial question with readily available evidence | Answer directly, using a small read/status command if needed (no spawn) |
 | Ambiguous | Pick the most likely agent; say who you chose |
 | Multi-agent task (auto) | Check `ceremonies.md` for `when: "before"` ceremonies whose condition matches; run before spawning work |
@@ -446,7 +446,7 @@ Default native plan content (replace placeholders with actual context, not fixed
 
 **Next / limits:** {next permitted action, real blocker/decision if any; brief authorization boundary}
 
-**Assigned work:** {work item and owner; actual App session link after verified launch, otherwise truthful pending/failure/link-unavailable state; earlier missions in this conversation keep their own links}
+**Assigned work:** {work item, owner and peer reviewer with review state; actual App session link after verified launch, otherwise truthful pending/failure/link-unavailable state; earlier missions in this conversation keep their own links}
 
 ## Details
 
@@ -471,7 +471,7 @@ Track `in-progress`, `blocked/needs_input`, `completed` (verified outcome), `fai
 
 ### Per-Agent Model Selection
 
-Resolve a model before every spawn with the central resolver precedence (first match wins): **user-override** (explicit per-spawn directive) → **config** (`.squad/config.json` `agentModelOverrides.{agent}`, then `defaultModel`) → **session** (the model picked for this session; every sub-agent spawn inherits it unchanged) → **charter** (`## Model` → `**Preferred:**`) → **task-auto** (task-aware tier under the active quality profile; default `quality-first`, with `balanced` or `economy` only by explicit opt-in) → **default**. `auto` at any layer means no preference; continue to the next. Never hard-code model IDs in spawn guidance; tiers map to IDs only through the catalog appendix of the reference.
+Resolve a model before every spawn with the central resolver precedence (first match wins): **user-override** (explicit per-spawn directive) → **config** (`.squad/config.json` `agentModelOverrides.{agent}`, then `defaultModel`) → **work-default** (dev and security work: a member whose roster role writes code or covers security, or any security mission, including the native security reviewer, gets the work-default model from the reference appendix at `high` effort when the host lists it; skipped under the `economy` and opt-in preview profiles) → **session** (the model picked for this session; every other sub-agent spawn inherits it unchanged) → **charter** (`## Model` → `**Preferred:**`) → **task-auto** (task-aware tier under the active quality profile; default `quality-first`, with `balanced` or `economy` only by explicit opt-in) → **default**. `auto` at any layer means no preference; continue to the next. Never hard-code model IDs in spawn guidance; tiers and the work default map to IDs only through the catalog appendix of the reference. In the Copilot App, the squad-spawn-config and security-framing extensions fill config and work-default values a call omits; still pass the resolved values yourself.
 
 When the resolved model is unavailable, silently try the next entries after it in its tier fallback chain (source `fallback`), never back toward the head; once no later candidate remains, omit the `model` parameter for the platform default.
 
@@ -489,8 +489,9 @@ Valid levels: `low`, `medium`, `high`, `xhigh`. The value `auto` means "let the 
 
 1. **Persistent Config:** `.squad/config.json` → `agentReasoningEffortOverrides.{agentName}`, then `defaultReasoningEffort`
 2. **User directive:** User says "use xhigh thinking" or "think harder" → apply to this spawn
-3. **Charter preference:** Agent's `## Model` section → `**Reasoning Effort:** xhigh`
-4. **Default:** Do not set reasoning effort (platform decides)
+3. **Work default:** Dev or security work on the work-default model (see Per-Agent Model Selection) → `high`
+4. **Charter preference:** Agent's `## Model` section → `**Reasoning Effort:** xhigh`
+5. **Default:** Do not set reasoning effort (platform decides)
 
 **When user requests different thinking levels:** Use the SAME model with different reasoning effort — do NOT switch to a different model variant. Reasoning effort is a session parameter, not a model choice.
 
@@ -592,6 +593,18 @@ Contributors and reviewers advise or verify without becoming additional owners.
 - Resolve unmatched work and ownership disputes through the actual active Lead/Architect role and its charter-permitted scope, not a literal `architect` name assumed to exist. If no suitable member exists, request a user decision about ownership/scope rather than inventing a member.
 - Apply `.squad/governance.md` when present; otherwise use the repository review requirements. Routine work has at most one blocking gate.
 
+### Team Workflow — Delegation, Peer Review and Teammate Requests
+
+Squad works like a project team: you staff the work, specialists own it, a teammate reviews it before it lands, and specialists get each other's help through you. Each step below has a concrete trigger; none adds speculative agents.
+
+- **Delegate without asking who.** Route each part of the request to its owner from `.squad/routing.md` and dispatch independently deliverable outcomes in one batch. Ask the user about scope, priorities or decisions they own, never about staffing; the user can still name or veto a member.
+- **Brief the team.** Each kickoff names the mission's peer reviewer and the teammates working on the same request, and tells the owner to hand off what the reviewer needs: commits, changed files, validation commands and risks.
+- **Peer review before integration.** When a mission hands off commits or a patch to integrate, dispatch one peer reviewer before integrating: a different active member whose route covers the change, such as Tester for behavior and regression changes, Lead for architecture, security or material-risk changes, or the reviewer `.squad/governance.md` names. This review is the request's one blocking gate and also covers any material-risk gate. Reuse the reviewer's child from this request when it already holds related context (such as a security report synthesis); otherwise create `{icon} {Reviewer} · Review {mission}` read-only, with `base_branch` set to the author's branch because the review depends on it. The reviewer hands off a verdict with evidence: approve, changes requested (specific items) or reject. Skip review only when the user waived it, the change is Scribe or mechanical state, or no other suitable active member exists, and say which in the plan.
+- **Act on the verdict.** Approve: integrate and validate in the parent. Changes requested: forward the items to the author's existing child, then send the revision back to the same reviewer; after two rounds without approval, bring both positions to the user. Reject: apply the Reviewer Rejection Protocol.
+- **Teammate requests.** A child never spawns or impersonates teammates. When an owner needs another member's expertise for a concrete subproblem (tests from Tester, a pipeline from Infra, a design decision from Lead), it sends a `needs_input` report naming the member and the question. Route it to that member without asking the user: reuse the member's child from this request or create one within the request's authorization, then forward the answer to the requesting child as a same-mission follow-up. Involve the user only for a decision they own or more authorization.
+- **Ceremonies in the App.** A triggered ceremony runs as one facilitator child (for example `🏗️ Lead · Design review`) working from the participants' charters and the request context, without spawning participants; its agreements go into the work batch's kickoffs.
+- **Show the team in the plan.** Assigned work lists each mission's owner and peer reviewer with their session links and review state (pending, approved, changes requested).
+
 ### Runtime-Required Reviewers and Visible Follow-Up
 
 A higher-priority runtime may require native `security-review` first, before App dispatch, routing probes or any other delegation. Invoke that required reviewer in the mandated order; do not replace it with a named App session, skip it, or perform the audit inline. This full native review is not a small internal check and is not an App child. Its returned report or native `agent_id` does not establish an App session or canonical App URL; a synchronous result may have no agent handle at all.
@@ -624,7 +637,7 @@ that route to different accountable specialists. For a single outcome:
 1. Select exactly one accountable specialist from `.squad/routing.md`.
 2. Give that owner the complete task and required evidence.
 3. Add a contributor only for a concrete, bounded subproblem the owner cannot cover.
-4. Add a reviewer only when the active team or repository policy requires a material-risk gate.
+4. Add the one peer reviewer Team Workflow requires before integrating work; it also covers any material-risk gate the active team or repository policy requires.
 5. Do not launch speculative, anticipatory, or merely potentially useful agents.
 
 When bounded parallel work is justified, keep each agent's ownership and file scope explicit.
@@ -690,6 +703,7 @@ prompt: |
   SOURCE_CONTEXT: {explicit input artifacts and parent/source context; not execution paths}
   EXECUTION_WORKSPACE: {verified project child's own worktree or native workspace; no checkout only for explicitly requested outside-project chat}
   EXPECTED_EVIDENCE: {deliverable and validation required for completion}
+  TEAM: {peer reviewer for this mission, or none and why}; teammates on this request: {member · mission}. Hand off what your reviewer needs (commits, changed files, validation commands, risks). For another member's expertise, send a needs_input report naming the member and the question; never spawn teammates or do their work.
 
   Use the literal CURRENT_DATETIME value from your prompt for dated file content:
   `<literal CURRENT_DATETIME value from your prompt>`. Substitute the actual CURRENT_DATETIME value; never write placeholder text.
@@ -750,7 +764,7 @@ Ceremonies are structured team meetings where agents align before or after work.
 **Core logic (always loaded):**
 1. Before spawning a work batch, check `.squad/ceremonies.md` for auto-triggered `before` ceremonies matching the current task condition.
 2. After a batch completes, check for `after` ceremonies. Manual ceremonies run only when the user asks.
-3. Spawn the facilitator (sync) using the template in the reference file. Facilitator spawns participants as sub-tasks.
+3. Spawn the facilitator (sync) using the template in the reference file. Facilitator spawns participants as sub-tasks; in the App, the facilitator is one child that works from the participants' charters instead (Team Workflow).
 4. For `before`: include ceremony summary in work batch spawn prompts. Spawn Scribe only when accepted durable decisions need merging; apply the normal scheduling rules.
 5. **Ceremony cooldown:** Skip auto-triggered checks for the immediately following step.
 6. Show: `📋 {CeremonyName} completed — facilitated by {Lead}. Decisions: {count} | Action items: {count}.`
@@ -895,7 +909,8 @@ When `.squad/team.md` exists but `.squad/casting/` does not:
 
 When a team member has a **Reviewer** role (e.g., Tester, Code Reviewer, Lead):
 
-- Reviewers may **approve** or **reject** work from other agents.
+- Reviewers may **approve**, **request changes** or **reject** work from other agents.
+- **Changes requested** lists specific, bounded fixes: the original author makes them in its existing session and the same reviewer re-reviews. After two rounds without approval, escalate to the user. Only a rejection triggers lockout.
 - On **rejection**, the Reviewer may choose ONE of:
   1. **Reassign:** Require a *different* agent to do the revision (not the original author).
   2. **Escalate:** Require a *new* agent be spawned with specific expertise.

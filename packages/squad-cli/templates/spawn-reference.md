@@ -59,7 +59,7 @@ native task names/hooks and source access do not determine project placement.
 - **Concurrency cap:** Maximum 4-5 simultaneous sub-sessions. Queue additional spawns.
 - **Fallback:** Capability absence uses the disclosed fallback above; a failed child creation is a blocker, not permission for native specialist substitution.
 - **Identity vs execution:** `TEAM_ROOT` supplies parent identity/team context, not the code execution workspace. Pass that context explicitly; child code, tests and edits execute in the child's own workspace returned by the App, not an inherited parent `WORKTREE_PATH`.
-- **Integration:** Child changes/commits are not automatically integrated. Verify the child's outcome and arrange authorized integration separately before claiming the parent workspace contains it.
+- **Integration:** Child changes/commits are not automatically integrated. Verify the child's outcome, get its peer review verdict (coordinator Team Workflow) and arrange authorized integration separately before claiming the parent workspace contains it.
 
 **Sub-session template:**
 ```
@@ -134,6 +134,7 @@ prompt: |
   EXPECTED_EVIDENCE: {deliverable, validation and stopping condition}
   SOURCE_CONTEXT: {explicit input artifacts and parent/source context; not execution paths}
   EXECUTION_WORKSPACE: {verified project child's own worktree or native workspace; no checkout only for explicitly requested outside-project chat}
+  TEAM: {peer reviewer for this mission, or none and why}; teammates on this request: {member · mission}
 
   Use the literal CURRENT_DATETIME value from your prompt for dated file content:
   `<literal CURRENT_DATETIME value from your prompt>`. Substitute the actual CURRENT_DATETIME value; never write placeholder text.
@@ -229,6 +230,12 @@ prompt: |
   For an App child, send meaningful results/blockers/errors to the coordinating
   parent with send_session_message, assignment_id from the kickoff, and purpose
   handoff, needs_input, or error; do not send routine acknowledgments.
+  TEAMWORK: When your work is to be integrated, hand off what your peer reviewer
+  needs: commits, changed files, validation commands and risks. As a reviewer,
+  hand off approve, changes requested (specific items) or reject, with evidence.
+  When you need another member's expertise, send a needs_input report naming the
+  member and the question; the coordinator routes it. Never spawn teammates or
+  do their work yourself.
 
   ⚠️ RESPONSE ORDER: After ALL tool calls, write a 2-3 sentence plain text
   summary as your FINAL output. No tool calls after this summary.

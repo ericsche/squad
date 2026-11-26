@@ -35,6 +35,7 @@ Resolution is **first-match-wins** — the highest layer with a value wins.
 | **0a** | Per-Agent Config | `.squad/config.json` → `agentModelOverrides.{name}` | Persistent (survives sessions) |
 | **0b** | Global Config | `.squad/config.json` → `defaultModel` | Persistent (survives sessions) |
 | **1** | Session Directive | User said "use X" in current session | Session-only |
+| **1b** | Work Default | Dev and security work → `mai-code-2` at `high` reasoning effort when the host lists it; skipped under the `economy` and `hydrafusion` profiles | Built-in (fork) |
 | **2** | Charter Preference | Agent's `charter.md` → `## Model` section | Persistent (in charter) |
 | **3** | Task-Aware Auto | Task type → tier under the active quality profile (default `quality-first`) | Computed per-spawn |
 | **4** | Default | Head of the standard chain (`claude-sonnet-5.5`); `gpt-5.6-luna` under the `economy` profile | Hardcoded fallback |
@@ -55,6 +56,7 @@ Resolution is **first-match-wins** — the highest layer with a value wins.
 1. CHECK Layer 0a: Is there an `agentModelOverrides.{agentName}` in config.json? → Use it.
 2. CHECK Layer 0b: Is there a `defaultModel` in config.json? → Use it.
 3. CHECK Layer 1: Did the user give a session directive? → Use it.
+3b. CHECK Layer 1b: Is this dev work (the member's `team.md` role writes code: implementation, tests, infrastructure) or security work (a security role, a security mission or the native security reviewer), outside the `economy` and `hydrafusion` profiles, and does the host list `mai-code-2`? → Use it with `high` reasoning effort unless config sets the effort. This sits above the model the session merely runs on, so these children do not inherit it.
 4. CHECK Layer 2: Does the agent's charter have a `## Model` section? → Use it.
 5. CHECK Layer 3: Determine task type and use the head of its tier chain for the active profile (`quality-first` unless the session or `.squad/config.json` `modelProfile` says `balanced` or `economy`, or `economyMode` is on):
 - Architecture, research, verification, reviewer gates, security, design, visual → premium (`claude-opus-5.5`); `balanced` and `economy` move research down
@@ -130,7 +132,7 @@ After resolving the model and including it in the spawn template, this skill is 
 
 - `defaultModel` — applies to ALL agents unless overridden by `agentModelOverrides`
 - `agentModelOverrides` — per-agent overrides that take priority over `defaultModel`
-- In the Copilot App, the user-owned `.github/extensions/squad-spawn-config/` extension applies these config values (`agentModelOverrides`/`defaultModel` and `agentReasoningEffortOverrides`/`defaultReasoningEffort`) to a `create_session` kickoff that omits `model` or `reasoning_effort`, using the member named in the session title. It never overrides a value the call sets, and skips a model the host does not offer. Still pass the resolved values yourself.
+- In the Copilot App, the user-owned `.github/extensions/squad-spawn-config/` extension applies these config values (`agentModelOverrides`/`defaultModel` and `agentReasoningEffortOverrides`/`defaultReasoningEffort`), then the Layer 1b work default, to a `create_session` kickoff that omits `model` or `reasoning_effort`, using the member named in the session title and its `team.md` role. The security-framing extension applies the same policy to the native security reviewer. Neither overrides a value the call sets, and both skip a model the host does not offer. Still pass the resolved values yourself.
 - `modelProfile` — `quality-first` (default), `balanced`, `economy` or `hydrafusion` (opt-in research preview); affects only Layers 3-4
 - All fields are optional. When absent, Layers 1-4 apply normally.
 
