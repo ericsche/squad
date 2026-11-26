@@ -231,8 +231,10 @@ prompt: |
   parent with send_session_message, assignment_id from the kickoff, and purpose
   handoff, needs_input, or error; do not send routine acknowledgments.
   TEAMWORK: When your work is to be integrated, hand off what your peer reviewer
-  needs: commits, changed files, validation commands and risks. As a reviewer,
-  hand off approve, changes requested (specific items) or reject, with evidence.
+  needs: branch, base and tip commit SHAs, changed files, validation commands
+  and risks. As a reviewer, check out the exact tip SHA you were given in your
+  own worktree, then hand off approve, changes requested (specific items) or
+  reject, naming that tip, with evidence.
   When you need another member's expertise, send a needs_input report naming the
   member and the question; the coordinator routes it. Never spawn teammates or
   do their work yourself.

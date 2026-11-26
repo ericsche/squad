@@ -1055,8 +1055,17 @@ describe('central resolver: config, session, fallback sources + rationale (#1720
   it('exports the documented precedence order', () => {
     expect(
       [...MODEL_RESOLUTION_PRECEDENCE],
-      'MODEL_RESOLUTION_PRECEDENCE must be user-override > config > session > charter > task-auto > default',
-    ).toEqual(['user-override', 'config', 'session', 'charter', 'task-auto', 'default']);
+      'MODEL_RESOLUTION_PRECEDENCE must be user-override > config > work-default > session > charter > task-auto > default',
+    ).toEqual(['user-override', 'config', 'work-default', 'session', 'charter', 'task-auto', 'default']);
+  });
+
+  it('work-default source: the dev/security work default beats session but not config, and yields to economy and hydrafusion', () => {
+    const r = expectResolution({ workModel: 'work-model', sessionModel: 'sess-model', taskType: 'code' }, 'work-model', 'work-default');
+    expect(r.rationale).toMatch(/work default 'work-model' selected ahead of the session model/);
+    expectResolution({ configModel: 'cfg-model', workModel: 'work-model', sessionModel: 'sess-model' }, 'cfg-model', 'config');
+    expectResolution({ workModel: 'auto', sessionModel: 'sess-model' }, 'sess-model', 'session');
+    expectResolution({ workModel: 'work-model', sessionModel: 'sess-model', profile: 'economy' }, 'sess-model', 'session');
+    expectResolution({ workModel: 'work-model', sessionModel: 'sess-model', sessionProfile: 'hydrafusion' }, 'sess-model', 'session');
   });
 
   it('config source: persistent .squad/config.json model wins over session, charter and task', () => {
@@ -1093,11 +1102,12 @@ describe('central resolver: config, session, fallback sources + rationale (#1720
     const full: Opts = {
       userOverride: 'L-user',
       configModel: 'L-config',
+      workModel: 'L-work',
       sessionModel: 'L-session',
       charterPreference: 'L-charter',
       taskType: 'code',
     };
-    const keys: (keyof Opts)[] = ['userOverride', 'configModel', 'sessionModel', 'charterPreference', 'taskType'];
+    const keys: (keyof Opts)[] = ['userOverride', 'configModel', 'workModel', 'sessionModel', 'charterPreference', 'taskType'];
     const observed: string[] = [];
     const opts: Opts = { ...full };
     for (const key of [...keys, undefined]) {

@@ -22,6 +22,8 @@ export const WORK_EFFORT = 'high';
 // Dev means a code-writing role (implementation, tests, infrastructure); security
 // means a security role, or any mission about security.
 const DEV_ROLE = /\b(?:dev|develop\w*|engineer\w*|programm\w*|coder|coding|implement\w*|backend|back-end|frontend|front-end|full[- ]?stack|mobile|test\w*|qa|quality|sdet|devops|infra\w*|platform|sre)\b/i;
+// Developer relations roles name development without writing the code.
+const NON_DEV_ROLE = /\b(?:devrel|developer[\s-]+(?:advocate|advocacy|relations|evangelist))\b/gi;
 const SECURITY_ROLE = /\b(?:secur\w*|appsec|auth(?:entication|orization|n|z)?|compliance|pentest\w*|threat\w*|vulnerab\w*)\b/i;
 const SECURITY_MISSION = /\b(?:secur\w*|appsec|vulnerab\w*|cve\w*|threat\w*|pentest\w*|exploit\w*)\b/i;
 
@@ -92,7 +94,7 @@ export function memberRole(team, member) {
 export function workKind({ role, label, mission } = {}) {
   const identity = role ?? label ?? '';
   if (SECURITY_ROLE.test(identity) || SECURITY_MISSION.test(mission ?? '')) return 'security';
-  return DEV_ROLE.test(identity) ? 'dev' : undefined;
+  return DEV_ROLE.test(identity.replace(NON_DEV_ROLE, ' ')) ? 'dev' : undefined;
 }
 
 /** The work default yields to the economy and opt-in hydrafusion profiles. */
@@ -180,10 +182,13 @@ export async function fillPreferences(session, { config, member, kind, model: ca
   return patch;
 }
 
-/** Missing model and effort for the coordinator's native security reviewer (security work, no roster member). */
+/** Config key for the coordinator's native security reviewer (`agentModelOverrides["security-review"]`). */
+export const REVIEWER_KEY = 'security-review';
+
+/** Missing model and effort for the coordinator's native security reviewer: its config key, then security work. */
 export async function reviewerPreferences(session, workingDirectory, args, fs = nodeFs) {
   const config = readSquadFiles(workingDirectory, fs)?.config;
-  return fillPreferences(session, { config, kind: 'security', model: args?.model, effort: args?.reasoning_effort });
+  return fillPreferences(session, { config, member: REVIEWER_KEY, kind: 'security', model: args?.model, effort: args?.reasoning_effort });
 }
 
 export function createSpawnConfigHooks(getSession, fs = nodeFs) {

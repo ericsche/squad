@@ -22,4 +22,6 @@ with a security role, any security mission and the native security reviewer.
 Config and per-spawn choices still win, the `economy` and `hydrafusion`
 profiles turn it off, and it applies only when the host lists the model. The
 security-framing extension, which owns the native reviewer's call, applies the
-same policy to it.
+same policy to it under its own config key, `security-review`. The SDK's central
+resolver gains a matching `work-default` source: callers pass `workModel` for dev
+or security work, and it applies after config and before the session model.

@@ -94,9 +94,10 @@ unintegrated work, an open pull request or a session automation, or may still
 receive a same-mission follow-up.
 
 Before integrating a child's commits, get its peer review verdict from a
-different team member (coordinator Team Workflow): forward requested changes to
-the author's existing child and its revision to the same reviewer, and route a
-child's teammate request to the named member, not to the user.
+different team member for that exact tip commit (coordinator Team Workflow):
+integrate only the approved tip, forward requested changes to the author's
+existing child and its new tip to the same reviewer, and route a child's
+teammate request to the named member, not to the user.
 
 #### Follow-up and reviewer gates
 

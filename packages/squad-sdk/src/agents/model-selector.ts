@@ -56,7 +56,8 @@ export type ModelTier = 'premium' | 'standard' | 'fast';
  * Source of the model resolution, in precedence order:
  * - `user-override`: explicit per-spawn directive ("use X for this task")
  * - `config`: persistent `.squad/config.json` override (per-agent or `defaultModel`)
- * - `session`: model picked for the session; inherited by every sub-agent spawn
+ * - `work-default`: caller-resolved default for dev or security work, ahead of the session model
+ * - `session`: model picked for the session; inherited by every other sub-agent spawn
  * - `charter`: the agent charter's `## Model` → `**Preferred:**` value (not `auto`)
  * - `task-auto`: task-aware auto-selection
  * - `default`: nothing else matched
@@ -65,6 +66,7 @@ export type ModelTier = 'premium' | 'standard' | 'fast';
 export type ModelResolutionSource =
   | 'user-override'
   | 'config'
+  | 'work-default'
   | 'session'
   | 'charter'
   | 'task-auto'
@@ -78,6 +80,7 @@ export type ModelResolutionSource =
 export const MODEL_RESOLUTION_PRECEDENCE: readonly ModelResolutionSource[] = [
   'user-override',
   'config',
+  'work-default',
   'session',
   'charter',
   'task-auto',
@@ -95,6 +98,12 @@ export interface ModelResolutionOptions {
    * `agentModelOverrides[agent]` when present, otherwise `defaultModel`.
    */
   configModel?: string;
+  /**
+   * Default model for dev or security work, resolved by the caller (only when
+   * the host lists it). Applies after `configModel` and before the session
+   * model; the `economy` and opt-in `hydrafusion` profiles skip it.
+   */
+  workModel?: string;
   /**
    * Model picked for the current session (by the user or the session itself).
    * Passed unchanged to every sub-agent spawn so it is inherited with source
@@ -318,6 +327,7 @@ function resolveBaseModel(options: ModelResolutionOptions, profile: ModelSelecti
   const economyMode = profile === 'economy';
   const userOverride = options.userOverride?.trim();
   const configModel = options.configModel?.trim();
+  const workModel = options.workModel?.trim();
   const sessionModel = options.sessionModel?.trim();
   const charterPreference = options.charterPreference?.trim();
 
@@ -327,6 +337,10 @@ function resolveBaseModel(options: ModelResolutionOptions, profile: ModelSelecti
 
   if (isModelPreference(configModel)) {
     return explicitModel(configModel, 'config', `persistent .squad/config.json override selected '${configModel}'`);
+  }
+
+  if (isModelPreference(workModel) && profile !== 'economy' && profile !== 'hydrafusion') {
+    return explicitModel(workModel, 'work-default', `dev or security work default '${workModel}' selected ahead of the session model`);
   }
 
   if (isModelPreference(sessionModel)) {

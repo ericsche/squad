@@ -786,11 +786,21 @@ describe('App specialist visibility: canonical contracts', () => {
     expect(team, 'the peer review is the single blocking gate').toMatch(/one blocking gate and also covers any material-risk gate/i);
     expect(team, 'the reviewer reads the author branch').toMatch(/read-only, with `base_branch` set to the author's branch/i);
     expect(team).toMatch(/approve, changes requested \(specific items\) or reject/i);
+    expect(team, 'the review is bound to the exact tip that gets integrated')
+      .toMatch(/Give the reviewer the author's branch with its base and tip commit SHAs: it checks out that exact tip in its own worktree[^]*verdict naming the tip it covers/i);
+    expect(team).toMatch(/Approve: integrate exactly the approved tip and validate in the parent; any newer author commit needs another review/i);
+    expect(team, 'reuse needs an idle child').toMatch(/Reuse the reviewer's child from this request only when it is idle/i);
+    expect(team, 'exemptions never waive a mandated review')
+      .toMatch(/these exemptions never waive a review that `\.squad\/governance\.md` or repository policy mandates, and a missing mandatory reviewer is a blocker to report/i);
     expect(team, 'changes go back to the author, then the same reviewer')
-      .toMatch(/Changes requested: forward the items to the author's existing child, then send the revision back to the same reviewer; after two rounds without approval, bring both positions to the user/i);
+      .toMatch(/Changes requested: forward the items to the author's existing child, then send its new tip SHA to the same reviewer; after two rounds without approval, bring both positions to the user/i);
     expect(team, 'teammate requests go to the member, not the user')
       .toMatch(/A child never spawns or impersonates teammates[^]*`needs_input` report naming the member and the question\. Route it to that member without asking the user/i);
-    expect(team, 'ceremonies do not nest sessions').toMatch(/facilitator child[^.]*without spawning participants/i);
+    expect(team, 'ceremonies do not nest sessions').toMatch(/facilitator child[^.]*App facilitator template[^.]*without spawning participants/i);
+    const appCeremony = sources.ceremony.slice(sources.ceremony.indexOf('**Copilot App:**')).replace(/\s+/g, ' ');
+    expect(appCeremony, 'the App facilitator template itself forbids participant spawns')
+      .toMatch(/^\*\*Copilot App:\*\* The facilitator is one coordinated child session[^]*Replace the participant rule above[^]*PARTICIPANT CHARTERS:[^]*send a needs_input report naming that member and the question[^]*Never spawn participants, App sessions or native tasks for them/);
+    expect(sources.spawn.replace(/\s+/g, ' ')).toMatch(/As a reviewer, check out the exact tip SHA you were given in your own worktree[^]*naming that tip/i);
     expect(team, 'no speculative agents').toMatch(/none adds speculative agents/i);
     const collaboration = section(sources.coordinator, '### Bounded Collaboration');
     expect(collaboration).toMatch(/Add the one peer reviewer Team Workflow requires before integrating work/);

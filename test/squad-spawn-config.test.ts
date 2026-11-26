@@ -135,6 +135,9 @@ describe('squad-spawn-config hooks', () => {
     expect(workKind({ role: 'Content author', label: 'ada' })).toBeUndefined();
     expect(workKind({ role: 'Frontend Dev', label: 'neo' })).toBe('dev');
     expect(workKind({ role: 'DevRel', label: 'sam' })).toBeUndefined();
+    expect(workKind({ role: 'Developer Advocate', label: 'sam' })).toBeUndefined();
+    expect(workKind({ role: 'Developer Relations and docs', label: 'sam', mission: 'Release blog' })).toBeUndefined();
+    expect(workKind({ role: 'Backend developer and documentation', label: 'neo' })).toBe('dev');
     expect(workKind({ label: 'backend' })).toBe('dev');
   });
 
@@ -144,6 +147,11 @@ describe('squad-spawn-config hooks', () => {
     expect(await reviewerPreferences(session, ROOT, {}, files({}))).toEqual({ model: 'mai-code-2', reasoning_effort: 'high' });
     expect(await reviewerPreferences(session, ROOT, {}, files({ defaultModel: 'gpt-6.1-sol' }))).toEqual({ model: 'gpt-6.1-sol' });
     expect(await reviewerPreferences(session, ROOT, { model: 'gpt-6.1-sol' }, files({}))).toEqual({});
+    const keyed = files({ agentModelOverrides: { 'security-review': 'gpt-6.1-sol' }, agentReasoningEffortOverrides: { 'security-review': 'low' } });
+    expect(await reviewerPreferences(session, ROOT, {}, keyed), 'the reviewer config key wins').toEqual({ model: 'gpt-6.1-sol', reasoning_effort: 'low' });
+    expect(await reviewerPreferences(session, ROOT, { model: 'mai-code-2' }, files({})), 'explicit work model gets its effort')
+      .toEqual({ reasoning_effort: 'high' });
+    expect(await reviewerPreferences(session, ROOT, { reasoning_effort: 'medium' }, files({}))).toEqual({ model: 'mai-code-2' });
     expect(await fillPreferences(session, { kind: undefined })).toEqual({});
   });
 
