@@ -781,8 +781,12 @@ describe('App specialist visibility: canonical contracts', () => {
     const team = section(sources.coordinator, '### Team Workflow').replace(/\s+/g, ' ');
     expect(team, 'staffing is delegated, not asked')
       .toMatch(/Delegate without asking who\.\*\* Route each part of the request to its owner[^]*?dispatch independently deliverable outcomes in one batch\. Ask the user about scope, priorities or decisions they own, never about staffing/i);
-    expect(team, 'review happens before integration by a different member')
-      .toMatch(/When a mission hands off commits or a patch to integrate, dispatch one peer reviewer before integrating: a different active member whose route covers the change/i);
+    expect(team, 'review happens before integration, by the team tester by default')
+      .toMatch(/When a mission hands off commits or a patch to integrate, dispatch one peer reviewer before integrating: the team's tester, meaning the active member routed for tests and regression verification \(for example Tester or QA\), who checks the change and its tests, runs the validation and looks for regressions/i);
+    expect(team, 'governance reviewer first, Lead when the tester is the author or absent')
+      .toMatch(/Use the reviewer `\.squad\/governance\.md` names for that change instead when there is one, and the active Lead when the tester authored the change or the team has no tester/i);
+    expect(team, 'architecture or security questions go to Lead without a second gate')
+      .toMatch(/the tester asks Lead through a teammate request; Lead's answer informs the verdict rather than adding a second gate/i);
     expect(team, 'the peer review is the single blocking gate').toMatch(/one blocking gate and also covers any material-risk gate/i);
     expect(team, 'the reviewer reads the author branch').toMatch(/read-only, with `base_branch` set to the author's branch/i);
     expect(team).toMatch(/approve, changes requested \(specific items\) or reject/i);
@@ -815,7 +819,7 @@ describe('App specialist visibility: canonical contracts', () => {
     expect(childTemplate).toMatch(/get its peer review verdict \(coordinator Team Workflow\)/);
     expect(sources.after.replace(/\s+/g, ' ')).toMatch(/Before integrating a child's commits, get its peer review verdict from a different team member/i);
     const docs = readFileSync(resolve(ROOT, 'docs/src/content/docs/scenarios/client-compatibility.md'), 'utf8').replace(/\s+/g, ' ');
-    expect(docs).toMatch(/The team reviews and helps each other\.[^]*Before a mission's commits are integrated, a different team member reviews them in their own sub-session/i);
+    expect(docs).toMatch(/The team reviews and helps each other\.[^]*Before a mission's commits are integrated, the team's tester \(for example Tester or QA\) reviews them in their own sub-session[^]*Lead reviews instead when the tester wrote the change or the team has no tester/i);
   });
 
   it('puts the dev and security work default after config and above the inherited session model', () => {

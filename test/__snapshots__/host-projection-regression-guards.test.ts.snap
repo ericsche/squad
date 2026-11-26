@@ -4,7 +4,7 @@ exports[`host projection regression guards (#2438) > guard 1: the Copilot projec
 {
   ".copilot/mcp-config.json": "c68ab872f9f9b0a4ff12b221ee8bccb6dfec1bf1b886f05971935d5bc48b33e6",
   ".gitattributes": "fe8886d03bd8d8c7fb0b274cb8748fe4c97b08ce8b55c2aa72a2e173a0235ce3",
-  ".github/agents/squad.agent.md": "90d9459d5bdd48942b0b11426e8a8bfb32e3c163364978151a26708f503cd72c",
+  ".github/agents/squad.agent.md": "daed5e419fcb7259426b2d3b7f4b30df33178005fc17189dec02fbbf3e76ea76",
   ".github/extensions/squad-provider-onboarding/extension.mjs": "6cf4fecdc44644b788f7e97bc7f238c2913dcf7cd77d3ea23d45750a5ce574a1",
   ".github/extensions/squad-provider-onboarding/onboarding-tools.mjs": "28c6cb64d1be39c1d2a1f333edbb5e241ee335f86d5e4403b20a9b1c15caef9e",
   ".github/extensions/squad-security-framing/extension.mjs": "413406447d80fceeff44ed948b34c2f2622d8ee0aad1fbd1ed843e48af2b7ad0",
