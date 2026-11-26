@@ -97,7 +97,7 @@ async function runConcurrentGitCreators(
   const runChild = (id: string, peerId: string): Promise<string> => new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [
       '--experimental-loader',
-      loaderPath,
+      pathToFileURL(loaderPath).href,
       '--input-type=module',
       '-e',
       script,

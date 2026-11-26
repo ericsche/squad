@@ -15,6 +15,7 @@ import {
 } from './gh-aw-hosted-e2e-contract.mjs';
 import {
   CONTRACT_DESTINATION,
+  LEGACY_OWNERSHIP_DESTINATIONS,
   OWNERSHIP_ENTRY_COUNT,
   OWNERSHIP_DESTINATION,
   PACKAGE_NAME,
@@ -24,11 +25,11 @@ import {
   verifyStagedInstall,
 } from '../workflows/shared/squad-install-verifier.mjs';
 
-const TRUSTED_SOURCE = Object.freeze({
-  repository: 'bradygaster/squad',
+export const TRUSTED_SOURCE = Object.freeze({
+  repository: 'github/squad',
   repositoryId: 1151205052,
-  owner: 'bradygaster',
-  ownerId: 41929050,
+  owner: 'github',
+  ownerId: 9919,
 });
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const INSTALL_PR_TITLE = 'ci: install Squad agentic workflows';
@@ -292,7 +293,7 @@ function packageArtifactCategories(contract) {
     runtimePackageDestinations: contract.runtime.map(({ packageDestination }) => packageDestination),
     runtimeDestinations: contract.runtime.map(({ destination }) => destination),
     manifest: [CONTRACT_DESTINATION],
-    ownership: [OWNERSHIP_DESTINATION],
+    ownership: [OWNERSHIP_DESTINATION, ...LEGACY_OWNERSHIP_DESTINATIONS],
     skill: contract.skills.map(({ destination }) => destination),
     triggerSentinel: [TRIGGER_PROBE_DESTINATION],
   };
@@ -320,8 +321,8 @@ function matchingPriorRunArtifacts(branches, pullRequests, issues, target) {
 }
 
 export function assertPristineTarget(target, defaultBranch, contract, github = githubAdapter, now = Date.now) {
-  if (contract.workflows.length !== 8 || contract.runtime.length !== 20 || contract.skills.length !== 1) {
-    throw new Error('Trusted package topology must be exactly 8 workflows, 20 runtime resources, and 1 skill.');
+  if (contract.workflows.length !== 8 || contract.runtime.length !== 21 || contract.skills.length !== 1) {
+    throw new Error('Trusted package topology must be exactly 8 workflows, 21 runtime resources, and 1 skill.');
   }
   const defaultBranchSha = github.getDefaultBranchSha(target, defaultBranch);
   assertSha(defaultBranchSha, 'Target default-branch SHA');
@@ -954,6 +955,9 @@ function verifyInstalledTrusted(repositoryRoot, checkout, sourceSha) {
   assertInstalledManifestIdentity(repositoryRoot, checkout);
   const result = verifyInstall(checkout, { expectedRevision: sourceSha });
   if (result.failures.length > 0) throw new Error(result.failures.join('\n'));
+  if (result.packageName !== PACKAGE_NAME) {
+    throw new Error(`Hosted install must be owned by ${PACKAGE_NAME}; found ${result.packageName}.`);
+  }
   const ownership = JSON.parse(readFileSync(
     resolve(checkout, OWNERSHIP_DESTINATION),
     'utf8',
@@ -968,8 +972,8 @@ function hosted(args, repositoryRoot) {
   const sourceSha = requireArg(args, 'source_sha');
   const evidence = resolve(requireArg(args, 'evidence'));
   const contract = loadBundleContract(repositoryRoot);
-  if (contract.workflows.length !== 8 || contract.runtime.length !== 20 || contract.skills.length !== 1) {
-    throw new Error('Trusted package topology must be exactly 8 workflows, 20 runtime resources, and 1 skill.');
+  if (contract.workflows.length !== 8 || contract.runtime.length !== 21 || contract.skills.length !== 1) {
+    throw new Error('Trusted package topology must be exactly 8 workflows, 21 runtime resources, and 1 skill.');
   }
   const targetState = authorizeTarget(args, sourceInfo, contract);
   mkdirSync(evidence, { recursive: true });
@@ -1226,9 +1230,9 @@ function hosted(args, repositoryRoot) {
 // Actions workflow or repository_dispatch job, and must never be run with a repository secret.
 // Run it from your own workstation, authenticated as yourself (`gh auth login`); `--evidence-in`
 // is a directory you populate yourself first, e.g. via
-// `gh run download <hosted-e2e-run-id> --repo bradygaster/squad \
+// `gh run download <hosted-e2e-run-id> --repo github/squad \
 //   --name squad-gh-aw-hosted-e2e-<hosted-e2e-run-id> --dir <evidence-in>`
-// against the bradygaster/squad repository you already have read access to. Whatever GH_TOKEN is
+// against the github/squad repository you already have read access to. Whatever GH_TOKEN is
 // present in your shell when you run this (your own personal token, never a repo secret) is what
 // it uses to observe the target repository.
 //

@@ -9,6 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { join } from 'node:path';
 import type { WatchContext } from '../../packages/squad-cli/src/cli/commands/watch/types.js';
 
 // ── Shared mock state (hoisted alongside vi.mock) ───────────────────
@@ -21,6 +22,7 @@ const {
   mockFsMkdirSync,
   mockFsReadFileSync,
   mockFsUnlinkSync,
+  mockFsWriteFileSync,
   mockRmSync,
   mockListModels,
   mockDisconnect,
@@ -41,6 +43,7 @@ const {
   mockFsMkdirSync: vi.fn(),
   mockFsReadFileSync: vi.fn((): string => ''),
   mockFsUnlinkSync: vi.fn(),
+  mockFsWriteFileSync: vi.fn(),
   mockRmSync: vi.fn(),
   mockListModels: vi.fn().mockResolvedValue([]),
   mockDisconnect: vi.fn().mockResolvedValue(undefined),
@@ -71,12 +74,14 @@ vi.mock('node:fs', () => ({
   mkdirSync: mockFsMkdirSync,
   readFileSync: mockFsReadFileSync,
   unlinkSync: mockFsUnlinkSync,
+  writeFileSync: mockFsWriteFileSync,
   rmSync: mockRmSync,
 }));
 
 // ── Imports (resolved against mocks) ────────────────────────────────
 
 import {
+  CLAIMED_WORK_CONTRACT,
   ExecuteCapability,
   buildAgentPrompt,
   findExecutableIssues,
@@ -227,18 +232,18 @@ describe('Watch Capabilities', () => {
         // TEMPLATE_MANIFEST destination ('ralph-instructions.md' under .squad/)
         // matches the lookup in execute.ts.
         mockFsExistsSync.mockImplementation((p: unknown) => {
-          return typeof p === 'string' && p.endsWith('.squad/ralph-instructions.md');
+          return typeof p === 'string' && p === join('/some/repo', '.squad', 'ralph-instructions.md');
         });
         const issues: ExecutableWorkItem[] = [
           { number: 1, title: 'Task', labels: [{ name: 'squad' }], assignees: [] },
         ];
         const prompt = buildAgentPrompt(issues, '/some/repo');
         expect(mockFsExistsSync).toHaveBeenCalledWith(
-          expect.stringContaining('.squad/ralph-instructions.md'),
+          join('/some/repo', '.squad', 'ralph-instructions.md'),
         );
         // Path must be constructed from teamRoot, not a global path
         const [calledPath] = mockFsExistsSync.mock.calls[0] as [string];
-        expect(calledPath).toContain('/some/repo');
+        expect(calledPath).toBe(join('/some/repo', '.squad', 'ralph-instructions.md'));
         expect(prompt).toContain('Ralph, Go!');
       });
 
@@ -271,6 +276,43 @@ describe('Watch Capabilities', () => {
         const prompt = buildAgentPrompt(issues, '/fake');
         expect(prompt).toContain('squad:eecom, P1');
         expect(prompt).toContain('alice');
+      });
+
+      // ADR-002 prompt contract: an exclusive claim provider won every listed
+      // issue, so the agent must stay on them; `none` keeps today's wording.
+      describe('claimed-work contract', () => {
+        const issues: ExecutableWorkItem[] = [
+          { number: 7, title: 'Fix auth', labels: [{ name: 'squad' }], assignees: [] },
+        ];
+
+        it.each([
+          ['with ralph-instructions.md', true],
+          ['fallback prompt', false],
+        ])('%s: tells the agent to work ONLY its claimed issues when claims are active', (_name, hasInstructions) => {
+          mockFsExistsSync.mockReturnValue(hasInstructions);
+          const prompt = buildAgentPrompt(issues, '/fake/team', undefined, { claimsActive: true });
+          expect(prompt).toContain(CLAIMED_WORK_CONTRACT);
+          expect(prompt).toContain('Work ONLY on these claimed issues');
+          expect(prompt).toContain('Do not self-assign');
+          expect(prompt).toContain('the watcher releases the claim when this session ends');
+          expect(prompt).toContain('Here are the issues claimed for you (work ONLY these):');
+          expect(prompt).toContain('#7: Fix auth');
+          expect(prompt).not.toMatch(/already assigned|unblocked\/unassigned|work on what's actionable/);
+          expect(prompt.includes('Ralph, Go!')).toBe(hasInstructions);
+        });
+
+        it.each([
+          ['with ralph-instructions.md', true],
+          ['fallback prompt', false],
+        ])('%s: keeps today\'s wording when claims are not active', (_name, hasInstructions) => {
+          mockFsExistsSync.mockReturnValue(hasInstructions);
+          const legacy = buildAgentPrompt(issues, '/fake/team');
+          const explicitNone = buildAgentPrompt(issues, '/fake/team', undefined, { claimsActive: false });
+          expect(explicitNone).toBe(legacy);
+          expect(legacy).not.toContain('CLAIMED WORK');
+          expect(legacy).not.toContain('claimed for you');
+          expect(legacy).toContain('Here are the current open squad issues:');
+        });
       });
     });
 
@@ -370,6 +412,7 @@ describe('Watch Capabilities', () => {
         expect(result.success).toBe(true);
         expect(result.summary).toContain('agent dispatched');
         expect(result.data?.dispatched).toBe(1);
+        expect(result.data?.executed).toBe(1);
       });
 
       it('reports estimated context utilization from Copilot usage output', async () => {
@@ -400,7 +443,9 @@ describe('Watch Capabilities', () => {
           utilization: 0.5,
           source: 'estimated',
         });
-        expect(mockFsUnlinkSync).toHaveBeenCalledOnce();
+        expect(mockFsUnlinkSync).toHaveBeenCalledWith(
+          expect.stringMatching(/context-usage-.*\.json$/),
+        );
         expect(mockDisconnect).toHaveBeenCalledOnce();
       });
 
@@ -415,7 +460,10 @@ describe('Watch Capabilities', () => {
 
         const args = mockExecFile.mock.calls.at(-1)?.[1] as string[];
         expect(args).not.toContain('--usage-output-file');
-        expect(mockFsMkdirSync).not.toHaveBeenCalled();
+        expect(mockFsMkdirSync).not.toHaveBeenCalledWith(
+          expect.stringMatching(/[\\/]log$/),
+          expect.anything(),
+        );
       });
 
       it('still dispatches when usage capture cannot be initialized', async () => {

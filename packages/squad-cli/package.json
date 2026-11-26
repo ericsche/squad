@@ -1,6 +1,6 @@
 {
   "name": "@bradygaster/squad-cli",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Squad CLI — Command-line interface for the Squad multi-agent runtime",
   "type": "module",
   "bin": {
@@ -40,10 +40,6 @@
     "./shell/stream-bridge": {
       "types": "./dist/cli/shell/stream-bridge.d.ts",
       "import": "./dist/cli/shell/stream-bridge.js"
-    },
-    "./shell/sdk-bridge": {
-      "types": "./dist/cli/shell/sdk-bridge.d.ts",
-      "import": "./dist/cli/shell/sdk-bridge.js"
     },
     "./shell/router": {
       "types": "./dist/cli/shell/router.d.ts",
@@ -145,10 +141,6 @@
       "types": "./dist/cli/commands/rc.d.ts",
       "import": "./dist/cli/commands/rc.js"
     },
-    "./commands/extract": {
-      "types": "./dist/cli/commands/extract.d.ts",
-      "import": "./dist/cli/commands/extract.js"
-    },
     "./commands/copilot": {
       "types": "./dist/cli/commands/copilot.d.ts",
       "import": "./dist/cli/commands/copilot.js"
@@ -164,10 +156,6 @@
     "./commands/copilot-bridge": {
       "types": "./dist/cli/commands/copilot-bridge.d.ts",
       "import": "./dist/cli/commands/copilot-bridge.js"
-    },
-    "./commands/personal": {
-      "types": "./dist/cli/commands/personal.d.ts",
-      "import": "./dist/cli/commands/personal.js"
     },
     "./commands/cast": {
       "types": "./dist/cli/commands/cast.d.ts",
@@ -185,21 +173,21 @@
     "postinstall": "node scripts/patch-esm-imports.mjs && node scripts/patch-ink-rendering.mjs",
     "prepublishOnly": "npm run build",
     "build": "tsc -p tsconfig.json && npm run postbuild",
-    "postbuild": "node -e \"require('fs').cpSync('src/remote-ui', 'dist/remote-ui', {recursive: true})\""
+    "postbuild": "node -e \"for (const d of ['remote-ui', 'dashboard-ui']) require('fs').cpSync('src/' + d, 'dist/' + d, {recursive: true})\""
   },
   "engines": {
     "node": ">=22.5.0"
   },
   "dependencies": {
-    "@bradygaster/squad-sdk": ">=1.0.0",
-    "@modelcontextprotocol/sdk": "^1.31.0",
+    "@bradygaster/squad-sdk": ">=2.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "ink": "^7.1.1",
     "react": "^19.3.0",
     "jsonc-parser": "^3.3.1",
     "vscode-jsonrpc": "^9.0.3"
   },
   "devDependencies": {
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "typescript": "^6.0.3",
     "ink-testing-library": "^4.0.0"
@@ -211,13 +199,13 @@
     "cli"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/bradygaster/squad#readme",
+  "homepage": "https://github.com/github/squad#readme",
   "bugs": {
-    "url": "https://github.com/bradygaster/squad/issues"
+    "url": "https://github.com/github/squad/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bradygaster/squad.git",
+    "url": "git+https://github.com/github/squad.git",
     "directory": "packages/squad-cli"
   },
   "optionalDependencies": {

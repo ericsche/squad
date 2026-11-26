@@ -102,7 +102,7 @@ export function parseModuleOwnership(routingMd: string): ModuleOwnership[] {
   return modules;
 }
 
-/** Parse team roster from team.md content */
+/** Parse active domain specialists from the current or legacy roster table. */
 export function parseRoster(teamMd: string): TeamMember[] {
   const table =
     parseTableSection(teamMd, /^##\s*members\b/i) ??
@@ -114,14 +114,22 @@ export function parseRoster(teamMd: string): TeamMember[] {
   const roleIndex = findColumnIndex(table.headers, ['role']);
   if (nameIndex < 0 || roleIndex < 0) return [];
 
-  const excluded = new Set(['scribe', 'ralph', 'Rai']);
+  const statusIndex = findColumnIndex(table.headers, ['status']);
+  const excludedNames = new Set(['squad', 'scribe', 'ralph', 'rai', 'fact checker', 'fact-checker', 'factchecker', '@copilot', 'copilot']);
+  const excludedRoles = new Set(['coordinator', 'scribe', 'ralph', 'rai', 'rai reviewer', 'fact checker', 'fact-checker', 'coding agent', 'work monitor', 'durable decision merger']);
+  // Built-in support agents are never triage targets or advertised specialists.
+  // Compared after `toLowerCase()`, so the keys must be lowercase too (`Rai` never matched).
   const members: TeamMember[] = [];
 
   for (const row of table.rows) {
     const name = cleanCell(row[nameIndex] ?? '');
     const role = cleanCell(row[roleIndex] ?? '');
     if (!name || !role) continue;
-    if (excluded.has(name.toLowerCase())) continue;
+    if (excludedNames.has(normalizeName(name)) || excludedRoles.has(normalizeName(role))) continue;
+    const status = statusIndex >= 0 ? cleanCell(row[statusIndex] ?? '') : '';
+    // The first lifecycle label owns assignment state; trailing guidance can be pending.
+    const lifecycle = status.match(/\b(active|inactive|retired|archived|alumni|removed|disabled|pending|proposed)\b/i)?.[1];
+    if (lifecycle && lifecycle.toLowerCase() !== 'active') continue;
 
     members.push({
       name,
@@ -281,11 +289,30 @@ function findColumnIndex(headers: string[], candidates: string[]): number {
   return -1;
 }
 
+function stripMarkdownLinks(value: string): string {
+  const parts: string[] = [];
+  let cursor = 0;
+  while (cursor < value.length) {
+    const open = value.indexOf('[', cursor);
+    if (open === -1) break;
+    const close = value.indexOf(']', open + 1);
+    if (close === -1) break;
+    if (close === open + 1 || value[close + 1] !== '(' || value[close + 2] === ')') {
+      parts.push(value.slice(cursor, close + 1));
+      cursor = close + 1;
+      continue;
+    }
+    const end = value.indexOf(')', close + 2);
+    if (end === -1) break;
+    parts.push(value.slice(cursor, open), value.slice(open + 1, close));
+    cursor = end + 1;
+  }
+  parts.push(value.slice(cursor));
+  return parts.join('');
+}
+
 function cleanCell(value: string): string {
-  return value
-    .replace(/`/g, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .trim();
+  return stripMarkdownLinks(value.replace(/`/g, '')).trim();
 }
 
 function splitKeywords(examplesCell: string | undefined): string[] {
@@ -319,8 +346,7 @@ function normalizeName(value: string): string {
 }
 
 function normalizeRouteDestination(value: string): string {
-  return value
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+  return stripMarkdownLinks(value)
     .replace(/[*_`]/g, '')
     .replace(/\p{Extended_Pictographic}/gu, '')
     .replace(/[\u200d\ufe0f]/g, '')
@@ -386,8 +412,26 @@ function routeMatch(
     'agent', 'engineer', 'engineering', 'management', 'owner',
     'specialist', 'system', 'work',
   ]);
-  const tokens = (value: string): string[] =>
-    value.toLowerCase().match(/[a-z0-9]+(?:[+#.][a-z0-9+#.]*)?(?<!\.)/g) ?? [];
+  const tokens = (value: string): string[] => {
+    const text = value.toLowerCase();
+    const result: string[] = [];
+    const isAlphanumeric = (code: number) =>
+      (code >= 48 && code <= 57) || (code >= 97 && code <= 122);
+    let cursor = 0;
+    while (cursor < text.length) {
+      if (!isAlphanumeric(text.charCodeAt(cursor))) {
+        cursor++;
+        continue;
+      }
+      const start = cursor++;
+      while (cursor < text.length &&
+          (isAlphanumeric(text.charCodeAt(cursor)) || '+#.'.includes(text[cursor]!))) cursor++;
+      let end = cursor;
+      while (end > start && text[end - 1] === '.') end--;
+      result.push(text.slice(start, end));
+    }
+    return result;
+  };
   const containsPhrase = (haystack: string[], needle: string[]): boolean =>
     needle.length > 0 &&
     needle.length <= haystack.length &&

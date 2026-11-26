@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  mkdirSync,
   mkdtempSync,
   rmSync,
   writeFileSync,
@@ -34,10 +33,16 @@ function createRepository(quotePath: boolean): string {
   git(cwd, ['add', '--', 'README.md']);
   git(cwd, ['commit', '--quiet', '-m', 'base']);
   git(cwd, ['switch', '--quiet', '-c', 'feature']);
-  mkdirSync(join(cwd, '.squad'));
-  writeFileSync(join(cwd, CANARY_PATH), 'canary\n');
-  git(cwd, ['add', '--', CANARY_PATH]);
-  git(cwd, ['commit', '--quiet', '-m', 'canary']);
+  const blob = execFileSync('git', ['hash-object', '-w', '--stdin'], { cwd, input: 'canary\n', encoding: 'utf8' }).trim();
+  // Git tree names are portable data even when Win32 cannot check them out.
+  const subtree = execFileSync('git', ['mktree', '-z'], {
+    cwd, input: `100644 blob ${blob}\t${CANARY_PATH.slice('.squad/'.length)}\0`, encoding: 'utf8',
+  }).trim();
+  const tree = execFileSync('git', ['mktree', '-z'], {
+    cwd, input: `${git(cwd, ['ls-tree', '-z', 'HEAD'])}040000 tree ${subtree}\t.squad\0`, encoding: 'utf8',
+  }).trim();
+  const commit = git(cwd, ['commit-tree', tree, '-p', 'HEAD', '-m', 'canary']).trim();
+  git(cwd, ['update-ref', 'HEAD', commit]);
   return cwd;
 }
 

@@ -21,7 +21,7 @@ const REFLECT_PATHS = [
 ];
 
 function read(path: string): string {
-  return readFileSync(resolve(ROOT, path), 'utf8');
+  return readFileSync(resolve(ROOT, path), 'utf8').replace(/\r\n/g, '\n');
 }
 
 describe('coordinator scope and persistence rules', () => {

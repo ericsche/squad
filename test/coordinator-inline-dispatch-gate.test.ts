@@ -15,8 +15,9 @@
  * template AND asserts byte-level PARITY across all 5 synced copies so a future
  * size-reduction refactor cannot silently relocate them again:
  *   1. An explicit INLINE-DISPATCH GATE in Client Compatibility — inline work is
- *      permitted ONLY in Direct Mode, or when NEITHER `task` NOR `runSubagent`
- *      is available; otherwise the coordinator MUST dispatch.
+ *      permitted in Direct Mode (trivial/readily available evidence), or when
+ *      NEITHER `task` NOR `runSubagent` NOR `create_session` is available;
+ *      otherwise substantive domain work MUST be dispatched.
  *   2. A one-line STOP gate under "How to Spawn an Agent" — about to produce a
  *      domain artifact with no spawn-tool call this turn → dispatch instead
  *      (unless Direct Mode / no spawn tool).
@@ -25,9 +26,8 @@
  *
  * No subprocess is spawned here (kept deliberately read-only) so the test is
  * deterministic and immune to the parallel-suite `squad init` overwrite flake.
- * Parity is guaranteed because every copy is produced from the canonical source
- * by `scripts/sync-templates.mjs` (run in Phase 2 and by template-sync's own
- * beforeAll during the full suite).
+ * Copies are produced by the explicit `scripts/sync-templates.mjs --sync`
+ * maintenance command. This test never synchronizes files.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -66,10 +66,11 @@ function assertGateBody(content: string, label: string): void {
   const tail = content.slice(idx, idx + 600);
   // (a) inline is allowed in Direct Mode
   expect(tail, `${label}: gate must name Direct Mode as the inline exemption`).toMatch(/Direct Mode/);
-  // (b) inline is allowed only when NEITHER spawn tool exists — both tools named
-  expect(tail, `${label}: gate must reference the neither-task-nor-runSubagent fallback`).toMatch(
-    /neither[^.]*\btask\b[^.]*\brunSubagent\b|neither[^.]*\brunSubagent\b[^.]*\btask\b/i,
+  // (b) fallback accounts for all spawn tools, including App-only hosts
+  expect(tail, `${label}: gate must reference the no-task/runSubagent/create_session fallback`).toMatch(
+    /neither[^.]*\btask\b[^.]*\brunSubagent\b[^.]*\bcreate_session\b/i,
   );
+  expect(tail, `${label}: Direct must cover trivial readily available evidence`).toMatch(/trivial[^.]*readily available/i);
   // (c) otherwise dispatch is mandatory
   expect(tail, `${label}: gate must state dispatch is mandatory otherwise`).toMatch(/MUST dispatch/i);
 }

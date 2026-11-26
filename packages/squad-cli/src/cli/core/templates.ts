@@ -166,6 +166,58 @@ export const TEMPLATE_MANIFEST: TemplateFile[] = [
     description: 'Skill definition template',
   },
   
+  // User-owned runtime extension: every companion must be installed together.
+  // Host discovery requires extension.mjs at .github/extensions/<name>/.
+  // Keep customizations on both init and upgrade; no npm dependency is added.
+  {
+    source: 'extensions/squad-session-plan/extension.mjs',
+    destination: '../.github/extensions/squad-session-plan/extension.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Current foreground session native-plan extension (user-owned)',
+  },
+  {
+    source: 'extensions/squad-session-plan/plan-tools.mjs',
+    destination: '../.github/extensions/squad-session-plan/plan-tools.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Current-session plan RPC helpers (user-owned)',
+  },
+  {
+    source: 'extensions/squad-security-framing/extension.mjs',
+    destination: '../.github/extensions/squad-security-framing/extension.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Native security-review App framing hooks extension (user-owned)',
+  },
+  {
+    source: 'extensions/squad-security-framing/framing-hooks.mjs',
+    destination: '../.github/extensions/squad-security-framing/framing-hooks.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Security-review label, background and guidance hooks (user-owned)',
+  },
+  {
+    source: 'extensions/squad-spawn-config/extension.mjs',
+    destination: '../.github/extensions/squad-spawn-config/extension.mjs',
+    overwriteOnUpgrade: false,
+    description: 'App sub-session model and reasoning-effort config hooks extension (user-owned)',
+  },
+  {
+    source: 'extensions/squad-spawn-config/spawn-config-hooks.mjs',
+    destination: '../.github/extensions/squad-spawn-config/spawn-config-hooks.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Fills .squad/config.json model and effort into create_session kickoffs (user-owned)',
+  },
+  {
+    source: 'extensions/squad-provider-onboarding/extension.mjs',
+    destination: '../.github/extensions/squad-provider-onboarding/extension.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Opt-in external provider onboarding bridge (user-owned)',
+  },
+  {
+    source: 'extensions/squad-provider-onboarding/onboarding-tools.mjs',
+    destination: '../.github/extensions/squad-provider-onboarding/onboarding-tools.mjs',
+    overwriteOnUpgrade: false,
+    description: 'Same-host Microsoft 365 .NET provider onboarding helpers (user-owned)',
+  },
+
   // User-owned files (never overwrite)
   {
     // ralph-instructions.md is read by execute.ts when `squad watch --execute` is run.

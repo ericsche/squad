@@ -10,6 +10,8 @@ releases from `main`. Channel names identify release streams, not branches.
 - [ ] The CLI SDK dependency and lockfile entry are `>=VERSION`.
 - [ ] The version is valid SemVer and has never been published.
 - [ ] `CHANGELOG.md` contains `## [VERSION]`.
+- [ ] `docs/src/content/docs/whatsnew.md` contains `## vVERSION` and identifies
+      the newest stable version as the current release.
 - [ ] The release-preparation PR is merged to `dev`.
 - [ ] `dev` CI is green.
 - [ ] `NPM_TOKEN` is configured for non-interactive publishing.
@@ -20,17 +22,25 @@ releases from `main`. Channel names identify release streams, not branches.
 ## Preview release
 
 - [ ] Version is `X.Y.Z-preview.N`, not stable `X.Y.Z`.
+- [ ] `SHA` is the full 40-hex reviewed `dev` tip (`git rev-parse origin/dev`).
 - [ ] Dispatch:
 
   ```bash
-  gh workflow run squad-release.yml --ref dev -f confirm_tag=vX.Y.Z-preview.N
+  gh workflow run squad-release.yml --ref dev \
+    -f confirm_tag=vX.Y.Z-preview.N -f expected_sha="$SHA"
   ```
 
-- [ ] GitHub marks `vX.Y.Z-preview.N` as a prerelease.
-- [ ] npm `preview` points to the version for both packages.
-- [ ] The release has six standalone archives and `SHA256SUMS.txt`.
-- [ ] `squad-preview` references the new Homebrew version.
-- [ ] A `bradygaster.Squad.Preview` WinGet PR exists or is already upstream.
+- [ ] The `guard` and `verify` jobs pass at exactly `$SHA` and the
+      `release-evidence-<sha>` artifact exists (tarballs, hashes, manifest,
+      `provenance.json`).
+- [ ] npm reconciliation reports `COMPLETE`: `insider` (and the `preview`
+      alias) point to the version for both packages.
+- [ ] GitHub marks `vX.Y.Z-preview.N` as a prerelease (published after npm).
+- [ ] Standalone archives were built as artifacts. Only when
+      `publish_standalone` / `publish_package_managers` were set: six archives
+      and `SHA256SUMS.txt` on the release, `squad-preview` updated, a
+      `bradygaster.Squad.Preview` WinGet PR exists or is already upstream.
+- [ ] `squad-insider-publish.yml` was NOT dispatched for this version.
 
 ## Insider release
 
@@ -60,7 +70,16 @@ releases from `main`. Channel names identify release streams, not branches.
 - [ ] The promotion merges `dev` directly to `main`.
 - [ ] `.ai-team/`, `.squad/`, `.ai-team-templates/`, `team-docs/`, and
       `docs/proposals/` are absent from `main`.
-- [ ] Promotion explicitly dispatches `squad-release.yml` after pushing `main`.
+- [ ] With no `promotion_branch`, promotion pushes `main` and immediately
+      dispatches `squad-release.yml` with standalone and package managers enabled.
+      Do not use this path to bypass branch protection.
+- [ ] With a validated existing `promotion_branch`, the workflow opens a PR
+      instead. After its required checks/reviews and merge, a human reads
+      `SHA=$(gh api repos/github/squad/git/ref/heads/main --jq '.object.sha')`
+      and dispatches `squad-release.yml --ref main -f confirm_tag=vX.Y.Z
+      -f expected_sha="$SHA" -f build_standalone=true
+      -f publish_standalone=true -f publish_package_managers=true`.
+      A push or PR merge alone does not trigger the manual-only release workflow.
 - [ ] GitHub marks `vX.Y.Z` as the latest stable release.
 - [ ] npm `latest` points to the version for both packages.
 - [ ] The release has six standalone archives and `SHA256SUMS.txt`.

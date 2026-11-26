@@ -1,11 +1,13 @@
 import {
-  FSStorageProvider,
   LocalMemoryStore,
+  resolveSquadState,
   type MemoryClass,
   type MemoryLoadGuidance,
+  type SquadStateContext,
 } from '@bradygaster/squad-sdk';
 import fs from 'node:fs';
 import path from 'node:path';
+import { SquadError } from '../core/errors.js';
 
 const REAL_COPILOT_UNAVAILABLE_REASON =
   'Real Copilot Memory API unavailable: no concrete callable API was found in installed @github/copilot SDK/tooling. Squad will not fake provider=copilot; use hostInjectedCopilotAdapter only when a host supplies a client.';
@@ -90,8 +92,9 @@ function parseLogLevel(value: string | undefined): MemoryDiagnosticLevel {
   throw new Error(`Unknown memory log level: ${value}. Expected none|error|info|debug.`);
 }
 
-function readConfiguredLogLevel(projectRoot: string): MemoryDiagnosticLevel | undefined {
-  const configPath = path.join(projectRoot, '.squad', 'config.json');
+function readConfiguredLogLevel(projectSquadDir: string | undefined): MemoryDiagnosticLevel | undefined {
+  if (!projectSquadDir) return undefined;
+  const configPath = path.join(projectSquadDir, 'config.json');
   if (!fs.existsSync(configPath)) return undefined;
 
   let parsed: SquadConfig;
@@ -105,7 +108,7 @@ function readConfiguredLogLevel(projectRoot: string): MemoryDiagnosticLevel | un
   return typeof logLevel === 'string' ? parseLogLevel(logLevel) : undefined;
 }
 
-function parseDiagnostics(projectRoot: string, args: string[]): { args: string[]; logLevel: MemoryDiagnosticLevel } {
+function parseDiagnostics(projectSquadDir: string | undefined, args: string[]): { args: string[]; logLevel: MemoryDiagnosticLevel } {
   const filtered: string[] = [];
   let logLevel: MemoryDiagnosticLevel | undefined;
 
@@ -132,7 +135,7 @@ function parseDiagnostics(projectRoot: string, args: string[]): { args: string[]
     logLevel: logLevel ?? (
       process.env['SQUAD_MEMORY_LOG_LEVEL'] !== undefined
         ? parseLogLevel(process.env['SQUAD_MEMORY_LOG_LEVEL'])
-        : readConfiguredLogLevel(projectRoot) ?? 'none'
+        : readConfiguredLogLevel(projectSquadDir) ?? 'none'
     ),
   };
 }
@@ -154,14 +157,31 @@ function createMemoryDiagnostics(logLevel: MemoryDiagnosticLevel) {
   };
 }
 
-export async function runMemoryCommand(projectRoot: string, args: string[]): Promise<void> {
-  const diagnosticsConfig = parseDiagnostics(projectRoot, args);
+/**
+ * Open the governed memory store that the squad_state MCP server's memory.* tools use
+ * (state-mcp.ts createStateMcpToolRegistry -> ToolRegistry -> LocalMemoryStore): the team's
+ * squad dir, read and written through the configured state backend. Resolving from the start
+ * dir also walks up from subdirectories and follows git worktrees and linked teams, instead of
+ * creating a second store at <cwd>/.squad.
+ */
+export function openGovernedMemoryStore(context: SquadStateContext | null, startDir: string): LocalMemoryStore {
+  if (!context) {
+    throw new SquadError(`No .squad directory found from ${startDir}. Run \`squad init\` first, or pass --team-root.`);
+  }
+  return new LocalMemoryStore(context.storage, context.paths.teamSquadDir, { rootKind: 'squad' });
+}
+
+export async function runMemoryCommand(startDir: string, args: string[]): Promise<void> {
+  const context = resolveSquadState(startDir);
+  const diagnosticsConfig = parseDiagnostics(context?.paths.projectDir, args);
   const commandArgs = diagnosticsConfig.args;
   const diagnostics = createMemoryDiagnostics(diagnosticsConfig.logLevel);
   const operation = commandArgs[0] ?? 'help';
   const startedAt = Date.now();
-  const store = new LocalMemoryStore(new FSStorageProvider(), projectRoot);
-  const providerStore = store as LocalMemoryStore & {
+  // Opened lazily so `squad memory help` still works outside a squad.
+  let opened: LocalMemoryStore | undefined;
+  const openStore = (): LocalMemoryStore => (opened ??= openGovernedMemoryStore(context, startDir));
+  const openProviderStore = () => openStore() as LocalMemoryStore & {
     configureHostInjectedCopilotAdapter(options: {
       enabled: boolean;
       requireApproval?: boolean;
@@ -171,7 +191,13 @@ export async function runMemoryCommand(projectRoot: string, args: string[]): Pro
     providerStatus(): Promise<MemoryProviderStatus>;
   };
 
-  diagnostics.info('command.start', { command: operation, projectRoot });
+  diagnostics.info('command.start', {
+    command: operation,
+    startDir,
+    projectRoot: context?.paths.projectDir,
+    squadDir: context?.paths.teamSquadDir,
+    backend: context?.backend.name,
+  });
 
   try {
     if (operation === 'classify') {
@@ -179,7 +205,7 @@ export async function runMemoryCommand(projectRoot: string, args: string[]): Pro
       const loadGuidance = parseLoadGuidance(readFlag(commandArgs, '--load-guidance'));
       const requestedClass = parseClass(readFlag(commandArgs, '--class'));
       diagnostics.debug('classify.request', { contentLength: content.length, requestedClass, loadGuidance });
-      const classification = await store.classify({
+      const classification = await openStore().classify({
         content,
         requestedClass,
         metadata: loadGuidance ? { loadGuidance } : undefined,
@@ -207,7 +233,7 @@ export async function runMemoryCommand(projectRoot: string, args: string[]): Pro
         authorProvided: readFlag(commandArgs, '--author') !== undefined,
         approved: commandArgs.includes('--approved'),
       });
-      const result = await store.write({
+      const result = await openStore().write({
         content,
         title: readFlag(commandArgs, '--title'),
         author: readFlag(commandArgs, '--author'),
@@ -230,7 +256,7 @@ export async function runMemoryCommand(projectRoot: string, args: string[]): Pro
     if (operation === 'search') {
       const query = readFlag(commandArgs, '--query') ?? commandArgs.slice(1).join(' ');
       diagnostics.debug('search.request', { queryLength: query.length });
-      const results = await store.search(query);
+      const results = await openStore().search(query);
       diagnostics.info('search.complete', {
         count: results.length,
         providers: [...new Set(results.map(result => result.provider ?? 'local'))].join(',') || 'none',
@@ -247,7 +273,7 @@ export async function runMemoryCommand(projectRoot: string, args: string[]): Pro
         throw new Error('Usage: squad memory promote <id> --class LOCAL|DECISION|POLICY|COPILOT_MEMORY');
       }
       diagnostics.debug('promote.request', { id, targetClass, actorProvided: readFlag(commandArgs, '--actor') !== undefined });
-      const result = await store.promote(id, targetClass, readFlag(commandArgs, '--actor'));
+      const result = await openStore().promote(id, targetClass, readFlag(commandArgs, '--actor'));
       diagnostics.info('promote.complete', {
         id,
         stored: result.stored,
@@ -263,14 +289,14 @@ export async function runMemoryCommand(projectRoot: string, args: string[]): Pro
       const id = commandArgs[1];
       if (!id) throw new Error('Usage: squad memory delete <id>');
       diagnostics.debug('delete.request', { id, actorProvided: readFlag(commandArgs, '--actor') !== undefined });
-      const deleted = await store.delete(id, readFlag(commandArgs, '--actor'));
+      const deleted = await openStore().delete(id, readFlag(commandArgs, '--actor'));
       diagnostics.info('delete.complete', { id, deleted, elapsedMs: Date.now() - startedAt });
       console.log(JSON.stringify({ deleted }, null, 2));
       return;
     }
 
     if (operation === 'audit') {
-      const audit = await store.auditLog();
+      const audit = await openStore().auditLog();
       diagnostics.info('audit.complete', { count: audit.length, elapsedMs: Date.now() - startedAt });
       console.log(JSON.stringify(audit, null, 2));
       return;
@@ -278,7 +304,7 @@ export async function runMemoryCommand(projectRoot: string, args: string[]): Pro
 
     if (operation === 'provider' || operation === 'providers' || operation === 'status') {
       if (readFlag(commandArgs, '--provider') === 'copilot' || commandArgs.includes('--default-copilot')) {
-        throw new Error(REAL_COPILOT_UNAVAILABLE_REASON);
+        throw new SquadError(REAL_COPILOT_UNAVAILABLE_REASON);
       }
       if (commandArgs.includes('--enable-host-injected-copilot-adapter') || commandArgs.includes('--enable-copilot')) {
         const requireApproval = parseBoolean(readFlag(commandArgs, '--require-approval'), true);
@@ -287,7 +313,7 @@ export async function runMemoryCommand(projectRoot: string, args: string[]): Pro
           requireApproval,
           defaultProvider: commandArgs.includes('--default-host-injected-copilot-adapter') ? 'hostInjectedCopilotAdapter' : undefined,
         });
-        const config = await providerStore.configureHostInjectedCopilotAdapter({
+        const config = await openProviderStore().configureHostInjectedCopilotAdapter({
           enabled: true,
           requireApproval,
           defaultProvider: commandArgs.includes('--default-host-injected-copilot-adapter')
@@ -306,7 +332,7 @@ export async function runMemoryCommand(projectRoot: string, args: string[]): Pro
       }
       if (commandArgs.includes('--disable-host-injected-copilot-adapter') || commandArgs.includes('--disable-copilot')) {
         diagnostics.debug('provider.configure.request', { enabled: false, defaultProvider: 'local' });
-        const config = await providerStore.configureHostInjectedCopilotAdapter({
+        const config = await openProviderStore().configureHostInjectedCopilotAdapter({
           enabled: false,
           defaultProvider: 'local',
           actor: readFlag(commandArgs, '--actor'),
@@ -319,7 +345,7 @@ export async function runMemoryCommand(projectRoot: string, args: string[]): Pro
         console.log(JSON.stringify(config, null, 2));
         return;
       }
-      const status = await providerStore.providerStatus();
+      const status = await openProviderStore().providerStatus();
       diagnostics.info('provider.status.complete', {
         defaultProvider: status.defaultProvider,
         realCopilotConfigured: status.realCopilotMemory.configured,
@@ -337,9 +363,9 @@ export async function runMemoryCommand(projectRoot: string, args: string[]): Pro
       '  write --content "..." --class LOCAL --title "..." --author scribe [--load-guidance ALWAYS|ON-DEMAND|ARCHIVE|NEVER]',
       '  search --query "testing strategy"',
       '  provider [--enable-host-injected-copilot-adapter|--disable-host-injected-copilot-adapter] [--require-approval true|false]',
-      '  provider --provider copilot fails unless a real Copilot Memory API module is present.',
+      '  provider --provider copilot is unsupported in this release (no concrete callable Copilot Memory API is shipped in @github/copilot).',
       '  diagnostics: --log-level none|error|info|debug, --verbose, SQUAD_MEMORY_LOG_LEVEL, or .squad/config.json memory.logLevel (stderr; never logs raw memory content or search text).',
-      'hostInjectedCopilotAdapter is not real provider=copilot persistence; enabling config alone never fakes remote memory.',
+      'hostInjectedCopilotAdapter is an optional host-injected client adapter, not native provider=copilot persistence; enabling config alone never fakes remote memory.',
     ].join('\n'));
   } catch (error) {
     diagnostics.error('command.error', {

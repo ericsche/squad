@@ -1,6 +1,6 @@
 # Frequently asked questions
 
-Common questions, troubleshooting tips, and clarifications based on community feedback. Can't find your answer? [Open an issue](https://github.com/bradygaster/squad/issues/new).
+Common questions, troubleshooting tips, and clarifications based on community feedback. Can't find your answer? [Open an issue](https://github.com/github/squad/issues/new).
 
 ---
 
@@ -33,6 +33,34 @@ gh copilot
 ```
 
 For a detailed feature comparison, see [Client Compatibility Matrix](../scenarios/client-compatibility.md).
+
+---
+
+## Why do I see a plan but no specialist sessions after `squad init`?
+
+`squad init` installs files and support identities; it does not confirm or hire
+a domain team. An absent team file, an empty Members table, or support/coding
+agents alone means **team formation is still pending**. The CLI reports this
+separately from successful file installation.
+
+Select **Squad** through the App's normal agent selection, or run
+`copilot --agent squad`. Squad should reuse your existing goal and project
+context to propose an appropriate team, then ask you to confirm it before
+starting a substantive audit or dispatching specialists. You do not need to
+know agent names, request parallel execution, or repeat your audit request.
+Existing findings and the readable plan are preserved as inputs.
+
+After confirmation, Squad verifies the real roster, routes, registry and
+charters, then continues the goal through its accountable specialist. In the
+App, that mission uses an actual coordinated project child linked from the
+plan; multiple simultaneous children are not required for a single outcome.
+An existing active specialist team is preserved rather than cast again.
+
+These are generation instructions, not a host-enforced dispatch gate.
+Installed files and passing fixture/contract tests do not certify the agent
+instructions currently loaded by the host or real model behavior. If the
+instructions were just updated, refresh/reselect Squad normally; do not
+reinstall repeatedly or recreate the project to obtain a team.
 
 ---
 
@@ -268,9 +296,9 @@ See [Disaster Recovery](../scenarios/disaster-recovery.md) for more recovery pat
 
 ## Where should I report bugs or request features?
 
-[Open an issue on GitHub](https://github.com/bradygaster/squad/issues/new) with:
+[Open an issue on GitHub](https://github.com/github/squad/issues/new) with:
 - **Environment:** OS, Node.js version, Squad version (`squad --version`)
 - **Reproduction steps:** What you ran, what happened, what you expected
 - **Output:** Copy the full terminal output, including any errors
 
-For questions or discussions, use [GitHub Discussions](https://github.com/bradygaster/squad/discussions).
+For questions or discussions, use [GitHub Discussions](https://github.com/github/squad/discussions).

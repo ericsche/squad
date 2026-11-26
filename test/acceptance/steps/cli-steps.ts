@@ -1,9 +1,41 @@
 import { expect } from 'vitest';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { TerminalHarness } from '../harness.js';
 import { StepDefinitions, registerStep } from '../support/runner.js';
+
+const tempDirs = new Set<string>();
+
+export function cleanupAcceptanceTempDirs(): void {
+  for (const dir of tempDirs) {
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      // Best effort: a Windows file lock must not cascade into later scenarios.
+    }
+  }
+  tempDirs.clear();
+}
+
+function makeTempDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'squad-e2e-'));
+  tempDirs.add(dir);
+  return dir;
+}
+
+async function run(args: string[], cwd: string): Promise<TerminalHarness> {
+  if (!cwd) throw new Error('Missing isolated acceptance fixture directory');
+  const harness = await TerminalHarness.spawnWithArgs(args, { cwd });
+  try {
+    await harness.waitForExit(15000);
+  } catch (error) {
+    await harness.close();
+    throw error;
+  }
+  return harness;
+}
 
 /**
  * CLI step definitions for Gherkin acceptance tests.
@@ -19,10 +51,25 @@ export function registerCLISteps(registry: StepDefinitions): void {
       if (!match) throw new Error('Pattern match failed');
 
       const dirName = match[1];
-      const dirPath = join(process.cwd(), dirName);
+      if (dirName !== '.squad') throw new Error(`Unsupported scaffold fixture: ${dirName}`);
 
+      // Hermetic sandbox: scaffold a real squad setup via `squad init` in an
+      // isolated git repository rather than depending on a live `.squad/`
+      // checked into the repo being tested (#2015 isolation). Downstream
+      // "I run" steps pick up context.tempDir automatically.
+      const tempDir = makeTempDir();
+      context.tempDir = tempDir;
+      execFileSync('git', ['init', '--quiet'], { cwd: tempDir, stdio: 'ignore' });
+      const initialized = await run(['init', '--no-workflows', '--no-vscode-default', '--state-backend', 'local'], tempDir);
+      try {
+        expect(initialized.getExitCode(), initialized.getOutput()).toBe(0);
+      } finally {
+        await initialized.close();
+      }
+
+      const dirPath = join(tempDir, dirName);
       if (!existsSync(dirPath)) {
-        throw new Error(`Directory ${dirPath} does not exist`);
+        throw new Error(`Directory ${dirPath} does not exist after scaffolding via squad init`);
       }
 
       context.squadDirExists = true;
@@ -32,10 +79,22 @@ export function registerCLISteps(registry: StepDefinitions): void {
 
   registerStep(
     'Given',
+    /a temporary project with an existing "\.squad" directory/,
+    async (_stepText, context) => {
+      const tempDir = makeTempDir();
+      const squadDir = join(tempDir, '.squad');
+      mkdirSync(squadDir, { recursive: true });
+      writeFileSync(join(squadDir, 'team.md'), '# Acceptance team\n');
+      context.tempDir = tempDir;
+    },
+    registry
+  );
+
+  registerStep(
+    'Given',
     /a directory without a "\.squad" directory/,
     async (_stepText, context) => {
-      const tempDir = mkdtempSync(join(tmpdir(), 'squad-e2e-'));
-      context.tempDir = tempDir;
+      context.tempDir = makeTempDir();
     },
     registry
   );
@@ -53,13 +112,7 @@ export function registerCLISteps(registry: StepDefinitions): void {
       const args = command.replace(/^squad\s*/, '').split(/\s+/).filter(Boolean);
       const cwd = context.tempDir as string;
 
-      const harness = await TerminalHarness.spawnWithArgs(args, { cwd });
-
-      try {
-        await harness.waitForExit(15000);
-      } catch {
-        // Timeout is okay
-      }
+      const harness = await run(args, cwd);
 
       context.harness = harness;
       context.output = harness.getOutput();
@@ -77,14 +130,10 @@ export function registerCLISteps(registry: StepDefinitions): void {
 
       const command = match[1];
       const args = command.replace(/^squad\s*/, '').split(/\s+/).filter(Boolean);
+      const cwd = typeof context.tempDir === 'string' ? context.tempDir : makeTempDir();
+      context.tempDir = cwd;
 
-      const harness = await TerminalHarness.spawnWithArgs(args);
-
-      try {
-        await harness.waitForExit(15000);
-      } catch {
-        // Timeout is okay
-      }
+      const harness = await run(args, cwd);
 
       context.harness = harness;
       context.output = harness.getOutput();

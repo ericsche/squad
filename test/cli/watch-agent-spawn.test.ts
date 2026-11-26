@@ -11,10 +11,12 @@ import type { WatchContext } from '../../packages/squad-cli/src/cli/commands/wat
 
 const {
   mockExecFile,
+  mockExecFileSync,
   mockFsExistsSync,
   mockFsMkdirSync,
   mockFsReadFileSync,
   mockFsUnlinkSync,
+  mockFsWriteFileSync,
 } = vi.hoisted(() => ({
   mockExecFile: vi.fn((...args: unknown[]) => {
     const cb = args.find(a => typeof a === 'function') as
@@ -23,15 +25,17 @@ const {
     if (cb) cb(null, '', '');
     return { pid: 1234, on: vi.fn() };
   }),
+  mockExecFileSync: vi.fn(),
   mockFsExistsSync: vi.fn((): boolean => false),
   mockFsMkdirSync: vi.fn(),
   mockFsReadFileSync: vi.fn((): string => ''),
   mockFsUnlinkSync: vi.fn(),
+  mockFsWriteFileSync: vi.fn(),
 }));
 
 vi.mock('node:child_process', () => ({
   execFile: mockExecFile,
-  execFileSync: vi.fn(),
+  execFileSync: mockExecFileSync,
 }));
 
 vi.mock('node:fs', () => ({
@@ -39,13 +43,19 @@ vi.mock('node:fs', () => ({
   mkdirSync: mockFsMkdirSync,
   readFileSync: mockFsReadFileSync,
   unlinkSync: mockFsUnlinkSync,
+  writeFileSync: mockFsWriteFileSync,
 }));
 
 import {
+  WINDOWS_MAX_INLINE_ARG_LENGTH,
   buildAgentCommand,
   buildCopilotCommand,
+  escapeArgs,
   parseCopilotUsageOutput,
+  prepareArgsForSpawn,
   spawnAgent,
+  spillPromptArgForCmd,
+  terminateProcessTree,
   withCopilotUsageOutput,
 } from '../../packages/squad-cli/src/cli/commands/watch/agent-spawn.js';
 
@@ -81,13 +91,15 @@ describe('agent-spawn: buildCopilotCommand', () => {
     expect(args).toEqual(['-p', 'hello', '--foo']);
   });
 
-  it('injects --additional-mcp-config/--yolo when .mcp.json exists at teamRoot', () => {
+  it('injects MCP config without changing caller tool permissions', () => {
     mockFsExistsSync.mockReturnValue(true);
-    const ctx = makeContext({ teamRoot: '/repo' });
+    const ctx = makeContext({ teamRoot: '/repo', copilotFlags: '--deny-tool shell' });
     const { cmd, args } = buildCopilotCommand('hello', ctx);
     expect(cmd).toBe('copilot');
-    expect(args[0]).toBe('--yolo');
+    expect(args).not.toContain('--yolo');
     expect(args).toContain('--additional-mcp-config');
+    expect(args).toContain('--deny-tool');
+    expect(args).toContain('shell');
     expect(args).toContain('-p');
     expect(args).toContain('hello');
   });
@@ -164,6 +176,50 @@ describe('agent-spawn: spawnAgent pid tracking', () => {
   it('does not touch a tracker when pidTracking is omitted', async () => {
     const result = await spawnAgent('copilot', ['-p', 'x'], '/repo', 1000);
     expect(result.success).toBe(true);
+  });
+
+  it('spawns every POSIX agent as a killable process group for fences and timeouts', async () => {
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
+    try {
+      await spawnAgent('copilot', ['-p', 'x'], '/repo', 1000, undefined, undefined, new AbortController().signal);
+      expect(mockExecFile.mock.calls.at(-1)?.[2]).toMatchObject({ detached: true });
+      await spawnAgent('copilot', ['-p', 'x'], '/repo', 1000);
+      expect(mockExecFile.mock.calls.at(-1)?.[2]).toMatchObject({ detached: true });
+    } finally {
+      platformSpy.mockRestore();
+    }
+  });
+});
+
+describe('agent-spawn: process tree termination', () => {
+  it('kills POSIX descendants even when they moved to another process group', async () => {
+    mockExecFileSync.mockReset();
+    mockExecFileSync
+      .mockReturnValueOnce([
+        '424242 1 424242 S',
+        '424243 424242 500000 S',
+        '424244 424243 500000 S',
+      ].join('\n'))
+      .mockReturnValueOnce([
+        '424242 1 424242 Z',
+        '424243 1 500000 Z',
+        '424244 1 500000 Z',
+      ].join('\n'));
+    const kill = vi.spyOn(process, 'kill').mockImplementation((() => true) as typeof process.kill);
+    const child = {
+      pid: 424242,
+      exitCode: null,
+      signalCode: null,
+      kill: vi.fn(() => true),
+    };
+    try {
+      await terminateProcessTree(child, 'linux');
+      expect(kill).toHaveBeenCalledWith(-424242, 'SIGKILL');
+      expect(kill).toHaveBeenCalledWith(424243, 'SIGKILL');
+      expect(kill).toHaveBeenCalledWith(424244, 'SIGKILL');
+    } finally {
+      kill.mockRestore();
+    }
   });
 });
 
@@ -255,5 +311,60 @@ describe('agent-spawn: Copilot usage capture', () => {
     );
     expect(missing.usage).toBeUndefined();
     expect(missing.usageError).toBe('Copilot usage output was not created');
+  });
+});
+
+describe('agent-spawn: Windows multiline and oversized prompt handling (#2070)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFsExistsSync.mockReturnValue(true);
+  });
+
+  it('spills multiline prompt arguments to a temp .md file and returns a single-line pointer', () => {
+    const multilinePrompt = 'You are an AI agent on a software development team.\n\nYOUR CHARTER:\n# Ralph\n\nHere are the current open squad issues:\n- #2070: Fix Windows prompt truncation';
+    const tempFiles: string[] = [];
+
+    const rewritten = spillPromptArgForCmd(multilinePrompt, tempFiles);
+
+    expect(tempFiles).toHaveLength(1);
+    expect(tempFiles[0]).toMatch(/squad-prompts[\\/]prompt-.*\.md$/);
+    expect(mockFsWriteFileSync).toHaveBeenCalledWith(tempFiles[0], multilinePrompt, 'utf8');
+    expect(rewritten).not.toMatch(/[\r\n]/);
+    expect(rewritten).toContain(tempFiles[0]!);
+    expect(rewritten).toContain('Your complete instructions are in the file');
+  });
+
+  it('spills single-line prompts exceeding WINDOWS_MAX_INLINE_ARG_LENGTH to a temp file', () => {
+    const longPrompt = 'x'.repeat(WINDOWS_MAX_INLINE_ARG_LENGTH + 100);
+    const tempFiles: string[] = [];
+
+    const rewritten = spillPromptArgForCmd(longPrompt, tempFiles);
+
+    expect(tempFiles).toHaveLength(1);
+    expect(mockFsWriteFileSync).toHaveBeenCalledWith(tempFiles[0], longPrompt, 'utf8');
+    expect(rewritten.length).toBeLessThan(500);
+  });
+
+  it('prepareArgsForSpawn escapes spilled prompt for cmd.exe on Windows and cleans up temp file', () => {
+    const multilinePrompt = 'Line 1\nLine 2\nLine 3';
+    const prepared = prepareArgsForSpawn(['-p', multilinePrompt, '--yolo'], true);
+
+    expect(prepared.tempFiles).toHaveLength(1);
+    expect(prepared.args[0]).toBe('-p');
+    expect(prepared.args[1]).toMatch(/^"Your complete instructions are in the file .+ - read that whole file first and follow it exactly as if it were this prompt\."$/);
+    expect(prepared.args[1]).not.toMatch(/[\r\n]/);
+    expect(prepared.args[2]).toBe('--yolo');
+
+    prepared.cleanup();
+    expect(mockFsUnlinkSync).toHaveBeenCalledWith(prepared.tempFiles[0]);
+  });
+
+  it('leaves args untouched when isWindows is false', () => {
+    const multilinePrompt = 'Line 1\nLine 2';
+    const prepared = prepareArgsForSpawn(['-p', multilinePrompt], false);
+
+    expect(prepared.tempFiles).toHaveLength(0);
+    expect(prepared.args).toEqual(['-p', multilinePrompt]);
+    expect(escapeArgs(['-p', multilinePrompt], false)).toEqual(['-p', multilinePrompt]);
   });
 });

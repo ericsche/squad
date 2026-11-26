@@ -11,7 +11,7 @@ import {
 } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { dirname, join, relative, resolve } from 'node:path';
+import { delimiter, dirname, join, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { compileFunction, constants as vmConstants } from 'node:vm';
@@ -603,13 +603,32 @@ if (process.env.PROXY_FAIL === '1') { console.error('proxy rejected request'); p
 console.log('tool accepted');
 `);
   chmodSync(proxy, 0o700);
+  const preload = join(fixture.root, 'safeoutputs-fixture.cjs');
+  if (process.platform === 'win32') {
+    // Substitute only the Linux-mounted external tool; validation and JSON stdin stay real.
+    writeFileSync(preload, `
+const childProcess = require('node:child_process');
+const actualSpawn = childProcess.spawnSync;
+const proxy = ${JSON.stringify(proxy)};
+childProcess.spawnSync = (command, args, options) => {
+  if (command !== 'safeoutputs' || !require('node:fs').existsSync(proxy)) {
+    return actualSpawn(command, args, options);
+  }
+  return actualSpawn(process.execPath, [proxy, ...args], options);
+};
+require('node:module').syncBuiltinESMExports();
+`);
+  }
   const env = {
     ...process.env,
-    PATH: `${join(fixture.root, 'bin')}:${process.env.PATH}`,
+    PATH: `${join(fixture.root, 'bin')}${delimiter}${process.env.PATH}`,
     CAPTURE: capture,
-    GITHUB_WORKSPACE: fixture.root,
+    GITHUB_WORKSPACE: fixture.root.replace(/\\/g, '/'),
     GITHUB_REPOSITORY: 'octo/example',
     DEFAULT_BRANCH: 'main',
+    ...(process.platform === 'win32' ? {
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --require ${JSON.stringify(preload.replace(/\\/g, '/'))}`.trim(),
+    } : {}),
   };
   const submit = (overrides = {}) => spawnSync(process.execPath, [
     VALIDATOR, '--submit-envelope', envelopePath,
@@ -867,7 +886,7 @@ describe('automatic Squad bootstrap workflow', () => {
     expect(resolvedResult.stdout).toBe('Squad bootstrap validation passed.\n');
   });
 
-  it('enforces a committed research scope and ignores an uncommitted one', () => {
+  it('enforces a committed research scope and ignores an uncommitted one', { timeout: 30_000 }, () => {
     const fixture = createFixture();
     const options = {
       root: fixture.root,
@@ -1055,8 +1074,8 @@ describe('automatic Squad bootstrap workflow', () => {
     const setup = spawnSync('bash', ['-c', prepare.run], { env: fixture.env, encoding: 'utf8' });
     expect(setup.status, setup.stderr).toBe(0);
     const result = spawnSync(
-      join(fixture.root, '.github/workflows/run-squad-bootstrap-validator'),
-      [],
+      'bash',
+      [join(fixture.root, '.github/workflows/run-squad-bootstrap-validator').replace(/\\/g, '/')],
       { env: fixture.env, encoding: 'utf8' },
     );
     expect(result.status, result.stderr).toBe(0);
@@ -1069,7 +1088,7 @@ describe('automatic Squad bootstrap workflow', () => {
     expect(result.stderr).toBe('');
   });
 
-  it('rejects schema, repository, Cast, and stale payload mutations before submitting', () => {
+  it('rejects schema, repository, Cast, and stale payload mutations before submitting', { timeout: 30_000 }, () => {
     for (const mutate of [
       (payload: ReturnType<typeof createFixture>['payload']) => { payload.schema_version = '2'; },
       (payload: ReturnType<typeof createFixture>['payload']) => { payload.repository = 'other/repo'; },
@@ -1717,7 +1736,7 @@ describe('gh-aw: squad-bootstrap candidate lifetime', () => {
     expect(fixture.issueCalls.at(-1)!.body).toContain('"run_id":"123"');
   });
 
-  it('permits an authenticated rerun of the origin but refuses another run promoting a failed origin', async () => {
+  it('permits an authenticated rerun of the origin but refuses another run promoting a failed origin', { timeout: 30_000 }, async () => {
     const fixture = writerFixture('success', WORKFLOW, true);
     await fixture.run();
     fixture.persistedIssues.length = 0;

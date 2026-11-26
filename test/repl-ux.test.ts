@@ -21,6 +21,7 @@ import { AgentPanel } from '../packages/squad-cli/src/cli/shell/components/Agent
 import { InputPrompt } from '../packages/squad-cli/src/cli/shell/components/InputPrompt.js';
 import { ThinkingIndicator, THINKING_PHRASES } from '../packages/squad-cli/src/cli/shell/components/ThinkingIndicator.js';
 import type { ShellMessage, AgentSession } from '../packages/squad-cli/src/cli/shell/types.js';
+import * as terminal from '../packages/squad-cli/src/cli/shell/terminal.js';
 
 // ============================================================================
 // Test helpers
@@ -258,17 +259,24 @@ describe('MessageStream formatting', () => {
     expect(frame).toContain('Agent spawned');
   });
 
-  it('horizontal rule appears between conversation turns', () => {
-    const { lastFrame } = render(
-      h(MessageStream, {
-        messages: [
-          makeMessage({ role: 'user', content: 'first question' }),
-          makeMessage({ role: 'agent', content: 'first answer', agentName: 'Kovash' }),
-          makeMessage({ role: 'user', content: 'second question' }),
-        ],
-      })
-    );
-    expect(lastFrame()!).toContain('─'.repeat(10));
+  it.each([false, true])('horizontal rule follows Unicode capability=%s between turns', supportsUnicode => {
+    const capabilities = terminal.detectTerminal();
+    const probe = vi.spyOn(terminal, 'detectTerminal').mockReturnValue({ ...capabilities, supportsUnicode });
+    try {
+      const { lastFrame } = render(
+        h(MessageStream, {
+          messages: [
+            makeMessage({ role: 'user', content: 'first question' }),
+            makeMessage({ role: 'agent', content: 'first answer', agentName: 'Kovash' }),
+            makeMessage({ role: 'user', content: 'second question' }),
+          ],
+        })
+      );
+      expect(lastFrame()!).toContain((supportsUnicode ? '─' : '-').repeat(10));
+      expect(lastFrame()!).not.toContain((supportsUnicode ? '-' : '─').repeat(10));
+    } finally {
+      probe.mockRestore();
+    }
   });
 
   it('no horizontal rule before the first message', () => {

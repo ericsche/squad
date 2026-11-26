@@ -1,6 +1,6 @@
 import { compileFunction, createContext } from 'node:vm';
 import { createRequire } from 'node:module';
-import { dirname, posix } from 'node:path';
+import { posix } from 'node:path';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 export const DIAGNOSTIC_RUNTIME_SHA = '16b430146d5d5646eccef5a1ceb72152333b18b9';
@@ -152,7 +152,8 @@ export function diagnosticRuntime(
       if (sources.has(request)) return load(request);
       if (request === 'fs' || request === 'node:fs') return filesystem;
       if (request === 'os' || request === 'node:os') return { ...requireNode(request), tmpdir: () => scratch };
-      if (['path', 'node:path', 'crypto', 'node:crypto', 'util', 'node:util', 'vm', 'node:vm',
+      if (request === 'path' || request === 'node:path') return posix;
+      if (['crypto', 'node:crypto', 'util', 'node:util', 'vm', 'node:vm',
         'buffer', 'events', 'string_decoder'].includes(request)) return requireNode(request);
       if (['https', 'http', 'child_process'].includes(request)) return new Proxy({}, {
         get: (_target, method: string) => (command: string) => {
@@ -164,7 +165,7 @@ export function diagnosticRuntime(
       throw new Error(`Forbidden runtime dependency: ${request}`);
     };
     compileFunction(source, ['module', 'exports', 'require', '__dirname', '__filename'],
-      { parsingContext: sandbox })(module, module.exports, require, dirname(name), name);
+      { parsingContext: sandbox })(module, module.exports, require, posix.dirname(name), name);
     return module.exports;
   };
   return {
@@ -178,7 +179,7 @@ export function diagnosticRuntime(
         if (request.startsWith(`${scratch}/gh-aw/actions/`)) {
           return load(`js/${request.slice(`${scratch}/gh-aw/actions/`.length)}`);
         }
-        if (request === 'path' || request === 'node:path') return requireNode(request);
+        if (request === 'path' || request === 'node:path') return posix;
         throw new Error(`Forbidden compiled-script dependency: ${request}`);
       }),
     run: async (name: string) => {

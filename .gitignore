@@ -42,6 +42,8 @@ docs/tests/screenshots/
 
 # .NET build output
 bin/
+# ...but the Claude plugin's launchers ship in the repo (marketplace installs clone it)
+!plugins/squad/bin/
 obj/
 artifacts/
 
@@ -57,3 +59,8 @@ artifacts/
 /run-artifacts/
 # Local MCP configuration (machine-specific, not committed)
 /.mcp.json
+
+evidence/
+.evidence-tmp/
+release-packs/
+npm-reconciliation/

@@ -63,6 +63,20 @@ TASK CONTEXT:
 {description of the work that triggered this ceremony}
 ```
 
+**Copilot App:** The facilitator is one coordinated child session (for example `🏗️ Lead · Design review`), and children cannot create sessions. Replace the participant rule above with this one, and paste each participant's charter into the prompt:
+
+```
+PARTICIPANT CHARTERS:
+{each participant's name, role and charter}
+
+RULES:
+- Follow the agenda in order.
+- Work from each participant's charter and the task context. When a decision needs a participant's own input, send a needs_input report naming that member and the question; the coordinator routes it. Never spawn participants, App sessions or native tasks for them.
+- Synthesize their positions into clear decisions and action items.
+- Keep to the time budget: {focused|extended}.
+- Output a structured summary at the end.
+```
+
 ## Execution Rules
 
 1. **Before ceremonies** fire AFTER routing decisions but BEFORE agent spawn. The ceremony summary is included in all subsequent work-batch spawn prompts.
@@ -73,7 +87,7 @@ TASK CONTEXT:
    - `all-relevant` → agents routed to the current task
    - `all-involved` → agents that participated in the completed batch
    - Named agents → spawn only those specific agents
-6. **Scribe integration:** Spawn Scribe (background) at ceremony start to record decisions and action items.
+6. **Scribe integration:** Spawn Scribe only when accepted durable decisions need merging, after those decisions exist. Routine ceremony/task logging is not a trigger. Apply the normal sync/background scheduling rules, not blanket background.
 7. **Output format:**
    ```
    📋 {CeremonyName} completed — facilitated by {Facilitator}.

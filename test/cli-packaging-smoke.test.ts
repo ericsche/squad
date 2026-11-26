@@ -22,12 +22,19 @@ const NO_COLOR_ENV = {
   FORCE_COLOR: '0',
   npm_config_loglevel: process.env['npm_config_loglevel'] ?? 'warn',
 };
+delete NO_COLOR_ENV['npm_config_local_prefix'];
+delete NO_COLOR_ENV['npm_config_workspace'];
+delete NO_COLOR_ENV['npm_config_workspaces'];
+delete NO_COLOR_ENV['NPM_CONFIG_LOCAL_PREFIX'];
+delete NO_COLOR_ENV['NPM_CONFIG_WORKSPACE'];
+delete NO_COLOR_ENV['NPM_CONFIG_WORKSPACES'];
 const MISSING_MODULE_RE = /MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND|Cannot find module|Cannot find package/i;
+const EXIT_COMMAND_TIMEOUT_MS = process.platform === 'win32' ? 10_000 : 2_000;
 
 interface CommandResult {
   stdout: string;
   stderr: string;
-  exitCode: number;
+  exitCode: number | null;
   timedOut?: boolean;
 }
 
@@ -96,6 +103,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
         cwd: tempDir,
         stdio: 'inherit',
         env: NO_COLOR_ENV,
+        timeout: 180_000,
       });
 
       const cliEntryPath = join(
@@ -115,7 +123,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
     };
 
     installedCli = installPackedCli('squad-cli-test-');
-  }, 90000);
+  }, 240_000);
 
   afterAll(() => {
     // Cleanup - with retry logic for Windows file locks
@@ -148,14 +156,14 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
   /**
    * Helper to run a CLI command and capture output.
    * Many commands will exit non-zero (expected — no .squad/ dir, etc.).
-   * We only care that the command was ROUTED, not that it succeeded.
+   * Routing probes tolerate timeouts; exit-code assertions require a real exit.
    *
    * Uses a short timeout (2s) — if the command starts executing and doesn't
    * immediately fail with "Unknown command", it's routed. Commands like `rc`
    * and `start` hang waiting for infrastructure; a timeout means they were
-   * routed successfully.
+   * routed, but not that they exited successfully.
    */
-  function runCommand(args: string[], cli = installedCli): CommandResult {
+  function runCommand(args: string[], cli = installedCli, timeoutMs = 2000): CommandResult {
     if (!cli) {
       throw new Error('CLI package is not installed for this test');
     }
@@ -164,18 +172,17 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
       const stdout = execFileSync(process.execPath, [cli.cliEntryPath, ...args], {
         cwd: cli.tempDir,
         encoding: 'utf8',
-        timeout: 2000,
+        timeout: timeoutMs,
         env: NO_COLOR_ENV,
       });
       return { stdout, stderr: '', exitCode: 0 };
     } catch (err: any) {
-      // Timeout means the command started running (routed) but hung
-      // waiting for infrastructure — that's a pass for routing verification
+      // Only routing assertions may treat a timeout as acceptable.
       if (err.killed || err.signal === 'SIGTERM') {
         return {
           stdout: err.stdout?.toString() || '',
           stderr: err.stderr?.toString() || '',
-          exitCode: 0,
+          exitCode: null,
           timedOut: true,
         };
       }
@@ -241,18 +248,29 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
   // PHASE 2 — SMOKE TESTS
   // ============================================================================
 
-  it('squad --version exits 0 and outputs semver', () => {
-    const result = runCommand(['--version']);
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toMatch(/^\d+\.\d+\.\d+/);
+  it('a timed-out command never reports a successful exit', () => {
+    const result = runCommand(
+      ['setTimeout(() => {}, 10_000)'],
+      { tempDir: process.cwd(), cliEntryPath: '-e' },
+      50,
+    );
+    expect(result.timedOut).toBe(true);
+    expect(result.exitCode).toBeNull();
+    expectCommandRouted(result);
   });
 
+  it('squad --version exits 0 and outputs semver', () => {
+    const result = runCommand(['--version'], installedCli, EXIT_COMMAND_TIMEOUT_MS);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/^\d+\.\d+\.\d+/);
+  }, EXIT_COMMAND_TIMEOUT_MS + 2_000);
+
   it('squad --help exits 0 and contains usage info', () => {
-    const result = runCommand(['--help']);
+    const result = runCommand(['--help'], installedCli, EXIT_COMMAND_TIMEOUT_MS);
     expect(result.exitCode).toBe(0);
     const output = result.stdout.toLowerCase();
     expect(output).toMatch(/usage|commands/);
-  });
+  }, EXIT_COMMAND_TIMEOUT_MS + 2_000);
 
   // All commands that should be routable
   const COMMANDS = [
@@ -273,8 +291,6 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
     'start',
     'nap',
     'doctor',
-    'consult',
-    'extract',
     'aspire',
     'link',
     'rc',
